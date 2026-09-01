@@ -44,10 +44,12 @@ Não parei no código. O repositório inclui instalador para Windows, script de 
 Software que ninguém consegue instalar, atualizar ou restaurar resolve o problema só enquanto quem escreveu está por perto.
 
 ---
-Cassino de Raspadinhas
+🎰 MegaRaspa
+megaraspa · PHP · MySQL
+
 Plataforma de raspadinhas online desenvolvida para um cliente do setor de marketing digital. Contas de usuário com saldo, catálogo de raspadinhas com tabela de prêmios configurável, painel administrativo e programa de indicação multinível com comissionamento por CPA e revshare — o modelo usado no mercado de marketing de performance.
 
 Escrito em PHP puro com PDO. O repositório traz um recorte do projeto e a estrutura completa do banco; a integração de pagamento ficou de fora.
 
-### Tecnologias
-`TypeScript` · `React` · `Next.js` · `Node.js` · `SQLite` · `PHP` · `Tailwind CSS` · `Git`
+Tecnologias
+TypeScript · React · Next.js · Node.js · SQLite · PHP · MySQL · Tailwind CSS · Git
