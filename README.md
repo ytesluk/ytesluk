@@ -1,7 +1,7 @@
 ## Eduardo Tesluk
 
-Desenvolvedor full stack, em Curitiba. Gosto de software que precisa funcionar
-no mundo real — com gente usando, dados que não podem se perder e alguém que
+Desenvolvedor full stack, gosto de software que precisa funcionar
+no mundo real, com gente usando, dados que não podem se perder e alguém que
 vai manter aquilo depois que eu sair.
 
 ---
