@@ -65,10 +65,10 @@ estrutura completa do banco; a integração de pagamento ficou de fora.
 
 ---
 
- Tecnologias
+### Tecnologias
 
 `TypeScript` · `React` · `Next.js` · `Node.js` · `SQLite` · `PHP` · `MySQL` · `Tailwind CSS` · `Git`
 
 ---
 
-📫 **eduardotesluk10@gmail.com** · 📍 Curitiba - PR
+
