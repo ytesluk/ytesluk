@@ -1,9 +1,19 @@
 ## Eduardo Tesluk
 
 Desenvolvedor full stack. Gosto de software que precisa funcionar no mundo
-real — com gente usando, dados que não podem se perder e alguém que vai
+real, com gente usando, dados que não podem se perder e alguém que vai
 manter aquilo depois que eu sair.
 
+Curitiba, PR · [LinkedIn](https://www.linkedin.com/in/eduardo-tesluk-252110251) · [e-mail](mailto:eduardotesluk10@gmail.com)
+
+![Python](https://img.shields.io/badge/-Python-3776AB?style=flat-square&logo=python&logoColor=white)
+![JavaScript](https://img.shields.io/badge/-JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
+![TypeScript](https://img.shields.io/badge/-TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/-React-61DAFB?style=flat-square&logo=react&logoColor=black)
+![Next.js](https://img.shields.io/badge/-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![Node.js](https://img.shields.io/badge/-Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)
+![SQL](https://img.shields.io/badge/-SQL-4479A1?style=flat-square&logo=postgresql&logoColor=white)
+![SQLite](https://img.shields.io/badge/-SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ---
 
 ### Sistema de Controle Almox
