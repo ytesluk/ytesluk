@@ -43,7 +43,6 @@ Não parei no código. O repositório inclui instalador para Windows, script de 
 
 Software que ninguém consegue instalar, atualizar ou restaurar resolve o problema só enquanto quem escreveu está por perto.
 
----
 🎰 MegaRaspa
 megaraspa · PHP · MySQL
 
