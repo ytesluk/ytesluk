@@ -50,7 +50,7 @@ problema só enquanto quem escreveu está por perto.
 
 ---
 
-### 🎰 MegaRaspa
+###  MegaRaspa
 
 **[megaraspa](https://github.com/ytesluk/megaraspa)** · PHP · MySQL
 
