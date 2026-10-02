@@ -10,6 +10,7 @@ export class RateCard {
   private readonly byKey = new Map<string, RateRow[]>();
   private readonly aliasOf = new Map<string, string>();
   private readonly calcCache = new Map<string, TierCalculator>();
+  private readonly lookupCache = new Map<string, { calc: TierCalculator; catalogMarket: string } | null>();
 
   constructor(
     readonly meta: RateCardMeta,
@@ -50,19 +51,28 @@ export class RateCard {
 
   /** Tier calculator for (market, category) effective on a local billing date, or null if not priced. */
   calculator(market: string, category: BillingCategory, billingDate: string): { calc: TierCalculator; catalogMarket: string } | null {
+    const lookupKey = `${market}|${category}|${billingDate}`;
+    const cached = this.lookupCache.get(lookupKey);
+    if (cached !== undefined) return cached;
     const catalogMarket = this.catalogMarketFor(market, category);
-    if (!catalogMarket) return null;
-    const rows = (this.byKey.get(`${catalogMarket}|${category}`) ?? []).filter((r) =>
-      isWithinLocalDates(billingDate, r.effectiveFrom, r.effectiveUntil),
-    );
-    if (rows.length === 0) return null;
-    const cacheKey = `${catalogMarket}|${category}|${rows.map((r) => `${r.effectiveFrom}:${r.tierStart}`).join(",")}`;
-    let calc = this.calcCache.get(cacheKey);
-    if (!calc) {
-      calc = new TierCalculator(rows.map((r) => ({ start: r.tierStart, end: r.tierEnd, rate: r.unitRate })));
-      this.calcCache.set(cacheKey, calc);
+    let result: { calc: TierCalculator; catalogMarket: string } | null = null;
+    if (catalogMarket) {
+      const rows = (this.byKey.get(`${catalogMarket}|${category}`) ?? []).filter((r) =>
+        isWithinLocalDates(billingDate, r.effectiveFrom, r.effectiveUntil),
+      );
+      if (rows.length > 0) {
+        const cacheKey = `${catalogMarket}|${category}|${rows.map((r) => `${r.effectiveFrom}:${r.tierStart}`).join(",")}`;
+        let calc = this.calcCache.get(cacheKey);
+        if (!calc) {
+          calc = new TierCalculator(rows.map((r) => ({ start: r.tierStart, end: r.tierEnd, rate: r.unitRate })));
+          this.calcCache.set(cacheKey, calc);
+        }
+        result = { calc, catalogMarket };
+      }
     }
-    return { calc, catalogMarket };
+    if (this.lookupCache.size > 50_000) this.lookupCache.clear();
+    this.lookupCache.set(lookupKey, result);
+    return result;
   }
 
   tierInfo(calc: TierCalculator, position: number): TierInfo {

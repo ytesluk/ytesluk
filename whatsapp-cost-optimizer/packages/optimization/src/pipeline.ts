@@ -32,7 +32,15 @@ import type { ConsentState, FlushMessage, IntentRecord, OptimizationDecision, Op
  * production worker; only persistence and the provider are replaced. Used by unit tests (spec §41
  * cases 1–4) and by the academic simulator (spec §39–40, §77).
  */
+export interface PipelineHooks {
+  onDecision?(intent: IntentRecord, decision: OptimizationDecision, at: Date): void;
+  onAvoided?(intent: IntentRecord, status: MessageStatus, baseline: CostDecision | null, at: Date): void;
+  onDispatch?(primary: IntentRecord, message: FlushMessage, estimated: CostDecision, at: Date, willDeliver: boolean): void;
+  onDelivery?(primary: IntentRecord, realized: CostDecision, at: Date): void;
+}
+
 export interface PipelineConfig {
+  hooks?: PipelineHooks;
   tenantId: string;
   timezone: string;
   currency: string;
@@ -109,6 +117,7 @@ export interface PipelineReport {
 
 type SimEvent =
   | { kind: "FLUSH"; at: number; seq: number; group: string }
+  | { kind: "DISPATCH"; at: number; seq: number; intentId: string }
   | { kind: "DELIVERY"; at: number; seq: number; msg: InFlight };
 
 interface InFlight {
@@ -124,7 +133,7 @@ interface InFlight {
 const ZERO = () => new Money(0) as Decimal;
 
 export class InMemoryPipeline {
-  readonly cfg: Required<Omit<PipelineConfig, "authInternationalEligible">> & { authInternationalEligible: boolean };
+  readonly cfg: Required<Omit<PipelineConfig, "authInternationalEligible" | "hooks">> & { authInternationalEligible: boolean; hooks?: PipelineHooks };
   private now: Date = new Date(0);
   private seq = 0;
   private readonly heap = new MinHeap<SimEvent>((a, b) => a.at < b.at || (a.at === b.at && a.seq < b.seq));
@@ -289,7 +298,7 @@ export class InMemoryPipeline {
       optedOut: consentOverride.optedOut ?? false,
       marketingOptedOut: consentOverride.marketingOptedOut ?? false,
     };
-    const decision = decide({
+    const decisionInput = {
       intent: rec,
       policy,
       now: at,
@@ -300,8 +309,10 @@ export class InMemoryPipeline {
       rules: this.cfg.rules,
       features: this.cfg.features,
       explain: this.cfg.explain,
-    });
+    };
+    const decision = decide(decisionInput);
     if (this.cfg.recordDecisions) this.decisions.push(decision);
+    this.cfg.hooks?.onDecision?.(rec, decision, at);
     this.apply(rec, decision, at);
     this.maybeSweep();
     return rec;
@@ -316,6 +327,7 @@ export class InMemoryPipeline {
       this.heap.pop();
       this.now = new Date(top.at);
       if (top.kind === "FLUSH") this.flushGroup(top.group, this.now);
+      else if (top.kind === "DISPATCH") this.dispatchScheduled(top.intentId, this.now);
       else this.deliver(top.msg, this.now);
     }
     this.now = to;
@@ -375,7 +387,7 @@ export class InMemoryPipeline {
     rec.status = status;
   }
 
-  private push(ev: { kind: "FLUSH"; at: number; group: string } | { kind: "DELIVERY"; at: number; msg: InFlight }): void {
+  private push(ev: { kind: "FLUSH"; at: number; group: string } | { kind: "DISPATCH"; at: number; intentId: string } | { kind: "DELIVERY"; at: number; msg: InFlight }): void {
     this.heap.push({ ...ev, seq: ++this.seq } as SimEvent);
   }
 
@@ -394,10 +406,8 @@ export class InMemoryPipeline {
     switch (d.action) {
       case DecisionAction.SEND_NOW:
         this.setStatus(rec, MessageStatus.READY_TO_SEND);
-        this.dispatch(
-          { primaryIntentId: rec.id, coveredIntentIds: [rec.id], consolidated: false, templateName: rec.templateName ?? null, messageKind: rec.messageKind, category: rec.category, parameters: [], text: rec.freeFormText ?? null, reasons: d.reasons },
-          at,
-        );
+        if (d.sendAt && d.sendAt > at) this.push({ kind: "DISPATCH", at: d.sendAt.getTime(), intentId: rec.id });
+        else this.dispatch(this.singleMessage(rec, d.reasons), at);
         break;
       case DecisionAction.DELAY:
       case DecisionAction.CONSOLIDATE: {
@@ -437,11 +447,22 @@ export class InMemoryPipeline {
     }
   }
 
+  private singleMessage(rec: IntentRecord, reasons: string[]): FlushMessage {
+    return { primaryIntentId: rec.id, coveredIntentIds: [rec.id], consolidated: false, templateName: rec.templateName ?? null, messageKind: rec.messageKind, category: rec.category, parameters: [], text: rec.freeFormText ?? null, reasons };
+  }
+
+  private dispatchScheduled(intentId: string, at: Date): void {
+    const rec = this.byId.get(intentId);
+    if (!rec || rec.status !== MessageStatus.READY_TO_SEND) return;
+    this.dispatch(this.singleMessage(rec, ["scheduled_by_client"]), at);
+  }
+
   private addAvoided(rec: IntentRecord, at: Date, baseline?: CostDecision): void {
-    const b = baseline ?? priceAt(rec, at < rec.preferredSendAt ? rec.preferredSendAt : at, rec.messageKind, rec.category, this.conversation(rec.phoneNumberId, rec.customerKey), this.pricingInputs(), false, "BASELINE");
+    const b: CostDecision = baseline ?? priceAt(rec, at < rec.preferredSendAt ? rec.preferredSendAt : at, rec.messageKind, rec.category, this.conversation(rec.phoneNumberId, rec.customerKey), this.pricingInputs(), false, "BASELINE");
     if (b.pricingStatus !== PricingStatus.UNKNOWN && b.pricingStatus !== PricingStatus.NOT_ELIGIBLE) {
       this.report.avoidedBaselineEstimate = this.report.avoidedBaselineEstimate.plus(b.estimatedCost);
     }
+    this.cfg.hooks?.onAvoided?.(rec, rec.status, b, at);
   }
 
   private removeFromBuffer(rec: IntentRecord): void {
@@ -512,6 +533,7 @@ export class InMemoryPipeline {
     const cat = (this.report.byCategory[m.category] ??= { dispatched: 0, delivered: 0, paid: 0, free: 0, realizedCost: ZERO() });
     cat.dispatched++;
     const delivered = hashUniform(primary.id, 7) < this.cfg.deliveryRate;
+    this.cfg.hooks?.onDispatch?.(primary, m, estimated, at, delivered);
     if (!delivered) {
       this.report.messagesFailed++;
       this.setStatus(primary, MessageStatus.FAILED);
@@ -529,6 +551,7 @@ export class InMemoryPipeline {
     const realized = priceAt(msg.primary, at, msg.messageKind, msg.category, conv, this.pricingInputs(false), false, "REALIZED");
     this.setStatus(msg.primary, MessageStatus.DELIVERED);
     this.report.messagesDelivered++;
+    this.cfg.hooks?.onDelivery?.(msg.primary, realized, at);
     const month = realized.eligibility.billingMonth;
     const r = this.report;
     r.policyVersions[realized.policyVersion ?? "none"] = (r.policyVersions[realized.policyVersion ?? "none"] ?? 0) + 1;

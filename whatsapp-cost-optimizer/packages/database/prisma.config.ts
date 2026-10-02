@@ -4,7 +4,7 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
-    seed: "tsx src/seed/index.ts",
+    seed: "tsx ../../scripts/seed.ts",
   },
   datasource: {
     // Not using env() so `prisma generate` works without DATABASE_URL (e.g. in Docker builds).

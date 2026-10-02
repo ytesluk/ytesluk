@@ -24,7 +24,10 @@ export function evaluateWindows(policy: PolicyDefinition, ctx: ConversationConte
   let opensOnThisMessage = false;
   let eligibleForFreeReply = false;
 
-  if (fep && rule.entryPoints.includes(fep.type) && fep.verification !== VerificationStatus.REJECTED) {
+  // A window CONFIRMED by Meta (status webhook pricing.type = free_entry_point) counts even when the entry point
+  // type could not be detected locally (e.g. Facebook Page CTA messages carry no referral object).
+  const typeOk = !!fep && (rule.entryPoints.includes(fep.type) || fep.verification === VerificationStatus.CONFIRMED);
+  if (fep && typeOk && fep.verification !== VerificationStatus.REJECTED) {
     if (fep.windowStartedAt) {
       fepExpires = fep.confirmedExpiresAt ?? addHours(fep.windowStartedAt, rule.windowHours);
       if (!fep.confirmedExpiresAt && rule.extendOnInboundHours && lastInbound) {

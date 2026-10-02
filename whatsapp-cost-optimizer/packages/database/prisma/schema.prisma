@@ -538,6 +538,10 @@ model MessageIntent {
   status             MessageStatus   @default(CREATED)
   priority           Priority        @default(NORMAL)
   maxDelaySeconds    Int             @default(0)
+  /// Never send before this instant (client constraint). Defaults to requestedAt.
+  earliestSendAt     DateTime        @default(now()) @db.Timestamptz(3)
+  /// When the client's own system would send (baseline). Defaults to earliestSendAt.
+  preferredSendAt    DateTime        @default(now()) @db.Timestamptz(3)
   deadlineAt         DateTime        @db.Timestamptz(3)
   scheduledFor       DateTime?       @db.Timestamptz(3)
   mustSendImmediately Boolean        @default(false)
@@ -608,10 +612,19 @@ model MessageAttempt {
   messageKind       MessageKind
   templateName      String?
   category          BillingCategory?
+  /// Rendered parameters / free-form text sent (purged by retention).
+  payload           Json?
+  /// Pricing estimate at dispatch (used for the mock provider and estimated counters).
+  estimatedCost     Decimal?      @db.Decimal(18, 8)
+  pricingStatus     PricingStatus?
+  freeReason        String?
   errorCode         String?
   errorMessage      String?
   retryable         Boolean?
   latencyMs         Int?
+  /// Realized cost confirmed by delivery webhooks.
+  realizedCost      Decimal?      @db.Decimal(18, 8)
+  realizedAt        DateTime?     @db.Timestamptz(3)
   requestedAt       DateTime      @default(now()) @db.Timestamptz(3)
   sentAt            DateTime?     @db.Timestamptz(3)
   createdAt         DateTime      @default(now()) @db.Timestamptz(3)

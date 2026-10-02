@@ -59,10 +59,42 @@ export function localParts(instant: Date, timeZone: string): LocalParts {
 
 const pad = (n: number, w = 2) => String(n).padStart(w, "0");
 
+/**
+ * Offset cache: timezone offsets only change on whole-hour or half-hour boundaries (DST/legislation), so the
+ * offset of the 15-minute bucket containing an instant is cached. Avoids Intl.formatToParts in hot paths
+ * (pricing evaluations in 1M-event simulations).
+ */
+const offsetCache = new Map<string, Map<number, number>>();
+const BUCKET_MS = 15 * 60_000;
+
+function cachedOffsetMs(instant: Date, timeZone: string): number {
+  let byBucket = offsetCache.get(timeZone);
+  if (!byBucket) {
+    byBucket = new Map();
+    offsetCache.set(timeZone, byBucket);
+  }
+  const bucket = Math.floor(instant.getTime() / BUCKET_MS);
+  let off = byBucket.get(bucket);
+  if (off === undefined) {
+    off = tzOffsetMs(new Date(bucket * BUCKET_MS), timeZone);
+    if (byBucket.size > 200_000) byBucket.clear();
+    byBucket.set(bucket, off);
+  }
+  return off;
+}
+
 /** Local calendar date (YYYY-MM-DD) of a UTC instant in a timezone. */
+const dayStringCache = new Map<number, string>();
+
 export function localDate(instant: Date, timeZone: string): string {
-  const p = localParts(instant, timeZone);
-  return `${pad(p.year, 4)}-${pad(p.month)}-${pad(p.day)}`;
+  const shifted = timeZone === "UTC" ? instant.getTime() : instant.getTime() + cachedOffsetMs(instant, timeZone);
+  const dayNum = Math.floor(shifted / 86_400_000);
+  let s = dayStringCache.get(dayNum);
+  if (s === undefined) {
+    s = new Date(dayNum * 86_400_000).toISOString().slice(0, 10);
+    dayStringCache.set(dayNum, s);
+  }
+  return s;
 }
 
 /** Billing month key (YYYY-MM) in the WABA timezone. */

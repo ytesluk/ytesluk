@@ -136,9 +136,13 @@ export function decide(input: DecisionInput): OptimizationDecision {
   const currency = pricing.currency;
 
   switch (action) {
-    case DecisionAction.SEND_NOW:
-      sendAt = sched.sendAt <= now || bypassBuffer || maxDelayExceeded ? now : sched.sendAt;
-      cost = sendAt === now && sched.sendAt.getTime() !== now.getTime() ? priceAt(intent, now, sched.messageKind, sched.category, conversation, pricing, explain) : sched.cost;
+    case DecisionAction.SEND_NOW: {
+      // SEND_NOW = no buffering/consolidation. A time requested by the client (earliestSendAt/preferredSendAt in
+      // the future) is still honored — waiting for it is not an optimization delay.
+      const earliest = maxDate(now, intent.earliestSendAt)!;
+      sendAt = maxDelayExceeded ? earliest : sched.sendAt <= now ? now : sched.sendAt;
+      cost = sendAt.getTime() !== sched.sendAt.getTime() ? priceAt(intent, sendAt, sched.messageKind, sched.category, conversation, pricing, explain) : sched.cost;
+      if (sendAt > now) reasons.push("scheduled_by_client");
       estimatedSavings = baselineValue.minus(cost.estimatedCost);
       reasons.push(...sched.reasons.filter((r) => r !== "send_now"));
       if (bypassBuffer) {
@@ -150,6 +154,7 @@ export function decide(input: DecisionInput): OptimizationDecision {
       }
       if (maxDelayExceeded) reasons.push("maxDelayExceeded");
       break;
+    }
     case DecisionAction.DELAY:
     case DecisionAction.CONSOLIDATE:
       sendAt = sched.sendAt;

@@ -46,6 +46,12 @@ const CONTENT_KEYS = new Set(["body", "text", "caption", "content", "message_tex
 
 const PHONE_PATTERN = /\+?\d{10,15}/g;
 
+/** Only values that look like phone numbers are masked (status strings like "READY_TO_SEND" are kept). */
+function looksLikePhone(v: string): boolean {
+  const digits = v.replace(/[\s()+-]/g, "");
+  return /^\d{8,15}$/.test(digits);
+}
+
 export interface RedactOptions {
   /** Keep message contents (default false). */
   keepContent?: boolean;
@@ -63,7 +69,7 @@ export function redact<T>(value: T, opts: RedactOptions = {}, depth = 0): T {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       const key = k.toLowerCase();
       if (SECRET_KEYS.has(key)) out[k] = "[REDACTED]";
-      else if (PHONE_KEYS.has(key) && (typeof v === "string" || typeof v === "number")) out[k] = maskPhone(String(v));
+      else if (PHONE_KEYS.has(key) && (typeof v === "string" || typeof v === "number") && looksLikePhone(String(v))) out[k] = maskPhone(String(v));
       else if (!opts.keepContent && CONTENT_KEYS.has(key) && v !== null && typeof v !== "boolean") out[k] = "[CONTENT]";
       else out[k] = redact(v, opts, depth + 1);
     }
