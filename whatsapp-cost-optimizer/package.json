@@ -34,7 +34,8 @@
     "pricing": "tsx scripts/pricing-cli.ts",
     "simulate": "tsx scripts/simulate.ts",
     "generate": "tsx scripts/generate-datasets.ts",
-    "research": "tsx scripts/research.ts"
+    "research": "tsx scripts/research.ts",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -17,3 +17,4 @@ data/
 reports/runs/
 playwright-report/
 test-results/
+infra/docker/secrets/
