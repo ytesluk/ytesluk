@@ -2,7 +2,7 @@
 
 > **Resultado SIMULADO.** Custos calculados com o rate card **DEMO** (valores fictícios, não são tarifas da Meta). Nunca é economia garantida.
 
-- Gerado em: 2026-10-02T15:18:35.818Z
+- Gerado em: 2026-10-02T15:36:55.524Z
 - Dataset: 100.001 eventos de negócio + 8.055 mensagens de clientes · seed 20261002 · 30 dias a partir de 2026-10-01T03:00:00.000Z (America/Sao_Paulo)
 - Políticas de preço usadas: meta-pmp-2026-10 (93.310 entregas)
 - Rate cards usados: DEMO-BRL-2026-10
@@ -126,4 +126,4 @@ Arquivos SVG em `charts/` e os mesmos dados em CSV (visão de tabela).
 - Cada braço reprocessa exatamente o mesmo dataset com os mesmos motores de produção (OptimizationEngine, PricingPolicy, TierCalculator); só os recursos habilitados mudam.
 - 'Estimada' = custo previsto no momento da decisão; 'Realizada' = custo da entrega simulada (no sistema real, confirmada pelo objeto pricing dos webhooks da Meta).
 - Mensagens com preço desconhecido (UNKNOWN) não são contadas como economia.
-- Tempo de execução: 80.5 s.
+- Tempo de execução: 90.7 s.

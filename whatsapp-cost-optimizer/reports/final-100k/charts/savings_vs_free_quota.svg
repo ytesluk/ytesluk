@@ -1,28 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400" role="img" aria-label="Economia Meta vs uso da cota gratuita de Service" font-family="Inter, system-ui, sans-serif">
 <rect width="720" height="400" fill="#fcfcfb"/>
-<text x="72" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Economia Meta vs uso da cota gratuita de Service</text>
-<text x="72" y="46" font-size="12" fill="#52514e">Simulado · cota de 1.000 mensagens/número/mês (política 2026-10)</text>
-<line x1="72" x2="570" y1="344" y2="344" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="348" font-size="11" text-anchor="end" fill="#52514e">0%</text>
-<line x1="72" x2="570" y1="274" y2="274" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="278" font-size="11" text-anchor="end" fill="#52514e">5%</text>
-<line x1="72" x2="570" y1="204" y2="204" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="208" font-size="11" text-anchor="end" fill="#52514e">10%</text>
-<line x1="72" x2="570" y1="134" y2="134" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="138" font-size="11" text-anchor="end" fill="#52514e">15%</text>
-<line x1="72" x2="570" y1="64" y2="64" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="68" font-size="11" text-anchor="end" fill="#52514e">20%</text>
-<text x="72" y="362" font-size="11" text-anchor="middle" fill="#52514e">45,5%</text>
-<text x="277.1394495412844" y="362" font-size="11" text-anchor="middle" fill="#52514e">68%</text>
-<text x="570" y="362" font-size="11" text-anchor="middle" fill="#52514e">100%</text>
-<line x1="72" x2="570" y1="344" y2="344" stroke="#52514e" stroke-width="1"/>
-<text x="321" y="386" font-size="12" text-anchor="middle" fill="#52514e">Utilização da cota (%)</text>
-<text transform="translate(18 204) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Economia Meta (%)</text>
-<path d="M72.0,112.9 L277.1,124.6 L570.0,110.2 L570.0,118.9 L570.0,119.0" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="72.0" cy="112.9" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 45,5%: 16,5%</title></circle>
-<circle cx="277.1" cy="124.6" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 68%: 15,7%</title></circle>
-<circle cx="570.0" cy="110.2" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 100%: 16,7%</title></circle>
-<circle cx="570.0" cy="118.9" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 100%: 16,1%</title></circle>
-<circle cx="570.0" cy="119.0" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 100%: 16,1%</title></circle>
-<text x="580" y="123.02000000000001" font-size="12" fill="#0b0b0b">Economia (E vs A)</text>
+<text x="56" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Economia Meta vs uso da cota gratuita de Service</text>
+<text x="56" y="46" font-size="12" fill="#52514e">Simulado · cota de 1.000 mensagens/número/mês (política 2026-10)</text>
+<line x1="56" x2="583.6800000000001" y1="344" y2="344" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="348" font-size="11" text-anchor="end" fill="#52514e">0%</text>
+<line x1="56" x2="583.6800000000001" y1="274" y2="274" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="278" font-size="11" text-anchor="end" fill="#52514e">5%</text>
+<line x1="56" x2="583.6800000000001" y1="204" y2="204" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="208" font-size="11" text-anchor="end" fill="#52514e">10%</text>
+<line x1="56" x2="583.6800000000001" y1="134" y2="134" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="138" font-size="11" text-anchor="end" fill="#52514e">15%</text>
+<line x1="56" x2="583.6800000000001" y1="64" y2="64" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="68" font-size="11" text-anchor="end" fill="#52514e">20%</text>
+<text x="56" y="362" font-size="11" text-anchor="middle" fill="#52514e">45,5%</text>
+<text x="273.3654311926606" y="362" font-size="11" text-anchor="middle" fill="#52514e">68%</text>
+<text x="583.6800000000001" y="362" font-size="11" text-anchor="middle" fill="#52514e">100%</text>
+<line x1="56" x2="583.6800000000001" y1="344" y2="344" stroke="#52514e" stroke-width="1"/>
+<text x="319.84000000000003" y="386" font-size="12" text-anchor="middle" fill="#52514e">Utilização da cota (%)</text>
+<text transform="translate(14 204) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Economia Meta (%)</text>
+<path d="M56.0,112.9 L273.4,124.6 L583.7,110.2 L583.7,118.9 L583.7,119.0" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="56.0" cy="112.9" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 45,5%: 16,5%</title></circle>
+<circle cx="273.4" cy="124.6" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 68%: 15,7%</title></circle>
+<circle cx="583.7" cy="110.2" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 100%: 16,7%</title></circle>
+<circle cx="583.7" cy="118.9" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 100%: 16,1%</title></circle>
+<circle cx="583.7" cy="119.0" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 100%: 16,1%</title></circle>
+<text x="593.6800000000001" y="123.02000000000001" font-size="12" fill="#0b0b0b">Economia (E vs A)</text>
 </svg>

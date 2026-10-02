@@ -1,30 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400" role="img" aria-label="Economia Meta vs taxa de Free Entry Point" font-family="Inter, system-ui, sans-serif">
 <rect width="720" height="400" fill="#fcfcfb"/>
-<text x="72" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Economia Meta vs taxa de Free Entry Point</text>
-<text x="72" y="46" font-size="12" fill="#52514e">Simulado · conversas iniciadas por anúncio Click-to-WhatsApp</text>
-<line x1="72" x2="570" y1="344" y2="344" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="348" font-size="11" text-anchor="end" fill="#52514e">0%</text>
-<line x1="72" x2="570" y1="274" y2="274" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="278" font-size="11" text-anchor="end" fill="#52514e">5%</text>
-<line x1="72" x2="570" y1="204" y2="204" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="208" font-size="11" text-anchor="end" fill="#52514e">10%</text>
-<line x1="72" x2="570" y1="134" y2="134" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="138" font-size="11" text-anchor="end" fill="#52514e">15%</text>
-<line x1="72" x2="570" y1="64" y2="64" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="68" font-size="11" text-anchor="end" fill="#52514e">20%</text>
-<text x="72" y="362" font-size="11" text-anchor="middle" fill="#52514e">0%</text>
-<text x="138.4" y="362" font-size="11" text-anchor="middle" fill="#52514e">10%</text>
-<text x="238" y="362" font-size="11" text-anchor="middle" fill="#52514e">25%</text>
-<text x="404" y="362" font-size="11" text-anchor="middle" fill="#52514e">50%</text>
-<text x="570" y="362" font-size="11" text-anchor="middle" fill="#52514e">75%</text>
-<line x1="72" x2="570" y1="344" y2="344" stroke="#52514e" stroke-width="1"/>
-<text x="321" y="386" font-size="12" text-anchor="middle" fill="#52514e">Conversas via anúncio</text>
-<text transform="translate(18 204) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Economia Meta (%)</text>
-<path d="M72.0,136.0 L138.4,128.5 L238.0,124.6 L404.0,105.3 L570.0,84.9" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="72.0" cy="136.0" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 0%: 14,9%</title></circle>
-<circle cx="138.4" cy="128.5" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 10%: 15,4%</title></circle>
-<circle cx="238.0" cy="124.6" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 25%: 15,7%</title></circle>
-<circle cx="404.0" cy="105.3" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 50%: 17,1%</title></circle>
-<circle cx="570.0" cy="84.9" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 75%: 18,5%</title></circle>
-<text x="580" y="88.85999999999996" font-size="12" fill="#0b0b0b">Economia (E vs A)</text>
+<text x="56" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Economia Meta vs taxa de Free Entry Point</text>
+<text x="56" y="46" font-size="12" fill="#52514e">Simulado · conversas iniciadas por anúncio Click-to-WhatsApp</text>
+<line x1="56" x2="583.6800000000001" y1="344" y2="344" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="348" font-size="11" text-anchor="end" fill="#52514e">0%</text>
+<line x1="56" x2="583.6800000000001" y1="274" y2="274" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="278" font-size="11" text-anchor="end" fill="#52514e">5%</text>
+<line x1="56" x2="583.6800000000001" y1="204" y2="204" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="208" font-size="11" text-anchor="end" fill="#52514e">10%</text>
+<line x1="56" x2="583.6800000000001" y1="134" y2="134" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="138" font-size="11" text-anchor="end" fill="#52514e">15%</text>
+<line x1="56" x2="583.6800000000001" y1="64" y2="64" stroke="#e4e3df" stroke-width="1"/>
+<text x="48" y="68" font-size="11" text-anchor="end" fill="#52514e">20%</text>
+<text x="56" y="362" font-size="11" text-anchor="middle" fill="#52514e">0%</text>
+<text x="126.35733333333334" y="362" font-size="11" text-anchor="middle" fill="#52514e">10%</text>
+<text x="231.89333333333335" y="362" font-size="11" text-anchor="middle" fill="#52514e">25%</text>
+<text x="407.7866666666667" y="362" font-size="11" text-anchor="middle" fill="#52514e">50%</text>
+<text x="583.6800000000001" y="362" font-size="11" text-anchor="middle" fill="#52514e">75%</text>
+<line x1="56" x2="583.6800000000001" y1="344" y2="344" stroke="#52514e" stroke-width="1"/>
+<text x="319.84000000000003" y="386" font-size="12" text-anchor="middle" fill="#52514e">Conversas via anúncio</text>
+<text transform="translate(14 204) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Economia Meta (%)</text>
+<path d="M56.0,136.0 L126.4,128.5 L231.9,124.6 L407.8,105.3 L583.7,84.9" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="56.0" cy="136.0" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 0%: 14,9%</title></circle>
+<circle cx="126.4" cy="128.5" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 10%: 15,4%</title></circle>
+<circle cx="231.9" cy="124.6" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 25%: 15,7%</title></circle>
+<circle cx="407.8" cy="105.3" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 50%: 17,1%</title></circle>
+<circle cx="583.7" cy="84.9" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Economia (E vs A) — 75%: 18,5%</title></circle>
+<text x="593.6800000000001" y="88.85999999999996" font-size="12" fill="#0b0b0b">Economia (E vs A)</text>
 </svg>

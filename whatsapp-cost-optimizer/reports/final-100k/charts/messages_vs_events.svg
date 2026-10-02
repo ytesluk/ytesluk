@@ -1,38 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400" role="img" aria-label="Mensagens enviadas vs eventos" font-family="Inter, system-ui, sans-serif">
 <rect width="720" height="400" fill="#fcfcfb"/>
-<text x="72" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Mensagens enviadas vs eventos</text>
-<text x="72" y="46" font-size="12" fill="#52514e">Simulado · cada evento vira no máximo uma mensagem</text>
-<line x1="72" x2="570" y1="344" y2="344" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="348" font-size="11" text-anchor="end" fill="#52514e">0</text>
-<line x1="72" x2="570" y1="274" y2="274" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="278" font-size="11" text-anchor="end" fill="#52514e">25.000</text>
-<line x1="72" x2="570" y1="204" y2="204" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="208" font-size="11" text-anchor="end" fill="#52514e">50.000</text>
-<line x1="72" x2="570" y1="134" y2="134" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="138" font-size="11" text-anchor="end" fill="#52514e">75.000</text>
-<line x1="72" x2="570" y1="64" y2="64" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="68" font-size="11" text-anchor="end" fill="#52514e">100.000</text>
-<text x="72" y="362" font-size="11" text-anchor="middle" fill="#52514e">10.000</text>
-<text x="155" y="362" font-size="11" text-anchor="middle" fill="#52514e">25.000</text>
-<text x="293.3333333333333" y="362" font-size="11" text-anchor="middle" fill="#52514e">50.000</text>
-<text x="570" y="362" font-size="11" text-anchor="middle" fill="#52514e">100.000</text>
-<line x1="72" x2="570" y1="344" y2="344" stroke="#52514e" stroke-width="1"/>
-<text x="321" y="386" font-size="12" text-anchor="middle" fill="#52514e">Eventos no mês</text>
-<text transform="translate(18 204) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Mensagens enviadas</text>
-<path d="M72.0,317.1 L155.0,276.7 L293.3,209.3 L570.0,74.3" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="72.0" cy="317.1" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Sem otimização (A) — 10.000: 9.623</title></circle>
-<circle cx="155.0" cy="276.7" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Sem otimização (A) — 25.000: 24.038</title></circle>
-<circle cx="293.3" cy="209.3" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Sem otimização (A) — 50.000: 48.106</title></circle>
-<circle cx="570.0" cy="74.3" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Sem otimização (A) — 100.000: 96.320</title></circle>
-<text x="580" y="78.30400000000003" font-size="12" fill="#0b0b0b">Sem otimização (A)</text>
-<path d="M72.0,323.2 L155.0,292.3 L293.3,240.6 L570.0,137.8" fill="none" stroke="#eb6834" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="72.0" cy="323.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>Com WCO (E) — 10.000: 7.417</title></circle>
-<circle cx="155.0" cy="292.3" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>Com WCO (E) — 25.000: 18.450</title></circle>
-<circle cx="293.3" cy="240.6" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>Com WCO (E) — 50.000: 36.944</title></circle>
-<circle cx="570.0" cy="137.8" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>Com WCO (E) — 100.000: 73.655</title></circle>
-<text x="580" y="141.766" font-size="12" fill="#0b0b0b">Com WCO (E)</text>
-<rect x="594" y="64" width="12" height="3" rx="1.5" fill="#2a78d6"/>
-<text x="612" y="69" font-size="11" fill="#52514e">Sem otimização (A)</text>
-<rect x="594" y="84" width="12" height="3" rx="1.5" fill="#eb6834"/>
-<text x="612" y="89" font-size="11" fill="#52514e">Com WCO (E)</text>
+<text x="74.28" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Mensagens enviadas vs eventos</text>
+<text x="74.28" y="46" font-size="12" fill="#52514e">Simulado · cada evento vira no máximo uma mensagem</text>
+<line x1="74.28" x2="576.72" y1="344" y2="344" stroke="#e4e3df" stroke-width="1"/>
+<text x="66.28" y="348" font-size="11" text-anchor="end" fill="#52514e">0</text>
+<line x1="74.28" x2="576.72" y1="279" y2="279" stroke="#e4e3df" stroke-width="1"/>
+<text x="66.28" y="283" font-size="11" text-anchor="end" fill="#52514e">25.000</text>
+<line x1="74.28" x2="576.72" y1="214" y2="214" stroke="#e4e3df" stroke-width="1"/>
+<text x="66.28" y="218" font-size="11" text-anchor="end" fill="#52514e">50.000</text>
+<line x1="74.28" x2="576.72" y1="149" y2="149" stroke="#e4e3df" stroke-width="1"/>
+<text x="66.28" y="153" font-size="11" text-anchor="end" fill="#52514e">75.000</text>
+<line x1="74.28" x2="576.72" y1="84" y2="84" stroke="#e4e3df" stroke-width="1"/>
+<text x="66.28" y="88" font-size="11" text-anchor="end" fill="#52514e">100.000</text>
+<text x="74.28" y="362" font-size="11" text-anchor="middle" fill="#52514e">10.000</text>
+<text x="158.02" y="362" font-size="11" text-anchor="middle" fill="#52514e">25.000</text>
+<text x="297.5866666666667" y="362" font-size="11" text-anchor="middle" fill="#52514e">50.000</text>
+<text x="576.72" y="362" font-size="11" text-anchor="middle" fill="#52514e">100.000</text>
+<line x1="74.28" x2="576.72" y1="344" y2="344" stroke="#52514e" stroke-width="1"/>
+<text x="325.5" y="386" font-size="12" text-anchor="middle" fill="#52514e">Eventos no mês</text>
+<text transform="translate(14 214) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Mensagens enviadas</text>
+<path d="M74.3,319.0 L158.0,281.5 L297.6,218.9 L576.7,93.6" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="74.3" cy="319.0" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Sem otimização (A) — 10.000: 9.623</title></circle>
+<circle cx="158.0" cy="281.5" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Sem otimização (A) — 25.000: 24.038</title></circle>
+<circle cx="297.6" cy="218.9" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Sem otimização (A) — 50.000: 48.106</title></circle>
+<circle cx="576.7" cy="93.6" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Sem otimização (A) — 100.000: 96.320</title></circle>
+<path d="M74.3,324.7 L158.0,296.0 L297.6,247.9 L576.7,152.5" fill="none" stroke="#eb6834" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="74.3" cy="324.7" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>Com WCO (E) — 10.000: 7.417</title></circle>
+<circle cx="158.0" cy="296.0" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>Com WCO (E) — 25.000: 18.450</title></circle>
+<circle cx="297.6" cy="247.9" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>Com WCO (E) — 50.000: 36.944</title></circle>
+<circle cx="576.7" cy="152.5" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>Com WCO (E) — 100.000: 73.655</title></circle>
+<text x="586.72" y="97.56800000000001" font-size="12" fill="#0b0b0b">Sem otimização (A)</text>
+<text x="586.72" y="156.49699999999999" font-size="12" fill="#0b0b0b">Com WCO (E)</text>
+<rect x="74.28" y="61" width="14" height="3" rx="1.5" fill="#2a78d6"/>
+<text x="94.28" y="66" font-size="11" fill="#52514e">Sem otimização (A)</text>
+<rect x="227.11999999999998" y="61" width="14" height="3" rx="1.5" fill="#eb6834"/>
+<text x="247.11999999999998" y="66" font-size="11" fill="#52514e">Com WCO (E)</text>
 </svg>
