@@ -1,0 +1,60 @@
+{
+  "name": "whatsapp-cost-optimizer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WCO — camada de otimização de custo entre sistemas empresariais e a WhatsApp Business Platform Cloud API.",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter \"./apps/*\" run dev",
+    "dev:api": "pnpm --filter @wco/api dev",
+    "dev:worker": "pnpm --filter @wco/worker dev",
+    "dev:web": "pnpm --filter @wco/web dev",
+    "build": "pnpm --filter @wco/database run generate && pnpm -r --filter \"./apps/*\" run build",
+    "start:api": "pnpm --filter @wco/api start",
+    "start:worker": "pnpm --filter @wco/worker start",
+    "start:web": "pnpm --filter @wco/web start",
+    "typecheck": "pnpm --filter @wco/database run generate && pnpm -r run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run --project unit",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "vitest run --project e2e",
+    "test:all": "vitest run",
+    "test:web": "pnpm --filter @wco/web test:e2e",
+    "db:generate": "pnpm --filter @wco/database run generate",
+    "db:migrate": "pnpm --filter @wco/database run migrate:deploy",
+    "db:migrate:dev": "pnpm --filter @wco/database run migrate:dev",
+    "db:seed": "pnpm --filter @wco/database run seed",
+    "db:reset": "pnpm --filter @wco/database run reset",
+    "pricing": "tsx scripts/pricing-cli.ts",
+    "simulate": "tsx scripts/simulate.ts",
+    "generate": "tsx scripts/generate-datasets.ts",
+    "research": "tsx scripts/research.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.19.0",
+    "eslint": "^10.11.0",
+    "globals": "^17.0.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "prisma",
+      "esbuild",
+      "msgpackr-extract",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}

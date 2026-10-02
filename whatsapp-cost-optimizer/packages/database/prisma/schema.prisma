@@ -1,0 +1,1194 @@
+// =============================================================================
+// WhatsApp Cost Optimizer (WCO) — PostgreSQL schema
+//
+// Conventions
+//  * Every customer-related table has `tenantId` (spec §22). Queries go through the tenant guard
+//    (`src/tenant.ts`) which injects the tenant filter on every operation.
+//  * Money: numeric(18,8) (spec §88). Timestamps: timestamptz, always UTC (spec §87).
+//  * Pricing policy/rate-card effective dates are LOCAL calendar dates in the WABA timezone, stored
+//    as `date` (Meta: "as of 12am by WhatsApp Business Account timezone").
+//  * Customer phones are stored encrypted (AES-256-GCM) + HMAC hash for lookups (spec §23, §24).
+// =============================================================================
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------------------------------------------------------- enums
+
+enum Role {
+  OWNER
+  ADMIN
+  ANALYST
+  OPERATOR
+}
+
+enum BillingCategory {
+  MARKETING
+  MARKETING_LITE
+  UTILITY
+  AUTHENTICATION
+  AUTHENTICATION_INTERNATIONAL
+  SERVICE
+  META_BUSINESS_AGENT
+}
+
+enum TemplateCategory {
+  MARKETING
+  UTILITY
+  AUTHENTICATION
+}
+
+enum MessageKind {
+  TEMPLATE
+  NON_TEMPLATE
+}
+
+enum MessageStatus {
+  CREATED
+  PENDING_OPTIMIZATION
+  QUEUED
+  DELAYED
+  CONSOLIDATED
+  DEDUPLICATED
+  SUPERSEDED
+  BLOCKED
+  READY_TO_SEND
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  CANCELLED
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum DecisionAction {
+  SEND_NOW
+  DELAY
+  CONSOLIDATE
+  SUPERSEDE
+  SUPPRESS_DUPLICATE
+  BLOCK
+  CANCEL
+}
+
+enum PricingStatus {
+  FREE
+  QUOTA
+  PAID
+  UNKNOWN
+  NOT_ELIGIBLE
+}
+
+enum EntryPointType {
+  CLICK_TO_WHATSAPP_AD
+  FACEBOOK_PAGE_CTA
+  OTHER
+}
+
+enum VerificationStatus {
+  ESTIMATED
+  CONFIRMED
+  REJECTED
+  EXPIRED
+}
+
+enum WindowStatus {
+  OPEN
+  EXPIRED
+  NONE
+}
+
+enum PolicyStatus {
+  DRAFT
+  ACTIVE
+  UNVERIFIED
+  SUPERSEDED
+  RETIRED
+}
+
+enum Confidence {
+  ESTIMATED
+  REALIZED
+  RECONCILED
+  UNKNOWN
+}
+
+enum SavingsKind {
+  META
+  BSP
+  INFRASTRUCTURE
+}
+
+enum SavingsMechanism {
+  DEDUPLICATION
+  SUPERSESSION
+  CONSOLIDATION
+  FREE_WINDOW
+  FREE_QUOTA
+  VOLUME_TIER
+  CATEGORY
+  DIRECT_API
+  BSP_MARKUP
+  INFRASTRUCTURE
+  NONE
+}
+
+enum AlertType {
+  POLICY_CHANGED
+  PRICE_CHANGED
+  QUOTA_NEAR_LIMIT
+  UNEXPECTED_COST_INCREASE
+  HIGH_DUPLICATE_RATE
+  HIGH_API_ERROR_RATE
+  WEBHOOK_FAILURE
+  TEMPLATE_CATEGORY_CHANGED
+  PAYMENT_METHOD_ISSUE
+  ACCOUNT_RESTRICTION
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum ConsentType {
+  OPT_IN
+  OPT_OUT
+}
+
+enum ConsentScope {
+  ALL
+  MARKETING
+}
+
+enum TemplateStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PAUSED
+  DISABLED
+}
+
+enum QuotaScope {
+  PHONE_NUMBER
+  WABA
+  BUSINESS_PORTFOLIO
+}
+
+enum ProviderKind {
+  MOCK
+  META_CLOUD_API
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  IGNORED
+  FAILED
+  DEAD
+}
+
+enum ActorType {
+  USER
+  API_KEY
+  SYSTEM
+}
+
+enum PlanCode {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// ----------------------------------------------------------------------------- tenancy & identity
+
+model Tenant {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  slug             String   @unique
+  name             String
+  defaultCurrency  String   @default("BRL")
+  defaultTimezone  String   @default("America/Sao_Paulo")
+  /// Templates require a recorded opt-in before sending (WhatsApp Business Messaging Policy).
+  requireOptIn     Boolean  @default(true)
+  /// BSP fee model used ONLY for the "direct Cloud API vs BSP" comparison (spec §66). JSON BspFeeModel.
+  bspFeeModel      Json?
+  /// Whether this tenant currently sends through a BSP (affects realized BSP costs).
+  usesBsp          Boolean  @default(false)
+  plan             PlanCode @default(FREE)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+
+  users                 User[]
+  apiKeys               ApiKey[]
+  businessAccounts      BusinessAccount[]
+  wabas                 Waba[]
+  phoneNumbers          PhoneNumber[]
+  customers             Customer[]
+  conversations         Conversation[]
+  intents               MessageIntent[]
+  templates             Template[]
+  optimizationPolicies  OptimizationPolicy[]
+  retentionPolicy       DataRetentionPolicy?
+  subscription          Subscription?
+}
+
+model User {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tenantId     String    @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime? @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model ApiKey {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tenantId   String    @db.Uuid
+  name       String
+  /// First characters, for identification in UI. The full key is never stored.
+  prefix     String
+  /// SHA-256 of the key.
+  keyHash    String    @unique
+  role       Role      @default(OPERATOR)
+  lastUsedAt DateTime? @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+// ----------------------------------------------------------------------------- WhatsApp assets
+
+/// Meta business portfolio. Volume tiers accrue at this level (S1: "aggregated at the business portfolio level").
+model BusinessAccount {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  tenantId       String   @db.Uuid
+  metaBusinessId String?
+  name           String
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  wabas  Waba[]
+
+  @@unique([tenantId, metaBusinessId])
+  @@index([tenantId])
+}
+
+model Waba {
+  id                   String       @id @default(uuid(7)) @db.Uuid
+  tenantId             String       @db.Uuid
+  businessAccountId    String       @db.Uuid
+  metaWabaId           String
+  name                 String
+  /// IANA timezone of the WABA: tier/quota resets and rate-card effective dates follow it.
+  timezone             String       @default("America/Sao_Paulo")
+  /// Billing currency of the WABA (rate card currency).
+  currency             String       @default("BRL")
+  provider             ProviderKind @default(MOCK)
+  /// AES-256-GCM encrypted access token (business token / system user token). Never logged.
+  accessTokenEncrypted String?
+  /// True when the business is eligible for authentication-international rates (Meta notifies 30 days before).
+  authInternationalEligible Boolean @default(false)
+  webhookSubscribedAt  DateTime?    @db.Timestamptz(3)
+  validatedAt          DateTime?    @db.Timestamptz(3)
+  createdAt            DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime     @updatedAt @db.Timestamptz(3)
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessAccount BusinessAccount @relation(fields: [businessAccountId], references: [id], onDelete: Cascade)
+  phoneNumbers    PhoneNumber[]
+  templates       Template[]
+
+  @@unique([metaWabaId])
+  @@index([tenantId])
+}
+
+model PhoneNumber {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  tenantId           String   @db.Uuid
+  wabaId             String   @db.Uuid
+  /// Meta business phone number id (used in /<PHONE_NUMBER_ID>/messages and webhook metadata).
+  metaPhoneNumberId  String
+  /// Business display number (not personal data).
+  displayPhoneNumber String
+  verifiedName       String?
+  qualityRating      String?
+  /// Cloud API throughput (S9: 80 mps default, up to 1,000).
+  throughputMps      Int      @default(80)
+  status             String   @default("CONNECTED")
+  isDefault          Boolean  @default(false)
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba   Waba   @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+
+  @@unique([metaPhoneNumberId])
+  @@index([tenantId])
+}
+
+model OnboardingSession {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @db.Uuid
+  mode        String   // EMBEDDED_SIGNUP | MANUAL | MOCK
+  status      String   // IN_PROGRESS | READY | FAILED | BLOCKED
+  /// Step status map (META_ACCOUNT, BUSINESS_ACCOUNT, WABA, PHONE_NUMBER, PERMISSIONS, WEBHOOK, VALIDATION, PRICING_SNAPSHOT, READY).
+  steps       Json
+  wabaId      String?  @db.Uuid
+  error       String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([tenantId])
+}
+
+// ----------------------------------------------------------------------------- customers & consent
+
+model Customer {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @db.Uuid
+  /// HMAC-SHA256(E.164, HASH_PEPPER) — used for lookups and in logs ("customerHash").
+  phoneHash      String
+  /// AES-256-GCM(E.164). Null after LGPD erasure.
+  phoneEncrypted String?
+  /// "+55*******1234" — safe for UI.
+  phoneMasked    String
+  /// Last resolved Meta pricing market (informational; billing re-resolves per message date).
+  market         String?
+  optedInAt      DateTime? @db.Timestamptz(3)
+  optedOutAt     DateTime? @db.Timestamptz(3)
+  /// Marketing-only opt-out (Meta user_preferences webhook / error 131050).
+  marketingOptedOutAt DateTime? @db.Timestamptz(3)
+  erasedAt       DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  consents      ConsentRecord[]
+  conversations Conversation[]
+  intents       MessageIntent[]
+
+  @@unique([tenantId, phoneHash])
+  @@index([tenantId])
+}
+
+model ConsentRecord {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  tenantId   String       @db.Uuid
+  customerId String       @db.Uuid
+  type       ConsentType
+  scope      ConsentScope @default(ALL)
+  /// API | WEBHOOK_USER_PREFERENCES | WEBHOOK_ERROR_131050 | IMPORT | MANUAL
+  source     String
+  evidence   Json?
+  occurredAt DateTime     @db.Timestamptz(3)
+  createdAt  DateTime     @default(now()) @db.Timestamptz(3)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId, occurredAt])
+}
+
+// ----------------------------------------------------------------------------- conversations & windows
+
+model Conversation {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @db.Uuid
+  customerId    String    @db.Uuid
+  phoneNumberId String    @db.Uuid
+  lastInboundAt  DateTime? @db.Timestamptz(3)
+  lastOutboundAt DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant      Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer    Customer                 @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  window      CustomerServiceWindow?
+  entryPoints ConversationEntryPoint[]
+  events      ConversationEvent[]
+
+  @@unique([tenantId, phoneNumberId, customerId])
+  @@index([tenantId, updatedAt])
+}
+
+/// Spec §5. `expiresAt`/`status` are a cached projection; billing always recomputes them from
+/// `lastInboundMessageAt` with the window length of the pricing policy in force.
+model CustomerServiceWindow {
+  id                   String       @id @default(uuid(7)) @db.Uuid
+  tenantId             String       @db.Uuid
+  conversationId       String       @unique @db.Uuid
+  phoneNumberId        String       @db.Uuid
+  /// customerHash (never the plain phone).
+  customerPhoneHash    String
+  lastInboundMessageAt DateTime     @db.Timestamptz(3)
+  expiresAt            DateTime     @db.Timestamptz(3)
+  status               WindowStatus
+  sourceEventId        String?
+  windowHours          Int
+  policyVersionId      String?
+  updatedAt            DateTime     @updatedAt @db.Timestamptz(3)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, phoneNumberId, customerPhoneHash])
+}
+
+/// Spec §5. Free entry point (Click-to-WhatsApp ad / Facebook Page CTA) tracking.
+model ConversationEntryPoint {
+  id                   String             @id @default(uuid(7)) @db.Uuid
+  tenantId             String             @db.Uuid
+  conversationId       String             @db.Uuid
+  type                 EntryPointType
+  /// e.g. "ad:<source_id>" or "post:<source_id>"
+  source               String
+  occurredAt           DateTime           @db.Timestamptz(3)
+  userMessageAt        DateTime           @db.Timestamptz(3)
+  firstBusinessReplyAt DateTime?          @db.Timestamptz(3)
+  freeWindowStartedAt  DateTime?          @db.Timestamptz(3)
+  freeWindowExpiresAt  DateTime?          @db.Timestamptz(3)
+  /// ELIGIBLE_PENDING_REPLY | OPEN | EXPIRED | NOT_ELIGIBLE (reply after 24h / rejected by Meta)
+  eligibility          String
+  /// Minimal referral data (no ad media URLs, no message text).
+  sourcePayload        Json?
+  verificationStatus   VerificationStatus @default(ESTIMATED)
+  /// Meta conversation id of the FEP window (status webhook `conversation.id`), once confirmed.
+  metaConversationId   String?
+  policyVersionId      String?
+  createdAt            DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime           @updatedAt @db.Timestamptz(3)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, conversationId, userMessageAt])
+}
+
+/// Append-only history of everything that happened in a conversation/intent (audit trail for Message Audit).
+model ConversationEvent {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  tenantId       String   @db.Uuid
+  conversationId String?  @db.Uuid
+  intentId       String?  @db.Uuid
+  /// INBOUND_MESSAGE | ENTRY_POINT | INTENT_CREATED | STATE_TRANSITION | DECISION | DISPATCH | STATUS | PRICING | ERROR
+  type           String
+  occurredAt     DateTime @db.Timestamptz(3)
+  data           Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, intentId, occurredAt])
+  @@index([tenantId, conversationId, occurredAt])
+}
+
+// ----------------------------------------------------------------------------- messages
+
+model MessageIntent {
+  id                 String          @id @default(uuid(7)) @db.Uuid
+  tenantId           String          @db.Uuid
+  customerId         String          @db.Uuid
+  /// customerHash — denormalized for buffer/dedup lookups without joins.
+  customerPhoneHash  String
+  phoneNumberId      String          @db.Uuid
+  businessEntityId   String?
+  eventType          String
+  /// Hash of canonical payload `data`.
+  payloadHash        String
+  /// Hash of (eventType, businessEntityId, payloadHash, destination, template) — content dedup key.
+  eventHash          String
+  idempotencyKey     String
+  /// Client-side event time (ordering for supersession; arrival order is not trusted).
+  occurredAt         DateTime        @db.Timestamptz(3)
+  requestedAt        DateTime        @default(now()) @db.Timestamptz(3)
+  status             MessageStatus   @default(CREATED)
+  priority           Priority        @default(NORMAL)
+  maxDelaySeconds    Int             @default(0)
+  deadlineAt         DateTime        @db.Timestamptz(3)
+  scheduledFor       DateTime?       @db.Timestamptz(3)
+  mustSendImmediately Boolean        @default(false)
+  allowDeduplication Boolean         @default(true)
+  allowAggregation   Boolean         @default(false)
+  allowSupersession  Boolean         @default(false)
+  messageKind        MessageKind     @default(TEMPLATE)
+  category           BillingCategory?
+  templateId         String?         @db.Uuid
+  templateName       String?
+  templateLanguage   String?
+  /// Business payload (purged by retention; hashes are kept).
+  data               Json?
+  freeFormText       String?
+  /// Buffer group (tenant + phone + customer + entity) — serialization unit for optimization.
+  groupKey           String
+  supersessionKey    String?
+  consolidationKey   String?
+  supersededById     String?         @db.Uuid
+  duplicateOfId      String?         @db.Uuid
+  consolidatedIntoId String?         @db.Uuid
+  decisionAction     DecisionAction?
+  decisionReason     String?
+  market             String?
+  currency           String?
+  estimatedCost      Decimal?        @db.Decimal(18, 8)
+  baselineCost       Decimal?        @db.Decimal(18, 8)
+  realizedCost       Decimal?        @db.Decimal(18, 8)
+  realizedConfidence Confidence?
+  policyVersionId    String?
+  dispatchedAt       DateTime?       @db.Timestamptz(3)
+  sentAt             DateTime?       @db.Timestamptz(3)
+  deliveredAt        DateTime?       @db.Timestamptz(3)
+  readAt             DateTime?       @db.Timestamptz(3)
+  failedAt           DateTime?       @db.Timestamptz(3)
+  payloadPurgedAt    DateTime?       @db.Timestamptz(3)
+  createdAt          DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime        @updatedAt @db.Timestamptz(3)
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer  Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  attempts  MessageAttempt[]
+  decisions OptimizationDecision[]
+  costs     CostDecision[]
+  savings   SavingsRecord[]
+
+  /// Spec §26: the same idempotency key can never produce two messages.
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, groupKey, status])
+  @@index([tenantId, eventHash, requestedAt])
+  @@index([tenantId, status, scheduledFor])
+  @@index([tenantId, requestedAt])
+  @@index([tenantId, eventType, requestedAt])
+  @@index([tenantId, customerId, requestedAt])
+}
+
+model MessageAttempt {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  tenantId          String        @db.Uuid
+  intentId          String        @db.Uuid
+  attemptNumber     Int
+  provider          ProviderKind
+  /// WhatsApp message id (wamid) returned by the provider.
+  providerMessageId String?       @unique
+  status            MessageStatus
+  /// Intents represented by this outbound message (primary + consolidated).
+  coveredIntentIds  String[]      @db.Uuid
+  messageKind       MessageKind
+  templateName      String?
+  category          BillingCategory?
+  errorCode         String?
+  errorMessage      String?
+  retryable         Boolean?
+  latencyMs         Int?
+  requestedAt       DateTime      @default(now()) @db.Timestamptz(3)
+  sentAt            DateTime?     @db.Timestamptz(3)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
+
+  intent     MessageIntent     @relation(fields: [intentId], references: [id], onDelete: Cascade)
+  deliveries MessageDelivery[]
+
+  @@unique([intentId, attemptNumber])
+  @@index([tenantId, requestedAt])
+}
+
+/// One row per status webhook (sent/delivered/read/failed). Unique per (wamid, status) → idempotent.
+model MessageDelivery {
+  id                    String        @id @default(uuid(7)) @db.Uuid
+  tenantId              String        @db.Uuid
+  attemptId             String        @db.Uuid
+  providerMessageId     String
+  status                MessageStatus
+  occurredAt            DateTime      @db.Timestamptz(3)
+  pricingBillable       Boolean?
+  /// regular | free_customer_service | free_entry_point
+  pricingType           String?
+  /// marketing | utility | authentication | authentication-international | service | referral_conversion | marketing_lite
+  pricingCategory       String?
+  pricingModel          String?
+  metaConversationId    String?
+  conversationExpiresAt DateTime?     @db.Timestamptz(3)
+  errorCode             String?
+  errorTitle            String?
+  webhookEventId        String?       @db.Uuid
+  createdAt             DateTime      @default(now()) @db.Timestamptz(3)
+
+  attempt MessageAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([providerMessageId, status])
+  @@index([tenantId, occurredAt])
+}
+
+model Template {
+  id                    String            @id @default(uuid(7)) @db.Uuid
+  tenantId              String            @db.Uuid
+  wabaId                String?           @db.Uuid
+  name                  String
+  language              String
+  /// Category the business requested.
+  declaredCategory      TemplateCategory
+  /// Category assigned by Meta (authoritative for billing). Null until Meta reports it.
+  metaCategory          TemplateCategory?
+  /// `correct_category` reported by Meta when a recategorization is scheduled.
+  correctCategory       TemplateCategory?
+  previousCategory      TemplateCategory?
+  status                TemplateStatus    @default(DRAFT)
+  components            Json
+  quality               String?
+  externalId            String?
+  /// Name of the body parameter that lists consolidated updates (consolidation templates only).
+  consolidationParam    String?
+  maxParamLength        Int               @default(1024)
+  /// Deterministic analyzer output (advisory only, never authoritative).
+  analyzedCategory      TemplateCategory?
+  classificationConfidence Decimal?       @db.Decimal(5, 4)
+  requiresHumanReview   Boolean           @default(false)
+  analysisNotes         Json?
+  approvedAt            DateTime?         @db.Timestamptz(3)
+  rejectedAt            DateTime?         @db.Timestamptz(3)
+  createdAt             DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime          @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  waba   Waba?  @relation(fields: [wabaId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, name, language])
+  @@index([tenantId, status])
+}
+
+// ----------------------------------------------------------------------------- pricing (global, versioned)
+
+/// Spec §4. A version of Meta's billing RULES (not prices). Never edited after activation: a change
+/// creates a new version so historical invoices/savings keep their original policy (spec §86).
+model PricingPolicyVersion {
+  id              String       @id
+  name            String
+  /// Local calendar date in WABA timezone (inclusive).
+  effectiveFrom   DateTime     @db.Date
+  /// Inclusive; null = open-ended.
+  effectiveUntil  DateTime?    @db.Date
+  sourceUrl       String
+  sourceCheckedAt DateTime     @db.Timestamptz(3)
+  /// SHA-256 of the quoted source excerpts used to build the rules.
+  sourceHash      String
+  status          PolicyStatus
+  notes           String?
+  /// Full serialized rule set (PolicyDefinition) for snapshot/regression purposes.
+  definition      Json
+  createdAt       DateTime     @default(now()) @db.Timestamptz(3)
+
+  rules PricingRule[]
+}
+
+/// Spec §4. One rule per (market pattern, category) inside a policy version.
+model PricingRule {
+  id                         String          @id @default(uuid(7)) @db.Uuid
+  policyVersionId            String
+  /// "*" = all markets
+  market                     String          @default("*")
+  /// "*" = currency of the rate card in use
+  currency                   String          @default("*")
+  messageCategory            BillingCategory
+  billable                   Boolean
+  /// Optional fixed override; normally rates come from PriceCatalog.
+  baseRate                   Decimal?        @db.Decimal(18, 8)
+  tierStart                  Int?
+  tierEnd                    Int?
+  /// ["ALWAYS" | "CUSTOMER_SERVICE_WINDOW" | "FREE_ENTRY_POINT"]
+  freeEligibility            String[]
+  freeQuota                  Int?
+  freeQuotaScope             QuotaScope?
+  tiered                     Boolean         @default(false)
+  requiresCustomerServiceWindow Boolean      @default(false)
+  customerServiceWindowHours Int
+  freeEntryPointWindowHours  Int
+  freeEntryPointReplyHours   Int
+  effectiveFrom              DateTime        @db.Date
+  effectiveUntil             DateTime?       @db.Date
+  sourceUrl                  String
+
+  policyVersion PricingPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([policyVersionId, market, currency, messageCategory])
+}
+
+/// Header of an imported rate card (one per file).
+model PriceCatalogImport {
+  id                   String       @id @default(uuid(7)) @db.Uuid
+  name                 String
+  currency             String
+  effectiveFrom        DateTime     @db.Date
+  effectiveUntil       DateTime?    @db.Date
+  sourceUrl            String
+  sourceDocument       String
+  checksum             String       @unique
+  isDemo               Boolean      @default(false)
+  status               PolicyStatus @default(ACTIVE)
+  /// Catalog market → resolved Meta markets (e.g. DEMO "EU" → ["FR","DE",...]).
+  marketAliases        Json?
+  marketMappingVersion String?
+  rowCount             Int
+  importedBy           String?
+  importedAt           DateTime     @default(now()) @db.Timestamptz(3)
+
+  rows  PriceCatalog[]
+  tiers PricingTier[]
+}
+
+/// Spec §15. One rate row (market, currency, category, tier range).
+model PriceCatalog {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  importId       String          @db.Uuid
+  market         String
+  currency       String
+  category       BillingCategory
+  /// 1-based message position within the month (inclusive).
+  tierStart      Int             @default(1)
+  /// Inclusive upper bound; null = unbounded.
+  tierEnd        Int?
+  unitRate       Decimal         @db.Decimal(18, 8)
+  effectiveFrom  DateTime        @db.Date
+  effectiveUntil DateTime?       @db.Date
+  sourceUrl      String
+  sourceDocument String
+  importedAt     DateTime        @default(now()) @db.Timestamptz(3)
+  checksum       String
+  isDemo         Boolean         @default(false)
+
+  import PriceCatalogImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@index([market, currency, category, effectiveFrom])
+  @@index([importId])
+}
+
+/// Volume tier boundaries per market-category (from the "volume tiers" rate-card file).
+model PricingTier {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  importId       String          @db.Uuid
+  market         String
+  category       BillingCategory
+  tierIndex      Int
+  tierStart      Int
+  tierEnd        Int?
+  label          String
+
+  import PriceCatalogImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@unique([importId, market, category, tierIndex])
+}
+
+/// Spec §5: free quota usage (e.g. 1,000 free service messages per business phone number per month).
+model FreeQuotaCounter {
+  id                  String          @id @default(uuid(7)) @db.Uuid
+  tenantId            String          @db.Uuid
+  businessAccountId   String?         @db.Uuid
+  wabaId              String?         @db.Uuid
+  phoneNumberId       String?         @db.Uuid
+  scope               QuotaScope
+  /// Key of the counted scope (phone number id / waba id / business account id).
+  scopeKey            String
+  category            BillingCategory
+  periodKey           String
+  periodStart         DateTime        @db.Timestamptz(3)
+  periodEnd           DateTime        @db.Timestamptz(3)
+  /// Quota consumed by messages WCO estimated/dispatched.
+  used                Int             @default(0)
+  /// Quota consumed according to delivery webhooks (billing event).
+  usedConfirmed       Int             @default(0)
+  quota               Int
+  sourcePolicyVersion String
+  updatedAt           DateTime        @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, scope, scopeKey, category, periodKey])
+}
+
+/// Running monthly count of CHARGED messages per portfolio/market/category (tier position).
+model TierAccrual {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  tenantId          String          @db.Uuid
+  businessAccountId String          @db.Uuid
+  market            String
+  category          BillingCategory
+  periodKey         String
+  chargedCount      Int             @default(0)
+  chargedConfirmed  Int             @default(0)
+  /// Latest tier reported by Meta (VOLUME_BASED_PRICING_TIER_UPDATE), if any.
+  metaReportedTier  String?
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, businessAccountId, market, category, periodKey])
+}
+
+// ----------------------------------------------------------------------------- optimization
+
+/// Spec §9. Per-event-type optimization settings (tenant-configurable). eventType "*" = default.
+model OptimizationPolicy {
+  id                        String    @id @default(uuid(7)) @db.Uuid
+  tenantId                  String    @db.Uuid
+  eventType                 String
+  maxDelaySeconds           Int       @default(0)
+  debounceSeconds           Int       @default(0)
+  allowAggregation          Boolean   @default(false)
+  allowSupersession         Boolean   @default(false)
+  allowDeduplication        Boolean   @default(true)
+  dedupWindowSeconds        Int       @default(86400)
+  priority                  Priority  @default(NORMAL)
+  requiresImmediateDelivery Boolean   @default(false)
+  /// Event types sharing a supersession stream (e.g. all order.* status updates).
+  supersessionGroup         String?
+  /// Approved template used to send consolidated updates.
+  consolidationTemplate     String?
+  defaultTemplate           String?
+  defaultLanguage           String    @default("pt_BR")
+  category                  BillingCategory?
+  /// Allow sending a free-form (service) message instead of a template while a CSW is open.
+  allowFreeFormInWindow     Boolean   @default(false)
+  maxConsolidatedItems      Int       @default(10)
+  enabled                   Boolean   @default(true)
+  createdAt                 DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, eventType])
+}
+
+/// Spec §60. Declarative rule set evaluated by PolicyEngine.
+model PolicyRuleSet {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @db.Uuid
+  name      String
+  rules     Json
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, name])
+}
+
+/// Spec §33. Explainable decision log (one row per decision taken for an intent).
+model OptimizationDecision {
+  id                 String         @id @default(uuid(7)) @db.Uuid
+  tenantId           String         @db.Uuid
+  intentId           String         @db.Uuid
+  action             DecisionAction
+  reasons            String[]
+  explanation        Json
+  sendAt             DateTime?      @db.Timestamptz(3)
+  estimatedSavings   Decimal        @default(0) @db.Decimal(18, 8)
+  currency           String?
+  opportunities      Json?
+  rulesetVersion     String?
+  createdAt          DateTime       @default(now()) @db.Timestamptz(3)
+
+  intent MessageIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, intentId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+/// Spec §12. Output of CostEngine for an intent (kind = OPTIMIZED | BASELINE | ALTERNATIVE | REALIZED).
+model CostDecision {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  tenantId         String          @db.Uuid
+  messageIntentId  String          @db.Uuid
+  kind             String
+  category         BillingCategory
+  market           String
+  currency         String
+  baseRate         Decimal?        @db.Decimal(18, 8)
+  effectiveRate    Decimal         @db.Decimal(18, 8)
+  isFree           Boolean
+  freeReason       String?
+  pricingStatus    PricingStatus
+  tier             String?
+  policyVersion    String?
+  rateCardId       String?
+  estimatedCost    Decimal         @db.Decimal(18, 8)
+  confidence       Confidence
+  decisionReason   String
+  evidence         Json
+  evaluatedAt      DateTime        @db.Timestamptz(3)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+
+  intent MessageIntent @relation(fields: [messageIntentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, messageIntentId])
+  @@index([tenantId, createdAt])
+}
+
+/// Spec §13/§14. Savings per intent and mechanism. META, BSP and INFRASTRUCTURE are separate rows (never summed silently).
+model SavingsRecord {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  tenantId         String           @db.Uuid
+  intentId         String?          @db.Uuid
+  day              DateTime         @db.Date
+  kind             SavingsKind
+  mechanism        SavingsMechanism
+  baselineCost     Decimal          @db.Decimal(18, 8)
+  optimizedCost    Decimal          @db.Decimal(18, 8)
+  savings          Decimal          @db.Decimal(18, 8)
+  currency         String
+  confidence       Confidence
+  category         BillingCategory?
+  eventType        String?
+  policyVersion    String?
+  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  intent MessageIntent? @relation(fields: [intentId], references: [id], onDelete: SetNull)
+
+  @@unique([intentId, kind, mechanism])
+  @@index([tenantId, day])
+  @@index([tenantId, kind, day])
+}
+
+/// Pre-aggregated daily metrics per tenant (cheap dashboards; rebuilt by the rollup job).
+model DailyMetric {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  tenantId           String   @db.Uuid
+  day                DateTime @db.Date
+  currency           String
+  intents            Int      @default(0)
+  messagesSent       Int      @default(0)
+  messagesDelivered  Int      @default(0)
+  messagesRead       Int      @default(0)
+  messagesFailed     Int      @default(0)
+  deduplicated       Int      @default(0)
+  superseded         Int      @default(0)
+  consolidated       Int      @default(0)
+  blocked            Int      @default(0)
+  freeEntryPoint     Int      @default(0)
+  freeQuota          Int      @default(0)
+  freeWindow         Int      @default(0)
+  baselineCost       Decimal  @default(0) @db.Decimal(18, 8)
+  estimatedCost      Decimal  @default(0) @db.Decimal(18, 8)
+  realizedCost       Decimal  @default(0) @db.Decimal(18, 8)
+  estimatedSavings   Decimal  @default(0) @db.Decimal(18, 8)
+  realizedSavings    Decimal  @default(0) @db.Decimal(18, 8)
+  bspSavings         Decimal  @default(0) @db.Decimal(18, 8)
+  infraSavings       Decimal  @default(0) @db.Decimal(18, 8)
+  byCategory         Json?
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, day, currency])
+}
+
+// ----------------------------------------------------------------------------- webhooks, audit, alerts
+
+model WebhookEvent {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  tenantId       String?       @db.Uuid
+  provider       ProviderKind
+  /// messages | account_update | message_template_status_update | template_category_update | user_preferences | ...
+  field          String?
+  /// SHA-256 of the raw body: identical redeliveries are stored once (spec §25/§26).
+  payloadHash    String        @unique
+  signatureValid Boolean
+  rawPayload     Json?
+  status         WebhookStatus @default(RECEIVED)
+  attempts       Int           @default(0)
+  error          String?
+  receivedAt     DateTime      @default(now()) @db.Timestamptz(3)
+  processedAt    DateTime?     @db.Timestamptz(3)
+  rawPurgedAt    DateTime?     @db.Timestamptz(3)
+
+  @@index([status, receivedAt])
+  @@index([tenantId, receivedAt])
+}
+
+model AuditLog {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tenantId   String?   @db.Uuid
+  actorType  ActorType
+  actorId    String?
+  /// e.g. intent.created, intent.transition, message.sent, pricing.imported, policy.updated
+  action     String
+  entityType String
+  entityId   String?
+  /// Redacted before/after snapshot.
+  data       Json?
+  requestId  String?
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+}
+
+model Alert {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  tenantId       String?       @db.Uuid
+  type           AlertType
+  severity       AlertSeverity
+  title          String
+  message        String
+  data           Json?
+  /// Same condition is alerted once per dedupKey.
+  dedupKey       String        @unique
+  acknowledgedAt DateTime?     @db.Timestamptz(3)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
+}
+
+// ----------------------------------------------------------------------------- privacy (LGPD)
+
+model DataRetentionPolicy {
+  id                    String   @id @default(uuid(7)) @db.Uuid
+  tenantId              String   @unique @db.Uuid
+  /// 30 | 90 | 180 | 365 (default 90) — message payloads, intents and deliveries.
+  retentionDays         Int      @default(90)
+  /// Audit logs have their own retention (spec §100).
+  auditRetentionDays    Int      @default(365)
+  /// Raw webhook bodies are only needed for reprocessing.
+  rawWebhookRetentionDays Int    @default(30)
+  /// Message payload/free-form text purged earlier than metadata.
+  payloadRetentionDays  Int      @default(30)
+  updatedAt             DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model DataSubjectRequest {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @db.Uuid
+  /// EXPORT | DELETE
+  type          String
+  customerHash  String
+  status        JobStatus @default(PENDING)
+  requestedBy   String?
+  result        Json?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  completedAt   DateTime? @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
+}
+
+// ----------------------------------------------------------------------------- imports, research, AI usage
+
+model ImportJob {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tenantId   String    @db.Uuid
+  /// HISTORY_CSV | PRICE_CATALOG
+  type       String
+  filename   String
+  status     JobStatus @default(PENDING)
+  rowCount   Int       @default(0)
+  errorCount Int       @default(0)
+  errors     Json?
+  report     Json?
+  createdBy  String?
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
+}
+
+model ExperimentRun {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  tenantId  String    @db.Uuid
+  name      String
+  params    Json
+  results   Json?
+  status    JobStatus @default(PENDING)
+  createdBy String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
+}
+
+/// Optional "Template Classification Assistant" usage log (spec §18): cost of AI is recorded.
+model AiUsage {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  tenantId   String   @db.Uuid
+  templateId String?  @db.Uuid
+  provider   String
+  model      String
+  cached     Boolean
+  cost       Decimal  @db.Decimal(18, 8)
+  currency   String
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
+}
+
+// ----------------------------------------------------------------------------- commercial skeleton (spec §68)
+
+model Plan {
+  code          PlanCode @id
+  name          String
+  monthlyFee    Decimal  @db.Decimal(18, 8)
+  /// Optional % of verified savings (never of estimated savings).
+  savingsShare  Decimal  @default(0) @db.Decimal(5, 4)
+  includedIntents Int
+  currency      String   @default("BRL")
+}
+
+model Subscription {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  tenantId  String    @unique @db.Uuid
+  plan      PlanCode
+  status    String    @default("ACTIVE")
+  startedAt DateTime  @default(now()) @db.Timestamptz(3)
+  endsAt    DateTime? @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model Usage {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @db.Uuid
+  periodKey String
+  intents   Int      @default(0)
+  messages  Int      @default(0)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, periodKey])
+}
+
+model Invoice {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @db.Uuid
+  periodKey String
+  amount    Decimal  @db.Decimal(18, 8)
+  currency  String
+  status    String   @default("DRAFT")
+  /// Frozen snapshot: plan, usage and the pricing policy versions in force (never recomputed).
+  snapshot  Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([tenantId, periodKey])
+}

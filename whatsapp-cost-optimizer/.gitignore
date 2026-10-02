@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.next/
+out/
+coverage/
+*.log
+.env
+.env.local
+.env.*.local
+!.env.example
+.DS_Store
+.turbo/
+*.tsbuildinfo
+packages/database/src/generated/
+# Synthetic datasets and simulation outputs are reproducible (fixed seeds); keep the repo small.
+data/
+reports/runs/
+playwright-report/
+test-results/
