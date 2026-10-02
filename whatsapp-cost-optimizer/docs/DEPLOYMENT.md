@@ -19,6 +19,18 @@ API_URL=http://localhost:4000 pnpm smoke
 
 Portas no host são configuráveis (`API_HOST_PORT`, `WEB_HOST_PORT`, `PG_HOST_PORT`, `REDIS_HOST_PORT`).
 
+### GitHub Codespaces / Docker-in-Docker
+
+Em alguns ambientes Docker-in-Docker (como o Codespaces) os containers da rede do compose se
+encontram pelo nome, mas a conexão TCP entre eles é bloqueada (`P1001: Can't reach database server`
+no `migrate`). Use a variante com rede do host:
+
+```bash
+docker compose -f docker-compose.yml -f infra/docker/compose.host-network.yml up -d --build
+```
+
+Os serviços passam a conversar por `localhost`; as portas 3000, 4000, 5432, 6379 e 9100 precisam estar livres.
+
 ### Build atrás de proxy corporativo
 
 ```bash
