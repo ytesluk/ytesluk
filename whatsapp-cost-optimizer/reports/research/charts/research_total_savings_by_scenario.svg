@@ -1,44 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="400" viewBox="0 0 900 400" role="img" aria-label="Economia total (Meta + BSP + infra) — braço F vs A" font-family="Inter, system-ui, sans-serif">
 <rect width="900" height="400" fill="#fcfcfb"/>
-<text x="80" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Economia total (Meta + BSP + infra) — braço F vs A</text>
-<text x="80" y="46" font-size="12" fill="#52514e">Simulado · 50.000 eventos · média de 3 seed(s) · BSP hipotético de 10%</text>
-<line x1="80" x2="876" y1="328" y2="328" stroke="#e4e3df" stroke-width="1"/>
-<text x="72" y="332" font-size="11" text-anchor="end" fill="#52514e">0%</text>
-<line x1="80" x2="876" y1="262" y2="262" stroke="#e4e3df" stroke-width="1"/>
-<text x="72" y="266" font-size="11" text-anchor="end" fill="#52514e">12,5%</text>
-<line x1="80" x2="876" y1="196" y2="196" stroke="#e4e3df" stroke-width="1"/>
-<text x="72" y="200" font-size="11" text-anchor="end" fill="#52514e">25%</text>
-<line x1="80" x2="876" y1="130" y2="130" stroke="#e4e3df" stroke-width="1"/>
-<text x="72" y="134" font-size="11" text-anchor="end" fill="#52514e">37,5%</text>
-<line x1="80" x2="876" y1="64" y2="64" stroke="#e4e3df" stroke-width="1"/>
-<text x="72" y="68" font-size="11" text-anchor="end" fill="#52514e">50%</text>
-<path d="M97.6888888888889,328 V211.61599999999999 Q97.6888888888889,207.61599999999999 101.6888888888889,207.61599999999999 H146.75555555555556 Q150.75555555555556,207.61599999999999 150.75555555555556,211.61599999999999 V328 Z" fill="#2a78d6"><title>LOW DUP: 22,8%</title></path>
-<text x="124.22222222222223" y="201.61599999999999" font-size="11" text-anchor="middle" fill="#0b0b0b">22,8%</text>
-<text x="124.22222222222223" y="346" font-size="11" text-anchor="middle" fill="#52514e">LOW DUP</text>
-<path d="M186.13333333333333,328 V201.056 Q186.13333333333333,197.056 190.13333333333333,197.056 H235.2 Q239.2,197.056 239.2,201.056 V328 Z" fill="#2a78d6"><title>MEDIUM DUP: 24,8%</title></path>
-<text x="212.66666666666666" y="191.056" font-size="11" text-anchor="middle" fill="#0b0b0b">24,8%</text>
-<text x="212.66666666666666" y="346" font-size="11" text-anchor="middle" fill="#52514e">MEDIUM DUP</text>
-<path d="M274.5777777777778,328 V182.576 Q274.5777777777778,178.576 278.5777777777778,178.576 H323.6444444444444 Q327.6444444444444,178.576 327.6444444444444,182.576 V328 Z" fill="#2a78d6"><title>HIGH DUP: 28,3%</title></path>
-<text x="301.1111111111111" y="172.576" font-size="11" text-anchor="middle" fill="#0b0b0b">28,3%</text>
-<text x="301.1111111111111" y="346" font-size="11" text-anchor="middle" fill="#52514e">HIGH DUP</text>
-<path d="M363.02222222222224,328 V229.04 Q363.02222222222224,225.04 367.02222222222224,225.04 H412.08888888888885 Q416.08888888888885,225.04 416.08888888888885,229.04 V328 Z" fill="#2a78d6"><title>LOW AGG: 19,5%</title></path>
-<text x="389.55555555555554" y="219.04" font-size="11" text-anchor="middle" fill="#0b0b0b">19,5%</text>
-<text x="389.55555555555554" y="346" font-size="11" text-anchor="middle" fill="#52514e">LOW AGG</text>
-<path d="M451.4666666666667,328 V201.056 Q451.4666666666667,197.056 455.4666666666667,197.056 H500.5333333333333 Q504.5333333333333,197.056 504.5333333333333,201.056 V328 Z" fill="#2a78d6"><title>MEDIUM AGG: 24,8%</title></path>
-<text x="478" y="191.056" font-size="11" text-anchor="middle" fill="#0b0b0b">24,8%</text>
-<text x="478" y="346" font-size="11" text-anchor="middle" fill="#52514e">MEDIUM AGG</text>
-<path d="M539.9111111111112,328 V163.56799999999998 Q539.9111111111112,159.56799999999998 543.9111111111112,159.56799999999998 H588.9777777777778 Q592.9777777777778,159.56799999999998 592.9777777777778,163.56799999999998 V328 Z" fill="#2a78d6"><title>HIGH AGG: 31,9%</title></path>
-<text x="566.4444444444445" y="153.56799999999998" font-size="11" text-anchor="middle" fill="#0b0b0b">31,9%</text>
-<text x="566.4444444444445" y="346" font-size="11" text-anchor="middle" fill="#52514e">HIGH AGG</text>
-<path d="M628.3555555555556,328 V206.864 Q628.3555555555556,202.864 632.3555555555556,202.864 H677.4222222222222 Q681.4222222222222,202.864 681.4222222222222,206.864 V328 Z" fill="#2a78d6"><title>LOW FEP: 23,7%</title></path>
-<text x="654.8888888888889" y="196.864" font-size="11" text-anchor="middle" fill="#0b0b0b">23,7%</text>
-<text x="654.8888888888889" y="346" font-size="11" text-anchor="middle" fill="#52514e">LOW FEP</text>
-<path d="M716.8000000000001,328 V201.056 Q716.8000000000001,197.056 720.8000000000001,197.056 H765.8666666666667 Q769.8666666666667,197.056 769.8666666666667,201.056 V328 Z" fill="#2a78d6"><title>MEDIUM FEP: 24,8%</title></path>
-<text x="743.3333333333334" y="191.056" font-size="11" text-anchor="middle" fill="#0b0b0b">24,8%</text>
-<text x="743.3333333333334" y="346" font-size="11" text-anchor="middle" fill="#52514e">MEDIUM FEP</text>
-<path d="M805.2444444444444,328 V189.44 Q805.2444444444444,185.44 809.2444444444444,185.44 H854.311111111111 Q858.311111111111,185.44 858.311111111111,189.44 V328 Z" fill="#2a78d6"><title>HIGH FEP: 27%</title></path>
-<text x="831.7777777777777" y="179.44" font-size="11" text-anchor="middle" fill="#0b0b0b">27%</text>
-<text x="831.7777777777777" y="346" font-size="11" text-anchor="middle" fill="#52514e">HIGH FEP</text>
-<line x1="80" x2="876" y1="328" y2="328" stroke="#52514e" stroke-width="1"/>
-<text transform="translate(18 196) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Economia total (%)</text>
+<text x="67.9" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Economia total (Meta + BSP + infra) — braço F vs A</text>
+<text x="67.9" y="46" font-size="12" fill="#52514e">Simulado · 50.000 eventos · média de 3 seed(s) · BSP hipotético de 10%</text>
+<line x1="67.9" x2="876" y1="328" y2="328" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="332" font-size="11" text-anchor="end" fill="#52514e">0%</text>
+<line x1="67.9" x2="876" y1="262" y2="262" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="266" font-size="11" text-anchor="end" fill="#52514e">12,5%</text>
+<line x1="67.9" x2="876" y1="196" y2="196" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="200" font-size="11" text-anchor="end" fill="#52514e">25%</text>
+<line x1="67.9" x2="876" y1="130" y2="130" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="134" font-size="11" text-anchor="end" fill="#52514e">37,5%</text>
+<line x1="67.9" x2="876" y1="64" y2="64" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="68" font-size="11" text-anchor="end" fill="#52514e">50%</text>
+<path d="M85.85777777777778,328 V211.61599999999999 Q85.85777777777778,207.61599999999999 89.85777777777778,207.61599999999999 H135.73111111111112 Q139.73111111111112,207.61599999999999 139.73111111111112,211.61599999999999 V328 Z" fill="#2a78d6"><title>LOW DUP: 22,8%</title></path>
+<text x="112.79444444444445" y="201.61599999999999" font-size="11" text-anchor="middle" fill="#0b0b0b">22,8%</text>
+<text x="112.79444444444445" y="346" font-size="11" text-anchor="middle" fill="#52514e">LOW DUP</text>
+<path d="M175.64666666666668,328 V201.056 Q175.64666666666668,197.056 179.64666666666668,197.056 H225.52 Q229.52,197.056 229.52,201.056 V328 Z" fill="#2a78d6"><title>MEDIUM DUP: 24,8%</title></path>
+<text x="202.58333333333334" y="191.056" font-size="11" text-anchor="middle" fill="#0b0b0b">24,8%</text>
+<text x="202.58333333333334" y="346" font-size="11" text-anchor="middle" fill="#52514e">MEDIUM DUP</text>
+<path d="M265.4355555555556,328 V182.576 Q265.4355555555556,178.576 269.4355555555556,178.576 H315.30888888888893 Q319.30888888888893,178.576 319.30888888888893,182.576 V328 Z" fill="#2a78d6"><title>HIGH DUP: 28,3%</title></path>
+<text x="292.37222222222226" y="172.576" font-size="11" text-anchor="middle" fill="#0b0b0b">28,3%</text>
+<text x="292.37222222222226" y="346" font-size="11" text-anchor="middle" fill="#52514e">HIGH DUP</text>
+<path d="M355.2244444444445,328 V229.04 Q355.2244444444445,225.04 359.2244444444445,225.04 H405.0977777777778 Q409.0977777777778,225.04 409.0977777777778,229.04 V328 Z" fill="#2a78d6"><title>LOW AGG: 19,5%</title></path>
+<text x="382.16111111111115" y="219.04" font-size="11" text-anchor="middle" fill="#0b0b0b">19,5%</text>
+<text x="382.16111111111115" y="346" font-size="11" text-anchor="middle" fill="#52514e">LOW AGG</text>
+<path d="M445.0133333333334,328 V201.056 Q445.0133333333334,197.056 449.0133333333334,197.056 H494.8866666666667 Q498.8866666666667,197.056 498.8866666666667,201.056 V328 Z" fill="#2a78d6"><title>MEDIUM AGG: 24,8%</title></path>
+<text x="471.95000000000005" y="191.056" font-size="11" text-anchor="middle" fill="#0b0b0b">24,8%</text>
+<text x="471.95000000000005" y="346" font-size="11" text-anchor="middle" fill="#52514e">MEDIUM AGG</text>
+<path d="M534.8022222222223,328 V163.56799999999998 Q534.8022222222223,159.56799999999998 538.8022222222223,159.56799999999998 H584.6755555555555 Q588.6755555555555,159.56799999999998 588.6755555555555,163.56799999999998 V328 Z" fill="#2a78d6"><title>HIGH AGG: 31,9%</title></path>
+<text x="561.7388888888889" y="153.56799999999998" font-size="11" text-anchor="middle" fill="#0b0b0b">31,9%</text>
+<text x="561.7388888888889" y="346" font-size="11" text-anchor="middle" fill="#52514e">HIGH AGG</text>
+<path d="M624.5911111111111,328 V206.864 Q624.5911111111111,202.864 628.5911111111111,202.864 H674.4644444444443 Q678.4644444444443,202.864 678.4644444444443,206.864 V328 Z" fill="#2a78d6"><title>LOW FEP: 23,7%</title></path>
+<text x="651.5277777777777" y="196.864" font-size="11" text-anchor="middle" fill="#0b0b0b">23,7%</text>
+<text x="651.5277777777777" y="346" font-size="11" text-anchor="middle" fill="#52514e">LOW FEP</text>
+<path d="M714.3800000000001,328 V201.056 Q714.3800000000001,197.056 718.3800000000001,197.056 H764.2533333333333 Q768.2533333333333,197.056 768.2533333333333,201.056 V328 Z" fill="#2a78d6"><title>MEDIUM FEP: 24,8%</title></path>
+<text x="741.3166666666667" y="191.056" font-size="11" text-anchor="middle" fill="#0b0b0b">24,8%</text>
+<text x="741.3166666666667" y="346" font-size="11" text-anchor="middle" fill="#52514e">MEDIUM FEP</text>
+<path d="M804.1688888888889,328 V189.44 Q804.1688888888889,185.44 808.1688888888889,185.44 H854.0422222222221 Q858.0422222222221,185.44 858.0422222222221,189.44 V328 Z" fill="#2a78d6"><title>HIGH FEP: 27%</title></path>
+<text x="831.1055555555555" y="179.44" font-size="11" text-anchor="middle" fill="#0b0b0b">27%</text>
+<text x="831.1055555555555" y="346" font-size="11" text-anchor="middle" fill="#52514e">HIGH FEP</text>
+<line x1="67.9" x2="876" y1="328" y2="328" stroke="#52514e" stroke-width="1"/>
+<text transform="translate(14 196) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Economia total (%)</text>
 </svg>

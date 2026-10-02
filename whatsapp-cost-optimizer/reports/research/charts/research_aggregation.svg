@@ -1,42 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400" role="img" aria-label="Economia Meta por técnica — cenários AGGREGATION" font-family="Inter, system-ui, sans-serif">
 <rect width="720" height="400" fill="#fcfcfb"/>
-<text x="72" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Economia Meta por técnica — cenários AGGREGATION</text>
-<text x="72" y="46" font-size="12" fill="#52514e">Simulado · 50.000 eventos · média de 3 seed(s) · tarifas DEMO</text>
-<line x1="72" x2="570" y1="344" y2="344" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="348" font-size="11" text-anchor="end" fill="#52514e">0%</text>
-<line x1="72" x2="570" y1="274" y2="274" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="278" font-size="11" text-anchor="end" fill="#52514e">12,5%</text>
-<line x1="72" x2="570" y1="204" y2="204" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="208" font-size="11" text-anchor="end" fill="#52514e">25%</text>
-<line x1="72" x2="570" y1="134" y2="134" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="138" font-size="11" text-anchor="end" fill="#52514e">37,5%</text>
-<line x1="72" x2="570" y1="64" y2="64" stroke="#e4e3df" stroke-width="1"/>
-<text x="64" y="68" font-size="11" text-anchor="end" fill="#52514e">50%</text>
-<text x="72" y="362" font-size="11" text-anchor="middle" fill="#52514e">10%</text>
-<text x="279.5" y="362" font-size="11" text-anchor="middle" fill="#52514e">35%</text>
-<text x="570" y="362" font-size="11" text-anchor="middle" fill="#52514e">70%</text>
-<line x1="72" x2="570" y1="344" y2="344" stroke="#52514e" stroke-width="1"/>
-<text x="321" y="386" font-size="12" text-anchor="middle" fill="#52514e">Pedidos com atualizações em rajada</text>
-<text transform="translate(18 204) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Economia Meta vs A (%)</text>
-<path d="M72.0,300.7 L279.5,300.7 L570.0,301.3" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="72.0" cy="300.7" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>B · deduplicação — 10%: 7,7%</title></circle>
-<circle cx="279.5" cy="300.7" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>B · deduplicação — 35%: 7,7%</title></circle>
-<circle cx="570.0" cy="301.3" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>B · deduplicação — 70%: 7,6%</title></circle>
-<text x="580" y="305.272" font-size="12" fill="#0b0b0b">B · deduplicação</text>
-<path d="M72.0,288.0 L279.5,255.6 L570.0,211.7" fill="none" stroke="#eb6834" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="72.0" cy="288.0" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>D · + supersession e agregação — 10%: 10%</title></circle>
-<circle cx="279.5" cy="255.6" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>D · + supersession e agregação — 35%: 15,8%</title></circle>
-<circle cx="570.0" cy="211.7" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>D · + supersession e agregação — 70%: 23,6%</title></circle>
-<text x="580" y="215.72799999999998" font-size="12" fill="#0b0b0b">D · + supersession e agregação</text>
-<path d="M72.0,279.7 L279.5,247.2 L570.0,203.5" fill="none" stroke="#1baf7a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="72.0" cy="279.7" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>E · + otimizador de preço — 10%: 11,5%</title></circle>
-<circle cx="279.5" cy="247.2" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>E · + otimizador de preço — 35%: 17,3%</title></circle>
-<circle cx="570.0" cy="203.5" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>E · + otimizador de preço — 70%: 25,1%</title></circle>
-<text x="580" y="207.47733333333332" font-size="12" fill="#0b0b0b">E · + otimizador de preço</text>
-<rect x="594" y="64" width="12" height="3" rx="1.5" fill="#2a78d6"/>
-<text x="612" y="69" font-size="11" fill="#52514e">B · deduplicação</text>
-<rect x="594" y="84" width="12" height="3" rx="1.5" fill="#eb6834"/>
-<text x="612" y="89" font-size="11" fill="#52514e">D · + supersession e agregação</text>
-<rect x="594" y="104" width="12" height="3" rx="1.5" fill="#1baf7a"/>
-<text x="612" y="109" font-size="11" fill="#52514e">E · + otimizador de preço</text>
+<text x="67.9" y="26" font-size="16" font-weight="600" fill="#0b0b0b">Economia Meta por técnica — cenários AGGREGATION</text>
+<text x="67.9" y="46" font-size="12" fill="#52514e">Simulado · 50.000 eventos · média de 3 seed(s) · tarifas DEMO</text>
+<line x1="67.9" x2="695.04" y1="344" y2="344" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="348" font-size="11" text-anchor="end" fill="#52514e">0%</text>
+<line x1="67.9" x2="695.04" y1="279" y2="279" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="283" font-size="11" text-anchor="end" fill="#52514e">12,5%</text>
+<line x1="67.9" x2="695.04" y1="214" y2="214" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="218" font-size="11" text-anchor="end" fill="#52514e">25%</text>
+<line x1="67.9" x2="695.04" y1="149" y2="149" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="153" font-size="11" text-anchor="end" fill="#52514e">37,5%</text>
+<line x1="67.9" x2="695.04" y1="84" y2="84" stroke="#e4e3df" stroke-width="1"/>
+<text x="59.900000000000006" y="88" font-size="11" text-anchor="end" fill="#52514e">50%</text>
+<text x="67.9" y="362" font-size="11" text-anchor="middle" fill="#52514e">10%</text>
+<text x="329.20833333333326" y="362" font-size="11" text-anchor="middle" fill="#52514e">35%</text>
+<text x="695.04" y="362" font-size="11" text-anchor="middle" fill="#52514e">70%</text>
+<line x1="67.9" x2="695.04" y1="344" y2="344" stroke="#52514e" stroke-width="1"/>
+<text x="381.47" y="386" font-size="12" text-anchor="middle" fill="#52514e">Pedidos com atualizações em rajada</text>
+<text transform="translate(14 214) rotate(-90)" font-size="12" text-anchor="middle" fill="#52514e">Economia Meta vs A (%)</text>
+<path d="M67.9,303.8 L329.2,303.8 L695.0,304.3" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="67.9" cy="303.8" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>B · deduplicação — 10%: 7,7%</title></circle>
+<circle cx="329.2" cy="303.8" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>B · deduplicação — 35%: 7,7%</title></circle>
+<circle cx="695.0" cy="304.3" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>B · deduplicação — 70%: 7,6%</title></circle>
+<path d="M67.9,292.0 L329.2,261.9 L695.0,221.2" fill="none" stroke="#eb6834" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="67.9" cy="292.0" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>D · + supersession e agregação — 10%: 10%</title></circle>
+<circle cx="329.2" cy="261.9" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>D · + supersession e agregação — 35%: 15,8%</title></circle>
+<circle cx="695.0" cy="221.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>D · + supersession e agregação — 70%: 23,6%</title></circle>
+<path d="M67.9,284.3 L329.2,254.1 L695.0,213.5" fill="none" stroke="#1baf7a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="67.9" cy="284.3" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>E · + otimizador de preço — 10%: 11,5%</title></circle>
+<circle cx="329.2" cy="254.1" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>E · + otimizador de preço — 35%: 17,3%</title></circle>
+<circle cx="695.0" cy="213.5" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>E · + otimizador de preço — 70%: 25,1%</title></circle>
+<text x="705.04" y="217.51466666666667" font-size="12" fill="#0b0b0b">E</text>
+<text x="705.04" y="231.51466666666667" font-size="12" fill="#0b0b0b">D</text>
+<text x="705.04" y="308.324" font-size="12" fill="#0b0b0b">B</text>
+<rect x="67.9" y="61" width="14" height="3" rx="1.5" fill="#2a78d6"/>
+<text x="87.9" y="66" font-size="11" fill="#52514e">B · deduplicação</text>
+<rect x="207.98" y="61" width="14" height="3" rx="1.5" fill="#eb6834"/>
+<text x="227.98" y="66" font-size="11" fill="#52514e">D · + supersession e agregação</text>
+<rect x="437.38" y="61" width="14" height="3" rx="1.5" fill="#1baf7a"/>
+<text x="457.38" y="66" font-size="11" fill="#52514e">E · + otimizador de preço</text>
 </svg>
