@@ -14,8 +14,11 @@ const MECHANISM: Record<string, string> = {
   CONSOLIDATION: "Consolidação",
   FREE_WINDOW: "Janela gratuita (FEP/CSW)",
   FREE_QUOTA: "Cota gratuita",
-  CHANNEL_SWITCH: "Mensagem livre na janela",
-  TIER: "Tier de volume",
+  CATEGORY: "Mensagem livre na janela",
+  VOLUME_TIER: "Tier de volume",
+  DIRECT_API: "Cloud API direta",
+  BSP_MARKUP: "Taxa de BSP",
+  INFRASTRUCTURE: "Infraestrutura",
   NONE: "Sem mecanismo (ajustes)",
 };
 

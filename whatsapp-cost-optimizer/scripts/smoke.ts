@@ -5,7 +5,9 @@
  *
  * Exercises the public API only: health, auth, idempotency, deduplication, supersession (four order
  * updates → one message), OTP never delayed, webhook signature rejection and Meta-confirmed costs.
- * Exits non-zero on the first failed check.
+ * MOCK mode simulates delivery failures (MOCK_DELIVERY_RATE, default 0.97): a message that was sent but
+ * FAILED still proves the decision path; the cost check is skipped (not failed) in that case.
+ * Exits non-zero when any check fails.
  */
 import { randomUUID } from "node:crypto";
 
@@ -15,6 +17,7 @@ const TIMEOUT_S = Number(process.env.SMOKE_TIMEOUT_S ?? 150);
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- generic JSON
 let failures = 0;
+const DISPATCHED = ["SENT", "DELIVERED", "READ", "FAILED"];
 
 async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; body: Json }> {
   const res = await fetch(`${API}${path}`, {
@@ -67,27 +70,30 @@ for (const [i, status] of ["CREATED", "PAID", "PACKED", "SHIPPED"].entries()) {
 
 const otpDone = await until(async () => {
   const a = await audit(otp.body.intentId);
-  return ["SENT", "DELIVERED", "READ"].includes(a.intent?.status) ? a : null;
-}, "OTP delivery");
+  return DISPATCHED.includes(a.intent?.status) ? a : null;
+}, "OTP dispatch");
 check("OTP sent immediately", !!otpDone && otpDone.decisions[0]?.action === "SEND_NOW", otpDone ? `${otpDone.intent.status}, decision ${otpDone.decisions[0]?.action}` : "");
 
 // Identical events: exactly one is sent and the other is DEDUPLICATED (which one depends on the order in
 // which concurrent workers optimize them — both carry the same content).
 const pair = await until(async () => {
   const st = [(await audit(first.body.intentId)).intent?.status, (await audit(dup.body.intentId)).intent?.status] as string[];
-  return st.includes("DEDUPLICATED") && st.some((s) => ["SENT", "DELIVERED", "READ"].includes(s)) ? st : null;
+  return st.includes("DEDUPLICATED") && st.some((s) => DISPATCHED.includes(s)) ? st : null;
 }, "duplicate decision");
 check("duplicate event → a single message", !!pair, pair?.join(",") ?? "");
 
 const flow = await until(async () => {
   const rows = await Promise.all(ids.map(audit));
   const st = rows.map((r) => r.intent?.status as string);
-  return st.filter((s) => s === "SUPERSEDED").length === 3 && st.some((s) => s === "DELIVERED" || s === "READ") ? rows : null;
+  // The delivery status and the Meta-confirmed cost are written by the same webhook job, a few ms apart.
+  const done = rows.some((r) => (["DELIVERED", "READ"].includes(r.intent?.status) && r.intent?.realizedConfidence === "REALIZED") || r.intent?.status === "FAILED");
+  return st.filter((s) => s === "SUPERSEDED").length === 3 && done ? rows : null;
 }, "order flow");
 check("four order updates → one message (3 superseded)", !!flow, flow ? flow.map((r) => r.intent.status).join(",") : "");
 if (flow) {
-  const sent = flow.find((r) => ["DELIVERED", "READ"].includes(r.intent.status))!;
-  check("cost confirmed by Meta-shaped webhook (REALIZED)", sent.intent.realizedConfidence === "REALIZED", `realized ${sent.intent.realizedCost} ${sent.intent.currency}`);
+  const sent = flow.find((r) => r.intent.status !== "SUPERSEDED")!;
+  if (sent.intent.status === "FAILED") console.log("– cost confirmation skipped: the mock simulated a delivery failure (Meta does not charge failed messages)");
+  else check("cost confirmed by Meta-shaped webhook (REALIZED)", sent.intent.realizedConfidence === "REALIZED", `realized ${sent.intent.realizedCost} ${sent.intent.currency}`);
   check("audit records pricing policy and rate card", !!sent.why?.pricingPolicy && !!sent.why?.rateCard, `${sent.why?.pricingPolicy} · ${sent.why?.rateCard}`);
 }
 

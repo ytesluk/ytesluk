@@ -51,7 +51,7 @@ export interface CostModel {
 }
 
 export const DEFAULT_COST_MODEL: CostModel = {
-  bsp: { type: "PERCENTAGE", percentOfMeta: "10", label: "Hypothetical BSP: 10% over Meta charges" },
+  bsp: { type: "PERCENTAGE", percentOfMeta: "10", label: "BSP hipotético: 10% sobre as cobranças da Meta" },
   infraPerEvent: "0.00002",
   infraPerProviderCall: "0.00005",
 };

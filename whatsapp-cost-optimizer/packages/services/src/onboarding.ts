@@ -75,8 +75,8 @@ export const ManualConnectSchema = z.object({
 
 export async function connectManual(ctx: AppContext, actor: Actor, raw: unknown) {
   const input = ManualConnectSchema.parse(raw);
-  const gate = commercialOnboardingStatus(ctx.config);
-  if (!gate.allowed) throw Errors.forbidden(`Production onboarding blocked: missing ${gate.missing.join(", ")}`);
+  // Manual connection uses the tenant's OWN System User token, which only reaches the WABAs it was
+  // granted — it is not commercial onboarding of third parties (that path is Embedded Signup, gated below).
   if (ctx.config.meta.mock) throw Errors.validation("MOCK_WHATSAPP=true — set MOCK_WHATSAPP=false and META_GRAPH_API_VERSION to connect a real WABA");
   if (!isValidTimeZone(input.timezone)) throw Errors.validation("Invalid IANA timezone");
   const provider = ctx.provider({ id: "", metaWabaId: input.wabaId, businessAccountId: "", timezone: input.timezone, currency: input.currency, provider: "META_CLOUD_API", accessTokenEncrypted: null, authInternationalEligible: false });

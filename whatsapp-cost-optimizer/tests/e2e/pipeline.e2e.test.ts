@@ -151,7 +151,8 @@ describe("optimization pipeline over HTTP (spec §41)", () => {
       async () => {
         const rows = await Promise.all(ids.map((id) => audit(id)));
         const st = rows.map((r) => r.body.intent.status as string);
-        return st.every((s) => FINAL.has(s) && s !== "SENT") ? rows.map((r) => r.body.intent) : null;
+        const realized = rows.some((r) => r.body.intent.realizedConfidence === "REALIZED");
+        return st.every((s) => FINAL.has(s) && s !== "SENT") && realized ? rows.map((r) => r.body.intent) : null;
       },
       { timeoutMs: 45_000, label: "order flow" },
     );
@@ -198,8 +199,9 @@ describe("optimization pipeline over HTTP (spec §41)", () => {
     }, { timeoutMs: 15_000, label: "otp" });
     expect(detail.decisions[0].action).toBe("SEND_NOW");
     expect(detail.decisions[0].reasons.join(",")).toMatch(/authentication_message/);
-    const wait = new Date(detail.intent.scheduledFor).getTime() - new Date(detail.intent.createdAt).getTime();
-    expect(wait).toBeLessThan(2_000);
+    // No buffering delay is introduced by the decision (queue latency before the decision is not a policy delay).
+    const delay = new Date(detail.intent.scheduledFor).getTime() - new Date(detail.decisions[0].createdAt).getTime();
+    expect(delay).toBeLessThanOrEqual(1_000);
   });
 
   it("case 4 — critical messages skip the buffer", async () => {

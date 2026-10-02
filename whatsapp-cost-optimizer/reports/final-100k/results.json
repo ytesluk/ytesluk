@@ -38,7 +38,7 @@
       "bsp": {
         "type": "PERCENTAGE",
         "percentOfMeta": "10",
-        "label": "Hypothetical BSP: 10% over Meta charges"
+        "label": "BSP hipotético: 10% sobre as cobranças da Meta"
       },
       "infraPerEvent": "0.00002",
       "infraPerProviderCall": "0.00005"
@@ -314,7 +314,7 @@
         "rateCards": {
           "DEMO-BRL-2026-10": 93310
         },
-        "durationMs": 3818
+        "durationMs": 4958
       },
       {
         "arm": "B",
@@ -582,7 +582,7 @@
         "rateCards": {
           "DEMO-BRL-2026-10": 88800
         },
-        "durationMs": 3909
+        "durationMs": 4047
       },
       {
         "arm": "C",
@@ -850,7 +850,7 @@
         "rateCards": {
           "DEMO-BRL-2026-10": 80011
         },
-        "durationMs": 4470
+        "durationMs": 4490
       },
       {
         "arm": "D",
@@ -1118,7 +1118,7 @@
         "rateCards": {
           "DEMO-BRL-2026-10": 71304
         },
-        "durationMs": 4523
+        "durationMs": 5280
       },
       {
         "arm": "E",
@@ -1386,7 +1386,7 @@
         "rateCards": {
           "DEMO-BRL-2026-10": 71304
         },
-        "durationMs": 5904
+        "durationMs": 5250
       },
       {
         "arm": "F",
@@ -1654,7 +1654,7 @@
         "rateCards": {
           "DEMO-BRL-2026-10": 71304
         },
-        "durationMs": 6321
+        "durationMs": 5453
       }
     ],
     "comparisons": [
@@ -1719,7 +1719,7 @@
         "messagesAvoided": 22665
       }
     ],
-    "generatedAt": "2026-10-02T14:29:48.139Z",
+    "generatedAt": "2026-10-02T15:18:35.818Z",
     "label": "SIMULATED"
   },
   "sweeps": [
@@ -1990,7 +1990,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 9294
             },
-            "durationMs": 410
+            "durationMs": 402
           },
           "optimized": {
             "arm": "E",
@@ -2246,7 +2246,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 7184
             },
-            "durationMs": 626
+            "durationMs": 472
           }
         },
         {
@@ -2513,7 +2513,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 23222
             },
-            "durationMs": 938
+            "durationMs": 935
           },
           "optimized": {
             "arm": "E",
@@ -2775,7 +2775,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 17825
             },
-            "durationMs": 1667
+            "durationMs": 1170
           }
         },
         {
@@ -3043,7 +3043,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 46616
             },
-            "durationMs": 2120
+            "durationMs": 1678
           },
           "optimized": {
             "arm": "E",
@@ -3305,7 +3305,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 35772
             },
-            "durationMs": 2979
+            "durationMs": 2748
           }
         },
         {
@@ -3578,7 +3578,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 93310
             },
-            "durationMs": 4363
+            "durationMs": 3785
           },
           "optimized": {
             "arm": "E",
@@ -3846,7 +3846,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 71304
             },
-            "durationMs": 5889
+            "durationMs": 5410
           }
         }
       ]
@@ -4119,7 +4119,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 19328
             },
-            "durationMs": 886
+            "durationMs": 779
           },
           "optimized": {
             "arm": "E",
@@ -4380,7 +4380,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 15549
             },
-            "durationMs": 1083
+            "durationMs": 1006
           }
         },
         {
@@ -4647,7 +4647,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18851
             },
-            "durationMs": 730
+            "durationMs": 762
           },
           "optimized": {
             "arm": "E",
@@ -4908,7 +4908,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14694
             },
-            "durationMs": 1167
+            "durationMs": 967
           }
         },
         {
@@ -5175,7 +5175,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18390
             },
-            "durationMs": 878
+            "durationMs": 628
           },
           "optimized": {
             "arm": "E",
@@ -5436,7 +5436,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14227
             },
-            "durationMs": 1164
+            "durationMs": 931
           }
         },
         {
@@ -5703,7 +5703,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 17705
             },
-            "durationMs": 781
+            "durationMs": 653
           },
           "optimized": {
             "arm": "E",
@@ -5964,7 +5964,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 13006
             },
-            "durationMs": 1105
+            "durationMs": 900
           }
         },
         {
@@ -6231,7 +6231,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 17091
             },
-            "durationMs": 685
+            "durationMs": 694
           },
           "optimized": {
             "arm": "E",
@@ -6492,7 +6492,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 12190
             },
-            "durationMs": 906
+            "durationMs": 921
           }
         }
       ]
@@ -6765,7 +6765,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18603
             },
-            "durationMs": 692
+            "durationMs": 681
           },
           "optimized": {
             "arm": "E",
@@ -7027,7 +7027,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 17693
             },
-            "durationMs": 1066
+            "durationMs": 960
           }
         },
         {
@@ -7294,7 +7294,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18563
             },
-            "durationMs": 692
+            "durationMs": 760
           },
           "optimized": {
             "arm": "E",
@@ -7555,7 +7555,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 15229
             },
-            "durationMs": 1029
+            "durationMs": 991
           }
         },
         {
@@ -7822,7 +7822,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18579
             },
-            "durationMs": 796
+            "durationMs": 625
           },
           "optimized": {
             "arm": "E",
@@ -8083,7 +8083,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 13050
             },
-            "durationMs": 950
+            "durationMs": 1065
           }
         },
         {
@@ -8350,7 +8350,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18613
             },
-            "durationMs": 803
+            "durationMs": 765
           },
           "optimized": {
             "arm": "E",
@@ -8611,7 +8611,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 10693
             },
-            "durationMs": 1061
+            "durationMs": 1056
           }
         },
         {
@@ -8878,7 +8878,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18576
             },
-            "durationMs": 775
+            "durationMs": 661
           },
           "optimized": {
             "arm": "E",
@@ -9139,7 +9139,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 8310
             },
-            "durationMs": 954
+            "durationMs": 822
           }
         }
       ]
@@ -9412,7 +9412,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18570
             },
-            "durationMs": 730
+            "durationMs": 785
           },
           "optimized": {
             "arm": "E",
@@ -9673,7 +9673,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14325
             },
-            "durationMs": 1242
+            "durationMs": 974
           }
         },
         {
@@ -9940,7 +9940,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18571
             },
-            "durationMs": 654
+            "durationMs": 715
           },
           "optimized": {
             "arm": "E",
@@ -10201,7 +10201,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14352
             },
-            "durationMs": 1036
+            "durationMs": 970
           }
         },
         {
@@ -10468,7 +10468,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18569
             },
-            "durationMs": 741
+            "durationMs": 830
           },
           "optimized": {
             "arm": "E",
@@ -10729,7 +10729,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14366
             },
-            "durationMs": 1027
+            "durationMs": 910
           }
         },
         {
@@ -10996,7 +10996,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18595
             },
-            "durationMs": 725
+            "durationMs": 693
           },
           "optimized": {
             "arm": "E",
@@ -11257,7 +11257,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14320
             },
-            "durationMs": 1167
+            "durationMs": 868
           }
         },
         {
@@ -11524,7 +11524,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18592
             },
-            "durationMs": 725
+            "durationMs": 620
           },
           "optimized": {
             "arm": "E",
@@ -11785,7 +11785,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14344
             },
-            "durationMs": 950
+            "durationMs": 893
           }
         }
       ]
@@ -12058,7 +12058,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18602
             },
-            "durationMs": 805
+            "durationMs": 665
           },
           "optimized": {
             "arm": "E",
@@ -12319,7 +12319,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14096
             },
-            "durationMs": 910
+            "durationMs": 1003
           }
         },
         {
@@ -12586,7 +12586,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18569
             },
-            "durationMs": 811
+            "durationMs": 731
           },
           "optimized": {
             "arm": "E",
@@ -12847,7 +12847,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14366
             },
-            "durationMs": 1155
+            "durationMs": 970
           }
         },
         {
@@ -13119,7 +13119,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18578
             },
-            "durationMs": 693
+            "durationMs": 658
           },
           "optimized": {
             "arm": "E",
@@ -13380,7 +13380,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 14750
             },
-            "durationMs": 1168
+            "durationMs": 939
           }
         },
         {
@@ -13651,7 +13651,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18569
             },
-            "durationMs": 794
+            "durationMs": 644
           },
           "optimized": {
             "arm": "E",
@@ -13917,7 +13917,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 15046
             },
-            "durationMs": 1404
+            "durationMs": 979
           }
         },
         {
@@ -14188,7 +14188,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 18580
             },
-            "durationMs": 888
+            "durationMs": 653
           },
           "optimized": {
             "arm": "E",
@@ -14454,7 +14454,7 @@
             "rateCards": {
               "DEMO-BRL-2026-10": 15170
             },
-            "durationMs": 1072
+            "durationMs": 985
           }
         }
       ]
