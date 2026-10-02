@@ -138,12 +138,14 @@ export function sweepCharts(sweeps: SweepResult[], currency: string): Record<str
   return out;
 }
 
+const ARM_SHORT: Record<string, string> = { A: "Controle", B: "Dedup", C: "+ Supersession", D: "+ Consolidação", E: "+ Preço", F: "+ API direta" };
+
 export function baselineVsOptimizedChart(r: ExperimentResult): string {
   return barChart({
     title: "Custo total por braço do experimento",
     subtitle: `Simulado · Meta + BSP + infraestrutura · ${r.isDemoRates ? "tarifas DEMO (fictícias)" : "rate card importado"}`,
     yLabel: `Custo total (${r.currency})`,
-    bars: r.arms.map((a) => ({ label: a.arm, value: Number(a.totalCost), note: a.label.length > 18 ? a.label.slice(0, 17) + "…" : a.label })),
+    bars: r.arms.map((a) => ({ label: a.arm, value: Number(a.totalCost), note: ARM_SHORT[a.arm] ?? a.label })),
     yFormat: (v) => brl(v, r.currency),
   });
 }

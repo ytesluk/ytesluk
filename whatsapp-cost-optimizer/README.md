@@ -75,7 +75,7 @@ pnpm dev                             # API :4000, worker, dashboard :3000
 | `pnpm test:integration` / `pnpm test:e2e` | PostgreSQL + Redis reais; E2E sobe API + workers em processo |
 | `pnpm test:web` | Playwright no dashboard (requer stack rodando) |
 | `pnpm lint` · `pnpm typecheck` · `pnpm build` | qualidade e build de produção |
-| `pnpm db:migrate` · `pnpm db:seed` · `pnpm db:reset` | banco |
+| `pnpm db` · `pnpm db:migrate` · `pnpm db:seed` · `pnpm db:reset` | banco (`pnpm db` = migrar + seed idempotente) |
 | `pnpm pricing <cmd>` | `policies`, `list`, `validate`, `import`, `retire`, `export-demo`, `estimate` |
 | `pnpm simulate` | simulação final de 100k eventos → `reports/final-100k/` |
 | `pnpm generate` | datasets sintéticos 10k/50k/100k (e 1M com `--sizes 1000000`) |

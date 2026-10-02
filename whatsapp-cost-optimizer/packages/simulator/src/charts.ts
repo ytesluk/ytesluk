@@ -12,6 +12,8 @@ const GRID = "#e4e3df";
 
 export interface LineSeries {
   name: string;
+  /** Short direct label at the line end (defaults to the name); the legend always shows the full name. */
+  short?: string;
   points: Array<{ x: number; y: number }>;
 }
 
@@ -36,12 +38,20 @@ function niceMax(v: number): number {
   return 10 * p;
 }
 
+/** Rough text width for 11–12px system sans (layout only; avoids clipping without a font engine). */
+const textWidth = (t: string, size = 11) => t.length * size * 0.58;
+
 const defaultFmt = (v: number) => (Math.abs(v) >= 1000 ? v.toLocaleString("pt-BR", { maximumFractionDigits: 0 }) : v.toLocaleString("pt-BR", { maximumFractionDigits: 2 }));
 
 export function lineChart(spec: LineChartSpec): string {
   const W = spec.width ?? 720;
   const H = spec.height ?? 400;
-  const m = { top: 64, right: 150, bottom: 56, left: 72 };
+  const legend = spec.series.length >= 2;
+  const yfPre = spec.yFormat ?? ((v: number) => String(v));
+  const yMaxPre = niceMax(Math.max(...spec.series.flatMap((s) => s.points.map((p) => p.y))));
+  const tickW = Math.max(...[0, 0.25, 0.5, 0.75, 1].map((f) => textWidth(yfPre(yMaxPre * f))));
+  const endW = Math.max(...spec.series.map((s) => textWidth(s.short ?? s.name, 12)));
+  const m = { top: legend ? 84 : 64, right: Math.max(24, endW + 18), bottom: 56, left: Math.max(56, tickW + 36) };
   const iw = W - m.left - m.right;
   const ih = H - m.top - m.bottom;
   const xs = spec.series.flatMap((s) => s.points.map((p) => p.x));
@@ -73,7 +83,8 @@ export function lineChart(spec: LineChartSpec): string {
   });
   parts.push(`<line x1="${m.left}" x2="${m.left + iw}" y1="${m.top + ih}" y2="${m.top + ih}" stroke="${INK_2}" stroke-width="1"/>`);
   parts.push(`<text x="${m.left + iw / 2}" y="${H - 14}" font-size="12" text-anchor="middle" fill="${INK_2}">${esc(spec.xLabel)}</text>`);
-  parts.push(`<text transform="translate(18 ${m.top + ih / 2}) rotate(-90)" font-size="12" text-anchor="middle" fill="${INK_2}">${esc(spec.yLabel)}</text>`);
+  parts.push(`<text transform="translate(14 ${m.top + ih / 2}) rotate(-90)" font-size="12" text-anchor="middle" fill="${INK_2}">${esc(spec.yLabel)}</text>`);
+  const ends: Array<{ y: number; x: number; label: string }> = [];
   spec.series.forEach((s, i) => {
     const color = SERIES[i % SERIES.length]!;
     const pts = [...s.points].sort((a, b) => a.x - b.x);
@@ -85,13 +96,18 @@ export function lineChart(spec: LineChartSpec): string {
       );
     }
     const last = pts[pts.length - 1];
-    if (last) parts.push(`<text x="${fx(last.x) + 10}" y="${fy(last.y) + 4}" font-size="12" fill="${INK}">${esc(s.name)}</text>`);
+    if (last) ends.push({ x: fx(last.x) + 10, y: fy(last.y) + 4, label: s.short ?? s.name });
   });
-  if (spec.series.length >= 2) {
+  // Direct end labels with collision avoidance (≥14px apart), text in ink tokens.
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i]!.y - ends[i - 1]!.y < 14) ends[i]!.y = ends[i - 1]!.y + 14;
+  for (const e of ends) parts.push(`<text x="${e.x}" y="${e.y}" font-size="12" fill="${INK}">${esc(e.label)}</text>`);
+  if (legend) {
+    let x = m.left;
     spec.series.forEach((s, i) => {
-      const y = m.top + 8 + i * 20;
-      parts.push(`<rect x="${W - m.right + 24}" y="${y - 8}" width="12" height="3" rx="1.5" fill="${SERIES[i % SERIES.length]}"/>`);
-      parts.push(`<text x="${W - m.right + 42}" y="${y - 3}" font-size="11" fill="${INK_2}">${esc(s.name)}</text>`);
+      parts.push(`<rect x="${x}" y="61" width="14" height="3" rx="1.5" fill="${SERIES[i % SERIES.length]}"/>`);
+      parts.push(`<text x="${x + 20}" y="66" font-size="11" fill="${INK_2}">${esc(s.name)}</text>`);
+      x += 20 + textWidth(s.name) + 18;
     });
   }
   parts.push("</svg>");
@@ -112,11 +128,17 @@ export interface BarChartSpec {
 export function barChart(spec: BarChartSpec): string {
   const W = spec.width ?? 720;
   const H = spec.height ?? 400;
-  const m = { top: 64, right: 24, bottom: 72, left: 80 };
-  const iw = W - m.left - m.right;
-  const ih = H - m.top - m.bottom;
   const max = niceMax(Math.max(...spec.bars.map((b) => b.value)));
   const yf = spec.yFormat ?? defaultFmt;
+  const tickW = Math.max(...[0, 0.25, 0.5, 0.75, 1].map((f) => textWidth(yf(max * f))));
+  const m = { top: 64, right: 24, bottom: 72, left: Math.max(56, tickW + 36) };
+  const iw = W - m.left - m.right;
+  const ih = H - m.top - m.bottom;
+  const slot = iw / spec.bars.length;
+  const fit = (t: string, size: number) => {
+    const maxChars = Math.floor((slot - 6) / (size * 0.58));
+    return t.length <= maxChars ? t : `${t.slice(0, Math.max(1, maxChars - 1))}…`;
+  };
   const bw = (iw / spec.bars.length) * 0.6;
   const parts: string[] = [];
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(spec.title)}" font-family="Inter, system-ui, sans-serif">`);
@@ -139,11 +161,11 @@ export function barChart(spec: BarChartSpec): string {
       `<path d="M${cx - bw / 2},${m.top + ih} V${y + r} Q${cx - bw / 2},${y} ${cx - bw / 2 + r},${y} H${cx + bw / 2 - r} Q${cx + bw / 2},${y} ${cx + bw / 2},${y + r} V${m.top + ih} Z" fill="${SERIES[0]}"><title>${esc(`${b.label}: ${yf(b.value)}`)}</title></path>`,
     );
     parts.push(`<text x="${cx}" y="${y - 6}" font-size="11" text-anchor="middle" fill="${INK}">${esc(yf(b.value))}</text>`);
-    parts.push(`<text x="${cx}" y="${m.top + ih + 18}" font-size="11" text-anchor="middle" fill="${INK_2}">${esc(b.label)}</text>`);
-    if (b.note) parts.push(`<text x="${cx}" y="${m.top + ih + 34}" font-size="10" text-anchor="middle" fill="${INK_2}">${esc(b.note)}</text>`);
+    parts.push(`<text x="${cx}" y="${m.top + ih + 18}" font-size="11" text-anchor="middle" fill="${INK_2}">${esc(fit(b.label, 11))}</text>`);
+    if (b.note) parts.push(`<text x="${cx}" y="${m.top + ih + 34}" font-size="10" text-anchor="middle" fill="${INK_2}">${esc(fit(b.note, 10))}</text>`);
   });
   parts.push(`<line x1="${m.left}" x2="${m.left + iw}" y1="${m.top + ih}" y2="${m.top + ih}" stroke="${INK_2}" stroke-width="1"/>`);
-  parts.push(`<text transform="translate(18 ${m.top + ih / 2}) rotate(-90)" font-size="12" text-anchor="middle" fill="${INK_2}">${esc(spec.yLabel)}</text>`);
+  parts.push(`<text transform="translate(14 ${m.top + ih / 2}) rotate(-90)" font-size="12" text-anchor="middle" fill="${INK_2}">${esc(spec.yLabel)}</text>`);
   parts.push("</svg>");
   return parts.join("\n");
 }

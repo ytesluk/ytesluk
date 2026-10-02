@@ -26,6 +26,7 @@
     "test:e2e": "vitest run --project e2e",
     "test:all": "vitest run",
     "test:web": "pnpm --filter @wco/web test:e2e",
+    "db": "pnpm db:migrate && pnpm db:seed",
     "db:generate": "pnpm --filter @wco/database run generate",
     "db:migrate": "pnpm --filter @wco/database run migrate:deploy",
     "db:migrate:dev": "pnpm --filter @wco/database run migrate:dev",

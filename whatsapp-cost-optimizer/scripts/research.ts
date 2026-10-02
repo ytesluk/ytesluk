@@ -159,9 +159,9 @@ for (const dim of ["DUPLICATION", "AGGREGATION", "FEP"] as const) {
     xLabel: label,
     yLabel: "Economia Meta vs A (%)",
     series: [
-      { name: "B · deduplicação", points: scen.map((s) => ({ x: x(s), y: meanOf(s, "B", "meta_savings_pct") })) },
-      { name: "D · + supersession e agregação", points: scen.map((s) => ({ x: x(s), y: meanOf(s, "D", "meta_savings_pct") })) },
-      { name: "E · + otimizador de preço", points: scen.map((s) => ({ x: x(s), y: meanOf(s, "E", "meta_savings_pct") })) },
+      { name: "B · deduplicação", short: "B", points: scen.map((s) => ({ x: x(s), y: meanOf(s, "B", "meta_savings_pct") })) },
+      { name: "D · + supersession e agregação", short: "D", points: scen.map((s) => ({ x: x(s), y: meanOf(s, "D", "meta_savings_pct") })) },
+      { name: "E · + otimizador de preço", short: "E", points: scen.map((s) => ({ x: x(s), y: meanOf(s, "E", "meta_savings_pct") })) },
     ],
     xFormat: (v) => pct(v * 100),
     yFormat: pct,
