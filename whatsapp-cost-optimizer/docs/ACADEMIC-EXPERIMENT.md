@@ -104,7 +104,7 @@ Economia Meta média ± desvio-padrão (50.000 eventos):
 ### 5.3 Escala — 1.000.000 de eventos (`reports/research-1m`)
 
 MEDIUM_DUPLICATION, 1 seed: economia Meta B 7,72% · C 11,36% · D 14,97% · E 16,54%; total F 24,10%;
-222.186 mensagens evitadas; 451 s para os seis braços (≈ 75–96 µs/evento/braço, processo único).
+222.186 mensagens evitadas; 482 s para gerar o dataset e rodar os seis braços (braço E: 98 µs/evento, processo único).
 
 ### 5.4 Varreduras (braço E vs A, `reports/final-100k`)
 

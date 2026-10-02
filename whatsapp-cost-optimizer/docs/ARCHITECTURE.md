@@ -98,6 +98,6 @@ interpretadas no fuso da WABA.
 
 ## Escala
 
-* Simulador em memória: ~45–100 µs/evento por braço (1 milhão de eventos × 6 braços em 451 s).
+* Simulador em memória: ~45–100 µs/evento por braço (1 milhão de eventos × 6 braços em ~8 min).
 * Produção: API e worker sem estado; escalam horizontalmente. Gargalo esperado é o PostgreSQL
   (índices por `tenantId`/`groupKey`/`status`); filas e limitador ficam no Redis.

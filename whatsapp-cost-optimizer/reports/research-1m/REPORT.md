@@ -2,7 +2,7 @@
 
 > **Resultados SIMULADOS** com o rate card **DEMO** (valores fictícios, não são tarifas da Meta). Não representam economia garantida.
 
-- Gerado em 2026-10-02T14:45:32.044Z · commit `f896cf7` · Node v22.22.0 · duração 451 s
+- Gerado em 2026-10-02T15:54:19.593Z · commit `e8d341c` · Node v22.22.0 · duração 482 s
 - Tamanhos: 1.000.000 eventos · cenários: 1 · seeds: 20261002
 - Desenho pareado: para cada (cenário, tamanho, seed) o MESMO dataset é reprocessado por todos os braços.
 - Reproduzir: `pnpm research --sizes 1000000 --seeds 1`
@@ -24,7 +24,7 @@ Nenhuma violação de monotonicidade observada.
 
 ## Desempenho
 
-Tempo médio de simulação do braço E: 96 µs/evento (processo único, motor em memória — não é o throughput do sistema com PostgreSQL/Redis).
+Tempo médio de simulação do braço E: 98 µs/evento (processo único, motor em memória — não é o throughput do sistema com PostgreSQL/Redis).
 
 ## Arquivos
 
