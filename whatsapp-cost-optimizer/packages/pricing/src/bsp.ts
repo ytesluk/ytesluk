@@ -87,9 +87,9 @@ export function compareDirectVsBsp(input: BspComparisonInput): BspComparisonResu
     },
     difference: { monthly: f(diff.abs()), annual: f(diff.abs().times(12)), cheaper: diff.isZero() ? "EQUAL" : diff.isPositive() ? "DIRECT" : "BSP" },
     notes: [
-      "Meta charges are identical in both scenarios; the difference is only third-party fees and the extra costs of operating directly.",
-      "Not every BSP charges a markup — results depend entirely on the fee model provided.",
-      "Estimated result, not a guaranteed saving.",
+      "A cobrança da Meta é idêntica nos dois cenários; a diferença está apenas nas taxas de terceiros e nos custos extras de operar diretamente.",
+      "Nem todo BSP cobra markup — o resultado depende inteiramente do modelo de taxas informado.",
+      "Resultado estimado, não é economia garantida.",
     ],
   };
 }

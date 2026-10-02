@@ -96,8 +96,9 @@ export function scopeArgs(model: string, operation: string, args: Args | undefin
 }
 
 /** Returns a client whose every query on tenant-scoped models is restricted to `tenantId`. */
-export function forTenant(db: Db, tenantId: string) {
+export function forTenant(db: Db, tenantId: string): Db {
   if (!tenantId) throw new Error("Tenant guard: tenantId is required");
+  // The extension only rewrites arguments; the model API is unchanged, so the client keeps the Db type.
   return db.$extends({
     name: "tenant-guard",
     query: {
@@ -107,7 +108,7 @@ export function forTenant(db: Db, tenantId: string) {
         },
       },
     },
-  });
+  }) as unknown as Db;
 }
 
-export type TenantDb = ReturnType<typeof forTenant>;
+export type TenantDb = Db;

@@ -66,14 +66,14 @@ export function simulateRateCard(input: RateCardSimulationInput, policies: Polic
   const warnings: string[] = [];
   const policy = policies.forDate(input.date);
   const card = rates.select(input.currency, input.date);
-  if (!policy) warnings.push(`No active pricing policy on ${input.date}`);
-  if (!card) warnings.push(`No rate card for ${input.currency} on ${input.date}`);
-  if (card?.meta.isDemo) warnings.push("Rates come from a DEMO rate card (fictitious values).");
+  if (!policy) warnings.push(`Nenhuma política de preço vigente em ${input.date}`);
+  if (!card) warnings.push(`Nenhum rate card em ${input.currency} vigente em ${input.date}`);
+  if (card?.meta.isDemo) warnings.push("Tarifas de um rate card DEMO (valores fictícios).");
 
   const rule = policy?.ruleFor(input.category, input.market);
   const priced = card && rule ? (card.calculator(input.market, rule.rateCategory ?? input.category, input.date) ?? (rule.rateCategoryFallback ? card.calculator(input.market, rule.rateCategoryFallback, input.date) : null)) : null;
   if (rule && !priced && rule.billable && !rule.freeEligibility.includes(FreeCondition.ALWAYS)) {
-    warnings.push(`No rate for ${input.category} in ${input.market}`);
+    warnings.push(`Sem tarifa para ${input.category} no mercado ${input.market}`);
   }
 
   const quotaAvailable = input.freeQuota ?? (rule?.freeQuota ? rule.freeQuota.amount * (input.phoneNumbers ?? 1) : 0);

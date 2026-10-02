@@ -278,7 +278,7 @@ export async function optimizeIntent(ctx: AppContext, job: { tenantId: string; i
 export async function flushGroup(ctx: AppContext, job: { tenantId: string; groupKey: string }): Promise<{ messages: number; consolidated: number }> {
   const tenant = await ctx.tenants.get(job.tenantId);
   const after: After = [];
-  let out = { messages: 0, consolidated: 0 };
+  const out = { messages: 0, consolidated: 0 };
   await withSpan("buffer.flush", () =>
     ctx.db.$transaction(
       async (tx) => {

@@ -112,7 +112,7 @@ export async function summary(ctx: AppContext, tenantId: string, q: z.infer<type
         acc[r.mechanism] = f2(D(acc[r.mechanism]).plus(D(r._sum.savings)));
         return acc;
       }, {}),
-      note: "Estimated: baseline is a counterfactual (cost without WCO). Realized: optimized side confirmed by Meta delivery webhooks.",
+      note: "Estimada: a linha de base é um contrafactual (custo sem o WCO). Realizada: o lado otimizado foi confirmado pelos webhooks de entrega da Meta.",
     },
     free: {
       entryPoint: free.free_entry_point_window ?? 0,
@@ -280,7 +280,7 @@ export async function cost(ctx: AppContext, tenantId: string, q: z.infer<typeof 
     currency: s.currency,
     metaRealized: s.costs.metaRealized,
     realizedMessages: s.costs.realizedMessages,
-    note: "Realized = messages confirmed by Meta delivery webhooks with a pricing object, priced with the rate card in force on the delivery date.",
+    note: "Realizado = mensagens confirmadas pelos webhooks de entrega da Meta com objeto pricing, precificadas pelo rate card vigente na data da entrega.",
     isDemoRates: s.isDemoRates,
   };
 }

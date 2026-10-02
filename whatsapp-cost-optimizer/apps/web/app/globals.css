@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Chart roles follow the validated reference palette (dataviz): categorical slots
+ * blue → orange → aqua (fixed order), recessive hairline grid, text in ink tokens (never series color).
+ * Dark mode has its own validated steps — not an automatic flip.
+ */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --surface-2: #f3f2ef;
+  --ink-1: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-muted: #6f6d68;
+  --axis: #898781;
+  --grid: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --accent: #2a78d6;
+  --accent-ink: #ffffff;
+  --good: #0ca30c;
+  --good-ink: #006300;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --demo-bg: #fff4d6;
+  --demo-ink: #6b4a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --surface-2: #232321;
+    --ink-1: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-muted: #a3a197;
+    --axis: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --accent: #3987e5;
+    --good-ink: #0ca30c;
+    --demo-bg: #3a2c05;
+    --demo-ink: #f5d27a;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface-1: #1a1a19;
+  --surface-2: #232321;
+  --ink-1: #ffffff;
+  --ink-2: #c3c2b7;
+  --ink-muted: #a3a197;
+  --axis: #898781;
+  --grid: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --accent: #3987e5;
+  --good-ink: #0ca30c;
+  --demo-bg: #3a2c05;
+  --demo-ink: #f5d27a;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--ink-muted);
+  --color-line: var(--border);
+  --color-grid: var(--grid);
+  --color-accent: var(--accent);
+  --color-good: var(--good-ink);
+  --color-critical: var(--critical);
+  --color-serious: var(--serious);
+  --color-warning: var(--warning);
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html,
+body {
+  background: var(--page);
+  color: var(--ink-1);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

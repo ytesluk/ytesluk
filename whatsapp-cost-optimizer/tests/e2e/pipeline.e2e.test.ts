@@ -31,13 +31,14 @@ async function call(method: string, path: string, opts: { body?: unknown; key?: 
   if (opts.token) headers.authorization = `Bearer ${opts.token}`;
   const res = await fetch(`${BASE}${path}`, { method, headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
   const text = await res.text();
-  let json: any = null;
+  let json: unknown;
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
     json = text;
   }
-  return { status: res.status, body: json };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- assertions navigate arbitrary JSON
+  return { status: res.status, body: json as any };
 }
 
 const intent = (body: Record<string, unknown>, key = demoKey) => call("POST", "/api/v1/messages/intents", { key, body: { consent: { optIn: true, source: "e2e" }, ...body } });

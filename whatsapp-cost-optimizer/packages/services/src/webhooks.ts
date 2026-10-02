@@ -321,8 +321,8 @@ async function realize(ctx: AppContext, tenant: TenantConfig, attemptId: string)
       confidence,
       decisionReason: priced ? `meta_pricing:${priced.pricingType ?? (priced.pricingBillable ? "billable" : "free")}` : "no_pricing_object_estimate_kept",
       evidence: priced
-        ? [`Meta pricing object: type=${priced.pricingType ?? "n/a"}, billable=${priced.pricingBillable ?? "n/a"}, category=${priced.pricingCategory ?? "n/a"}`, `Delivered at ${at.toISOString()}`]
-        : ["No pricing object received yet; keeping WCO's estimate (ESTIMATED)"],
+        ? [`Objeto pricing da Meta: type=${priced.pricingType ?? "n/d"}, billable=${priced.pricingBillable ?? "n/d"}, category=${priced.pricingCategory ?? "n/d"}`, `Entregue em ${at.toISOString()}`]
+        : ["Nenhum objeto pricing recebido ainda; mantida a estimativa do WCO (ESTIMADO)"],
       evaluatedAt: ctx.now(),
     },
   });

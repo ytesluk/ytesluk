@@ -57,8 +57,8 @@ export async function onboardingStatus(ctx: AppContext, tenantId: string) {
         : null,
     pricingDemoOnly: cards.length > 0 && cards.every((c) => c.isDemo),
     notes: [
-      "Embedded Signup requires the app to be a Meta Tech Provider/Solution Partner with advanced access to whatsapp_business_management and whatsapp_business_messaging.",
-      "A developer token can only manage WABAs it was granted; it cannot administer any customer's WABA.",
+      "O Embedded Signup exige que o app seja Tech Provider/Solution Partner da Meta, com acesso avançado a whatsapp_business_management e whatsapp_business_messaging.",
+      "Um token de desenvolvedor só gerencia as WABAs às quais recebeu acesso; ele não administra a WABA de qualquer cliente.",
     ],
   };
 }
@@ -91,7 +91,7 @@ export const EmbeddedSignupSchema = z.object({ code: z.string().min(10), wabaId:
 export async function completeEmbeddedSignup(ctx: AppContext, actor: Actor, raw: unknown) {
   const input = EmbeddedSignupSchema.parse(raw);
   const gate = commercialOnboardingStatus(ctx.config);
-  if (!gate.allowed || !ctx.config.meta.partnerType) throw Errors.forbidden(`Embedded Signup unavailable: ${[...gate.missing, ...(ctx.config.meta.partnerType ? [] : ["META_PARTNER_TYPE"])].join(", ")}`);
+  if (!gate.allowed || !ctx.config.meta.partnerType) throw Errors.forbidden(`Embedded Signup indisponível; faltam: ${[...gate.missing, ...(ctx.config.meta.partnerType ? [] : ["META_PARTNER_TYPE"])].join(", ")}`);
   const meta = new MetaCloudApiProvider({ graphApiVersion: ctx.config.meta.graphApiVersion!, baseUrl: ctx.config.meta.graphApiBaseUrl, appSecret: ctx.config.meta.appSecret });
   const { accessToken } = await meta.exchangeCodeForToken(input.code, ctx.config.meta.appId!, ctx.config.meta.appSecret!);
   const creds = { accessToken };

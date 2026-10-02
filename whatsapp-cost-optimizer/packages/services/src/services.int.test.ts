@@ -81,7 +81,7 @@ describe("Case 9 — cross-tenant access", () => {
     await createIntent(ctx, acme, { customer: "+5511988880003", eventType: "payment.approved", entityId: "A", data: {} });
     const rows = await ctx.db.customer.findMany({ where: { phoneMasked: { contains: "0003" } } });
     expect(new Set(rows.map((c) => c.tenantId)).size).toBe(2);
-    expect(rows.every((c) => !c.phoneEncrypted.includes("5511988880003"))).toBe(true);
+    expect(rows.every((c) => !(c.phoneEncrypted ?? "").includes("5511988880003"))).toBe(true);
   });
 });
 

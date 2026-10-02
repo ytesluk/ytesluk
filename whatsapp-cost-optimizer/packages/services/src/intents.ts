@@ -229,12 +229,21 @@ export async function getIntentAudit(ctx: AppContext, tenantId: string, intentId
   const policies = policyIds.length ? await ctx.db.pricingPolicyVersion.findMany({ where: { id: { in: policyIds } }, select: { id: true, name: true, effectiveFrom: true, effectiveUntil: true, sourceUrl: true, status: true, notes: true } }) : [];
   const decision = intent.decisions[intent.decisions.length - 1];
   const why = {
-    whySent: decision && ["SEND_NOW", "DELAY", "CONSOLIDATE"].includes(decision.action) ? decision.reasons : null,
+    whySent: decision && decision.action === "SEND_NOW" ? decision.reasons : intent.sentAt ? ["janela de buffer encerrada: enviado o estado mais recente"] : null,
     whyDelayed: decision && (decision.action === "DELAY" || decision.action === "CONSOLIDATE") ? decision.reasons : null,
-    whyConsolidated: intent.status === "CONSOLIDATED" ? [`merged into intent ${intent.consolidatedIntoId}`] : decision?.action === "CONSOLIDATE" ? decision.reasons : null,
+    whyConsolidated:
+      intent.status === "CONSOLIDATED"
+        ? [`consolidada na intent ${intent.consolidatedIntoId}`]
+        : intent.status === "SUPERSEDED"
+          ? [`substituída pela intent ${intent.supersededById} (estado mais recente da mesma entidade)`]
+          : decision?.action === "CONSOLIDATE" && (intent.attempts[0]?.coveredIntentIds.length ?? 0) > 1
+            ? [`mensagem-resumo cobrindo ${intent.attempts[0]!.coveredIntentIds.length} eventos`]
+            : null,
     whyFree: (realized ?? optimized)?.isFree ? ((realized ?? optimized)!.evidence as string[]) : null,
     whyCharged: (realized ?? optimized) && !(realized ?? optimized)!.isFree && (realized ?? optimized)!.pricingStatus === "PAID" ? ((realized ?? optimized)!.evidence as string[]) : null,
-    whyCategory: intent.templateName ? [`template ${intent.templateName} — category ${intent.category} as assigned by Meta (or declared, if Meta has not reported yet)`] : [`free-form message inside the customer service window → ${intent.category}`],
+    whyCategory: intent.templateName
+      ? [`template ${intent.templateName}: categoria ${intent.category} atribuída pela Meta (ou a declarada, enquanto a Meta não informar)`]
+      : [`mensagem livre dentro da janela de atendimento → ${intent.category}`],
     pricingPolicy: (realized ?? optimized)?.policyVersion ?? null,
     rateCard: (realized ?? optimized)?.rateCardId ?? null,
     tier: (realized ?? optimized)?.tier ?? null,

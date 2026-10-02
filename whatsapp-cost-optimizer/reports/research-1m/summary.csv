@@ -1,0 +1,6 @@
+scenario,size,arm,seeds,meta_savings_mean,meta_savings_sd,meta_savings_min,meta_savings_max,total_savings_mean,total_savings_sd,messages_avoided_mean
+MEDIUM_DUPLICATION,1000000,B,1,7.72,0,7.72,7.72,7.7,0,46412
+MEDIUM_DUPLICATION,1000000,C,1,11.36,0,11.36,11.36,11.34,0,134694
+MEDIUM_DUPLICATION,1000000,D,1,14.97,0,14.97,14.97,14.95,0,222186
+MEDIUM_DUPLICATION,1000000,E,1,16.54,0,16.54,16.54,16.52,0,222186
+MEDIUM_DUPLICATION,1000000,F,1,16.54,0,16.54,16.54,24.1,0,222186

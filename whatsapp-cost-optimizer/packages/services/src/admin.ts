@@ -43,7 +43,7 @@ export async function listPricing(ctx: AppContext) {
       marketAliases: i.marketAliases,
       rows: i.rows.map((r) => ({ market: r.market, category: r.category, tierStart: r.tierStart, tierEnd: r.tierEnd, unitRate: r.unitRate.toString() })),
     })),
-    disclaimer: "DEMO rate cards contain fictitious values for development only — they are not Meta's rates.",
+    disclaimer: "Rate cards DEMO contêm valores fictícios, apenas para desenvolvimento — não são tarifas da Meta.",
   };
 }
 
@@ -194,7 +194,7 @@ export async function templateCost(ctx: AppContext, tenantId: string, raw: unkno
  */
 export async function classificationAssistant(ctx: AppContext, actor: Actor, templateId: string) {
   if (!ctx.config.env.AI_ASSISTANT_ENABLED) {
-    return { enabled: false, message: "Template Classification Assistant is disabled (AI_ASSISTANT_ENABLED=false). The deterministic analyzer is always available." };
+    return { enabled: false, message: "O Template Classification Assistant está desativado (AI_ASSISTANT_ENABLED=false). O analisador determinístico continua disponível." };
   }
   const t = await ctx.db.template.findFirst({ where: { id: templateId, tenantId: actor.tenantId } });
   if (!t) throw Errors.notFound("Template");

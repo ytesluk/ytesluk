@@ -83,7 +83,7 @@ export async function createApiKey(ctx: AppContext, actor: Actor, raw: unknown) 
   const key = `wco_${randomBytes(24).toString("base64url")}`;
   const row = await ctx.db.apiKey.create({ data: { tenantId: actor.tenantId, name: input.name, prefix: key.slice(0, 10), keyHash: hashApiKey(key), role: input.role } });
   await audit(ctx.db, { tenantId: actor.tenantId, actor, action: "apikey.created", entityType: "ApiKey", entityId: row.id, data: { name: input.name, role: input.role } });
-  return { id: row.id, name: row.name, role: row.role, prefix: row.prefix, key, note: "Store this key now; it is never shown again." };
+  return { id: row.id, name: row.name, role: row.role, prefix: row.prefix, key, note: "Guarde esta chave agora; ela não será exibida novamente." };
 }
 
 export async function revokeApiKey(ctx: AppContext, actor: Actor, id: string) {

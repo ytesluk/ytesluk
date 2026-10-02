@@ -55,10 +55,10 @@ export class PricingPolicy {
       market = resolved.market;
       mappingVersion = resolved.mappingVersion;
       if (ex) evidence.push(
-        `Market ${market} resolved from recipient calling code +${resolved.callingCodePrefix ?? "?"} (mapping ${resolved.mappingVersion})`,
+        `Mercado ${market} resolvido pelo código de discagem do destinatário +${resolved.callingCodePrefix ?? "?"} (mapeamento ${resolved.mappingVersion})`,
       );
     } else {
-      if (ex) evidence.push(`Market ${market}`);
+      if (ex) evidence.push(`Mercado ${market}`);
     }
 
     const windows = evaluateWindows(def, ctx.conversation, ctx.at);
@@ -84,7 +84,7 @@ export class PricingPolicy {
       rateCard?.hasCategory(market, BillingCategory.AUTHENTICATION_INTERNATIONAL)
     ) {
       category = BillingCategory.AUTHENTICATION_INTERNATIONAL;
-      if (ex) evidence.push("Business eligible for authentication-international rates in this market");
+      if (ex) evidence.push("Empresa elegível às tarifas de autenticação internacional neste mercado");
     }
 
     const rule = this.ruleFor(category, market);
@@ -103,22 +103,22 @@ export class PricingPolicy {
       evidence: [...evidence, note],
     });
 
-    if (ex) evidence.push(`Pricing policy ${def.id} (${def.effectiveFrom} → ${def.effectiveUntil ?? "open"}), billing date ${billingDate} (WABA timezone ${ctx.timezone})`);
+    if (ex) evidence.push(`Política de preço ${def.id} (${def.effectiveFrom} → ${def.effectiveUntil ?? "em vigor"}), data de cobrança ${billingDate} (fuso da WABA ${ctx.timezone})`);
     if (!rule) return unknown("no_rule_for_category", `Policy ${def.id} has no rule for ${category}`);
 
     if (rule.messageKind !== ctx.messageKind) {
-      if (ex) evidence.push(`Category ${category} is a ${rule.messageKind.toLowerCase()} category`);
+      if (ex) evidence.push(`Categoria ${category} é do tipo ${rule.messageKind === "TEMPLATE" ? "template" : "mensagem livre (non-template)"}`);
     }
 
     if (rule.requiresCustomerServiceWindow && !windows.customerServiceWindow.open) {
       return {
-        ...unknown("non_template_outside_customer_service_window", "Non-template messages can only be sent inside an open 24h customer service window (Meta error 131047)."),
+        ...unknown("non_template_outside_customer_service_window", "Mensagens livres (non-template) só podem ser enviadas com a janela de atendimento de 24h aberta (erro 131047 da Meta)."),
         status: PricingStatus.NOT_ELIGIBLE,
       };
     }
 
     if (rule.unit === "TOKEN") {
-      return unknown("token_based_pricing_not_modeled", "Meta Business Agent messages are priced per token; WCO does not send them.");
+      return unknown("token_based_pricing_not_modeled", "Mensagens do Meta Business Agent são cobradas por token; o WCO não as envia.");
     }
 
     // ---- rate lookup (needed for FREE results too: "what it would have cost")
@@ -128,7 +128,7 @@ export class PricingPolicy {
     if (!priced && rule.rateCategoryFallback && rateCard) {
       priced = rateCard.calculator(market, rule.rateCategoryFallback, billingDate);
       pricedCategory = rule.rateCategoryFallback;
-      if (priced && ex) evidence.push(`Rate card has no ${rateCategory} row; using ${rule.rateCategoryFallback} rate as defined by the policy`);
+      if (priced && ex) evidence.push(`Rate card sem linha de ${rateCategory}; usando a tarifa de ${rule.rateCategoryFallback} conforme a política`);
     }
     const listRate = priced ? priced.calc.rateAt(1) : null;
 
@@ -149,24 +149,24 @@ export class PricingPolicy {
 
     // ---- free conditions (order: always → FEP → CSW), then quota
     if (!rule.billable || rule.freeEligibility.includes(FreeCondition.ALWAYS)) {
-      return free("not_billable_under_policy", PricingStatus.FREE, `${category} messages are not charged under ${def.id}`);
+      return free("not_billable_under_policy", PricingStatus.FREE, `Mensagens ${category} não são cobradas sob ${def.id}`);
     }
     if (rule.freeEligibility.includes(FreeCondition.FREE_ENTRY_POINT) && windows.freeEntryPoint.open) {
       const note = windows.freeEntryPoint.opensOnThisMessage
-        ? "First reply within 24h of a free entry point message: free, and opens a free entry point window"
-        : `Inside an open free entry point window (until ${windows.freeEntryPoint.expiresAt?.toISOString()})`;
-      return free("free_entry_point_window", PricingStatus.FREE, `${note} [verification: ${windows.freeEntryPoint.verification ?? "n/a"}]`);
+        ? "Primeira resposta em até 24h a uma mensagem de Free Entry Point: gratuita e abre a janela FEP"
+        : `Dentro de uma janela FEP aberta (até ${windows.freeEntryPoint.expiresAt?.toISOString()})`;
+      return free("free_entry_point_window", PricingStatus.FREE, `${note} [verificação: ${windows.freeEntryPoint.verification ?? "n/d"}]`);
     }
     if (rule.freeEligibility.includes(FreeCondition.CUSTOMER_SERVICE_WINDOW) && windows.customerServiceWindow.open) {
       return free(
         "customer_service_window",
         PricingStatus.FREE,
-        `Delivered inside an open customer service window (until ${windows.customerServiceWindow.expiresAt?.toISOString()}); ${category} is free in-window under ${def.id}`,
+        `Entregue com a janela de atendimento aberta (até ${windows.customerServiceWindow.expiresAt?.toISOString()}); ${category} é gratuita na janela sob ${def.id}`,
       );
     }
-    if (ex) evidence.push(windows.freeEntryPoint.open ? "" : "No active free entry point window");
-    if (ex && rule.freeEligibility.includes(FreeCondition.CUSTOMER_SERVICE_WINDOW)) evidence.push("No open customer service window");
-    else if (ex && windows.customerServiceWindow.open) evidence.push(`Open customer service window does not make ${category} free under ${def.id}`);
+    if (ex) evidence.push(windows.freeEntryPoint.open ? "" : "Nenhuma janela FEP ativa");
+    if (ex && rule.freeEligibility.includes(FreeCondition.CUSTOMER_SERVICE_WINDOW)) evidence.push("Janela de atendimento fechada");
+    else if (ex && windows.customerServiceWindow.open) evidence.push(`Janela de atendimento aberta não torna ${category} gratuita sob ${def.id}`);
 
     if (rule.freeQuota) {
       const used = ctx.quotaUsed ?? 0;
@@ -178,13 +178,13 @@ export class PricingPolicy {
         usedBefore: used,
       };
       if (used < rule.freeQuota.amount) {
-        return free("free_monthly_quota", PricingStatus.QUOTA, `Free quota ${used + 1}/${rule.freeQuota.amount} (${rule.freeQuota.scope}, ${month})`, quota);
+        return free("free_monthly_quota", PricingStatus.QUOTA, `Cota gratuita ${used + 1}/${rule.freeQuota.amount} (${rule.freeQuota.scope}, ${month})`, quota);
       }
-      if (ex) evidence.push(`Free quota exhausted (${used}/${rule.freeQuota.amount}, ${month})`);
+      if (ex) evidence.push(`Cota gratuita esgotada (${used}/${rule.freeQuota.amount}, ${month})`);
     }
 
     if (!priced || !rateCard) {
-      return unknown("no_rate_for_market_category", `No rate for ${rateCategory} in market ${market} on ${billingDate} (rate card: ${rateCard?.id ?? "none"})`);
+      return unknown("no_rate_for_market_category", `Sem tarifa para ${rateCategory} no mercado ${market} em ${billingDate} (rate card: ${rateCard?.id ?? "nenhum"})`);
     }
 
     let tier: TierInfo | null = null;
@@ -193,11 +193,11 @@ export class PricingPolicy {
       const position = (ctx.tierPosition ?? 0) + 1;
       tier = rateCard.tierInfo(priced.calc, position);
       rate = priced.calc.rateAt(position);
-      if (ex) evidence.push(`Volume tier: message #${position.toLocaleString("en-US")} of the month → ${tier.label}`);
+      if (ex) evidence.push(`Tier de volume: mensagem nº ${position.toLocaleString("pt-BR")} do mês → ${tier.label}`);
     }
     if (ex) evidence.push(
-      `Charged at ${rate.toString()} ${rateCard.meta.currency} (${pricedCategory}, catalog market ${priced.catalogMarket}, rate card ${rateCard.meta.name}${rateCard.meta.isDemo ? " — DEMO RATES" : ""})`,
-      `Charged only if delivered (billing event: ${def.billingEvent})`,
+      `Cobrada a ${rate.toString()} ${rateCard.meta.currency} (${pricedCategory}, mercado do catálogo ${priced.catalogMarket}, rate card ${rateCard.meta.name}${rateCard.meta.isDemo ? " — TARIFAS DEMO" : ""})`,
+      `Cobrada somente se entregue (evento de cobrança: ${def.billingEvent})`,
     );
     return {
       ...base,

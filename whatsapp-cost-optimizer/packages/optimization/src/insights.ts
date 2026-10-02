@@ -117,47 +117,47 @@ export function opportunities(input: OpportunityInput): OpportunityView[] {
   const list: OpportunityView[] = [
     {
       type: OpportunityType.DUPLICATE,
-      title: "High duplicate rate",
+      title: "Taxa de duplicação na origem",
       potentialSaving: f(input.averageCost.times(input.duplicates)),
       currency: input.currency,
       confidence: 0.95,
-      note: "Duplicated events detected by eventHash within the dedup window.",
+      note: "Eventos duplicados detectados pelo eventHash dentro da janela de deduplicação.",
     },
     {
       type: OpportunityType.CONSOLIDATION,
-      title: "High consolidation opportunity",
+      title: "Oportunidade de consolidação",
       potentialSaving: f(input.averageCost.times(Math.floor(input.burstIntents / 2))),
       currency: input.currency,
       confidence: 0.6,
-      note: "Requires an approved summary template; savings depend on business tolerance to delay.",
+      note: "Exige template-resumo aprovado; a economia depende da tolerância do negócio a atraso.",
     },
     {
       type: OpportunityType.FREE_WINDOW,
-      title: "Free-entry utilization",
+      title: "Aproveitamento de Free Entry Point",
       potentialSaving: f(input.averageCost.times(input.freeEntryPointEligibleMissed + input.paidJustAfterWindow)),
       currency: input.currency,
       confidence: 0.5,
-      note: "FEP windows open only when the business replies within 24h to a Click-to-WhatsApp/Page CTA message (mobile apps).",
+      note: "A janela FEP só abre quando a empresa responde em até 24h a uma mensagem vinda de anúncio Click-to-WhatsApp ou CTA de Página (apps móveis).",
     },
     {
       type: OpportunityType.VOLUME_TIER,
-      title: "Volume-tier opportunity",
+      title: "Tiers de volume",
       potentialSaving: "0.00",
       currency: input.currency,
       confidence: 0.3,
       note:
         input.tierNote ??
-        "Tiers accrue per business portfolio, market and category. WCO never sends extra messages to reach a tier; consolidating WABAs under one portfolio is the only structural lever.",
+        "Tiers acumulam por portfólio empresarial, mercado e categoria. O WCO nunca envia mensagens extras para atingir um tier; consolidar WABAs em um portfólio é a única alavanca estrutural.",
     },
   ];
   if (input.bspMonthlyFees && input.bspMonthlyFees.isPositive()) {
     list.push({
       type: OpportunityType.BSP_MARKUP,
-      title: "BSP fees",
+      title: "Taxas de BSP",
       potentialSaving: f(input.bspMonthlyFees),
       currency: input.currency,
       confidence: 0.4,
-      note: "Only if the operation can run on the Cloud API directly; consider the extra costs of operating directly.",
+      note: "Somente se a operação puder usar a Cloud API diretamente; considere os custos extras de operar sem BSP.",
     });
   }
   return list;

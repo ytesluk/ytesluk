@@ -13,7 +13,7 @@ import type { RateCardMeta, RateRow } from "./types";
  * markets — Meta has no "EU" market, see KNOWN-CONFLICTS C8) and OTHER.
  */
 export const DEMO_SOURCE_URL = "demo://wco/fictitious-rate-card";
-export const DEMO_DOCUMENT = "DEMO — fictitious values for testing, NOT Meta rates";
+export const DEMO_DOCUMENT = "DEMO — valores fictícios para testes, NÃO são tarifas da Meta";
 
 export const DEMO_MARKET_ALIASES: Record<string, string[]> = {
   US: [Region.NORTH_AMERICA],
