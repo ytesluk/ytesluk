@@ -26,6 +26,9 @@ importers:
       '@wco/simulator':
         specifier: workspace:*
         version: link:packages/simulator
+      csv-stringify:
+        specifier: ^6.9.0
+        version: 6.9.0
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -33,6 +36,12 @@ importers:
       '@types/node':
         specifier: ^22.19.0
         version: 22.20.5
+      '@wco/testing':
+        specifier: workspace:*
+        version: link:packages/testing
+      '@wco/whatsapp':
+        specifier: workspace:*
+        version: link:packages/whatsapp
       eslint:
         specifier: ^10.11.0
         version: 10.11.0(jiti@2.7.0)
@@ -133,6 +142,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      '@wco/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.28)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
@@ -334,6 +346,10 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+    devDependencies:
+      '@wco/testing':
+        specifier: workspace:*
+        version: link:../testing
 
   packages/simulator:
     dependencies:

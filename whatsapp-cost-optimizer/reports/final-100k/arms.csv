@@ -1,0 +1,7 @@
+arm,label,events,messages_sent,messages_delivered,messages_failed,duplicates_blocked,supersessions,consolidated_intents,consolidated_messages,messages_avoided,meta_cost,meta_cost_estimated,bsp_cost,infra_cost,total_cost,average_cost_per_delivered,free_entry_point,free_customer_service_window,free_quota,quota_utilization_pct,free_window_utilization_pct,paid_messages,unknown_pricing
+A,Sem otimização (controle),96320,96320,93310,3010,0,0,0,0,0,8952.9150,9252.5010,895.2915,4.8160,9853.0225,0.095948,1404,0,2000,100,1.5,89906,0
+B,Deduplicação,96320,91701,88800,2901,4619,0,0,0,4619,8257.3910,8534.9130,825.7391,6.5114,9089.6416,0.092989,1342,0,2000,100,1.51,85458,0
+C,Dedup + supersession,96320,82635,80011,2624,4357,9328,0,0,13685,7895.1210,8160.2590,789.5121,6.0582,8690.6912,0.098675,1324,0,2000,100,1.65,76687,0
+D,Dedup + supersession + agregação,96320,73655,71304,2351,4363,9328,8974,4487,22665,7534.0870,7788.4470,753.4087,5.6092,8293.1048,0.105661,1306,0,2000,100,1.83,67998,0
+E,D + otimizador de preço,96320,73655,71304,2351,4363,9328,8974,4487,22665,7386.5050,7633.5450,738.6505,5.6092,8130.7646,0.103592,1754,0,2000,100,2.46,67550,0
+F,Todas as técnicas (E + Cloud API direta),96320,73655,71304,2351,4363,9328,8974,4487,22665,7386.5050,7633.5450,0.0000,5.6092,7392.1142,0.103592,1754,0,2000,100,2.46,67550,0

@@ -2,7 +2,7 @@
   "name": "whatsapp-cost-optimizer",
   "version": "0.1.0",
   "private": true,
-  "description": "WCO \u2014 camada de otimiza\u00e7\u00e3o de custo entre sistemas empresariais e a WhatsApp Business Platform Cloud API.",
+  "description": "WCO — camada de otimização de custo entre sistemas empresariais e a WhatsApp Business Platform Cloud API.",
   "type": "module",
   "packageManager": "pnpm@10.28.0",
   "engines": {
@@ -45,7 +45,9 @@
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.0",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "@wco/testing": "workspace:*",
+    "@wco/whatsapp": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -58,11 +60,12 @@
     ]
   },
   "dependencies": {
+    "@wco/config": "workspace:*",
+    "@wco/database": "workspace:*",
+    "@wco/domain": "workspace:*",
+    "@wco/pricing": "workspace:*",
     "@wco/services": "workspace:*",
     "@wco/simulator": "workspace:*",
-    "@wco/pricing": "workspace:*",
-    "@wco/domain": "workspace:*",
-    "@wco/database": "workspace:*",
-    "@wco/config": "workspace:*"
+    "csv-stringify": "^6.9.0"
   }
 }
