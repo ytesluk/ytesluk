@@ -19,7 +19,15 @@ export default function LoginPage() {
     const res = await fetch("/auth/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password }) });
     setBusy(false);
     if (!res.ok) {
-      setError(res.status === 429 ? "Muitas tentativas. Aguarde um minuto." : "E-mail ou senha inválidos.");
+      setError(
+        res.status === 429
+          ? "Muitas tentativas. Aguarde um minuto."
+          : res.status === 403
+            ? "Origem não permitida: este endereço não está liberado no servidor (configure WEB_ALLOWED_ORIGINS)."
+            : res.status === 401
+              ? "E-mail ou senha inválidos."
+              : `Não foi possível entrar (erro ${res.status}). Verifique se a API está no ar.`,
+      );
       return;
     }
     const { user } = (await res.json()) as { user?: { role?: string } };

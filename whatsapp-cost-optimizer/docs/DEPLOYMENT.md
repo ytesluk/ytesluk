@@ -31,6 +31,11 @@ docker compose -f docker-compose.yml -f infra/docker/compose.host-network.yml up
 
 Os serviços passam a conversar por `localhost`; as portas 3000, 4000, 5432, 6379 e 9100 precisam estar livres.
 
+O dashboard só aceita login/alterações vindos da própria origem (proteção CSRF). No Codespaces isso é
+automático (`CODESPACE_NAME` e `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN` são repassados ao container
+`web`); atrás de outro proxy, declare a URL pública em `WEB_ALLOWED_ORIGINS` (ex.:
+`https://wco.suaempresa.com.br`).
+
 ### Build atrás de proxy corporativo
 
 ```bash
