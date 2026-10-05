@@ -367,12 +367,38 @@ function TemplateSim() {
   );
 }
 
-const HISTORY_SAMPLE = `timestamp,customer,eventType,category,country,template,delivered,status,source,isFEP,isServiceWindow
-2026-09-01T12:00:00Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,delivered,erp,false,false
-2026-09-01T12:00:20Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,delivered,erp,false,false
-2026-09-01T12:00:20Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,delivered,erp,false,false
-2026-09-01T13:10:00Z,+5511900000002,authentication.otp,AUTHENTICATION,BR,otp_code,true,delivered,app,false,false
-2026-09-02T09:00:00Z,+5511900000003,marketing.campaign,MARKETING,BR,weekly_offer,true,read,crm,true,false`;
+const HISTORY_HEADER = "timestamp,customer,eventType,category,country,template,delivered,status,source,isFEP,isServiceWindow,entityId,content";
+const HISTORY_SAMPLE = `${HISTORY_HEADER}
+2026-09-01T12:00:00Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,CRIADO,erp,false,false,PED-1001,
+2026-09-01T12:00:12Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,PAGO,erp,false,false,PED-1001,
+2026-09-01T12:00:25Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,SEPARADO,erp,false,false,PED-1001,
+2026-09-01T12:00:30Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,CRIADO,erp,false,false,PED-1002,
+2026-09-01T12:05:00Z,+5511900000004,payment.approved,UTILITY,BR,payment_ok,true,OK,erp,false,false,,Pagamento do pedido 2001 aprovado
+2026-09-01T12:05:04Z,+5511900000004,payment.approved,UTILITY,BR,payment_ok,true,OK,erp,false,false,,Pagamento do pedido 2001 aprovado
+2026-09-01T13:10:00Z,+5511900000002,authentication.otp,AUTHENTICATION,BR,otp_code,true,delivered,app,false,false,LOGIN-77,
+2026-09-02T09:00:00Z,+5511900000003,marketing.campaign,MARKETING,BR,weekly_offer,true,read,crm,true,false,CAMP-09,`;
+
+/** Columns of the history file: what each one means and whether it is required. */
+const HISTORY_COLUMNS: Array<[string, string, string]> = [
+  ["timestamp", "sim", "data/hora do envio em ISO-8601 (ex.: 2026-09-01T12:00:00Z)"],
+  ["customer", "sim", "telefone ou ID do cliente (pode ser um código anônimo)"],
+  ["eventType", "sim", "o que gerou a mensagem (ex.: order.status, payment.approved)"],
+  ["category", "sim", "MARKETING, UTILITY, AUTHENTICATION ou SERVICE"],
+  ["country", "sim", "país do destinatário (BR, US…)"],
+  ["delivered", "sim", "true se a mensagem foi entregue"],
+  ["entityId", "recomendado", "pedido/protocolo/consulta — sem ele não há substituição nem consolidação"],
+  ["content", "opcional", "texto ou variáveis da mensagem — permite detectar reenvios idênticos"],
+  ["template, status, source, isFEP, isServiceWindow", "opcional", "template usado, situação, sistema de origem, conversa via anúncio, janela de atendimento aberta"],
+];
+
+function downloadTemplate() {
+  const blob = new Blob([`${HISTORY_SAMPLE}\n`], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "modelo-historico-wco.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 function HistorySim() {
   const [content, setContent] = useState(HISTORY_SAMPLE);
@@ -381,31 +407,73 @@ function HistorySim() {
     const file = e.target.files?.[0];
     if (file) setContent(await file.text());
   };
+  const control = result?.replay?.control;
+  const optimized = result?.replay?.optimized;
+  const m = result?.mechanisms;
+  const id = result?.identification;
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-      <Card title="Importar histórico (CSV)" subtitle="Colunas: timestamp, customer, eventType, category, country, template, delivered, status, source, isFEP, isServiceWindow" className="xl:col-span-2">
-        <div className="space-y-3">
-          <input type="file" accept=".csv,text/csv" onChange={onFile} className="text-xs text-ink-2" aria-label="Arquivo CSV" />
-          <Textarea rows={10} value={content} onChange={(e) => setContent(e.target.value)} />
-          <Button variant="primary" className="w-full" loading={busy} onClick={() => void run("import/history", { content, filename: "history.csv" })}>
-            Calcular baseline e simulação
-          </Button>
-        </div>
-      </Card>
+      <div className="space-y-4 xl:col-span-2">
+        <Card title="Importar histórico (CSV)" subtitle="Exporte do seu sistema as mensagens enviadas em um período (de preferência 1 mês) e reprocesse aqui. Nada é enviado ao WhatsApp.">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <input type="file" accept=".csv,text/csv" onChange={onFile} className="text-xs text-ink-2" aria-label="Arquivo CSV" />
+              <Button variant="ghost" onClick={downloadTemplate}>
+                Baixar modelo CSV
+              </Button>
+            </div>
+            <Textarea rows={10} value={content} onChange={(e) => setContent(e.target.value)} />
+            <Button variant="primary" className="w-full" loading={busy} onClick={() => void run("import/history", { content, filename: "history.csv" })}>
+              Calcular baseline e simulação
+            </Button>
+          </div>
+        </Card>
+        <Card title="Colunas do arquivo">
+          <dl className="space-y-3">
+            {HISTORY_COLUMNS.map(([name, required, desc]) => (
+              <div key={name}>
+                <dt className="flex flex-wrap items-baseline gap-2">
+                  <code className="break-all text-xs font-medium text-ink">{name}</code>
+                  <span className="text-[11px] text-muted">{required === "sim" ? "obrigatória" : required}</span>
+                </dt>
+                <dd className="mt-0.5 text-sm text-ink-2">{desc}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      </div>
       <div className="space-y-4 xl:col-span-3">
         {error ? <ErrorBox error={error} title="Importação rejeitada" /> : null}
         {result ? (
           <>
-            <Card title="Resultado (estimado)" subtitle={`${int(result.valid)} linhas válidas de ${int(result.rows)} · período ${result.period.from?.slice(0, 10) ?? "—"} a ${result.period.to?.slice(0, 10) ?? "—"}`}>
+            <Card title="Resultado (estimado)" subtitle={`${int(result.valid)} linhas válidas de ${int(result.rows)} · período ${result.period.from?.slice(0, 10) ?? "—"} a ${result.period.to?.slice(0, 10) ?? "—"}`} actions={result.isDemoRate ? <DemoBadge /> : null}>
               <KeyValue
+                cols={1}
                 items={[
                   ["Custo como enviado (histórico)", money(result.asSent.cost, result.currency)],
                   ["Mensagens entregues", int(result.asSent.delivered)],
+                  ["Mesmos eventos sem WCO", control ? `${int(control.messagesSent)} msgs · ${money(control.metaCost, result.currency)}` : "—"],
+                  ["Mesmos eventos com WCO", optimized ? `${int(optimized.messagesSent)} msgs · ${money(optimized.metaCost, result.currency)}` : "—"],
                   ["Economia Meta estimada com WCO", result.savings ? `${money(result.savings.meta, result.currency)} (${pct(result.savings.percent)})` : "—"],
                   ["Mensagens evitadas", result.savings ? int(result.savings.messagesAvoided) : "—"],
                 ]}
               />
             </Card>
+            {m ? (
+              <Card title="De onde veio a economia" subtitle="Cada mensagem evitada tem um motivo; abra Mensagens no modo real para ver a auditoria individual.">
+                <KeyValue
+                  cols={1}
+                  items={[
+                    ["Reenvios idênticos bloqueados", int(m.duplicatesBlocked)],
+                    ["Atualizações substituídas pela mais recente", int(m.supersessions)],
+                    ["Atualizações consolidadas", m.consolidatedIntents ? `${int(m.consolidatedIntents)} em ${int(m.consolidatedMessages)} mensagens` : "0"],
+                    ["Gratuitas por conversa via anúncio (FEP)", int(m.freeEntryPoint)],
+                    ["Gratuitas pela cota de Service", int(m.freeQuota)],
+                    ["Linhas identificadas", id ? `${int(id.withEntity)} com entityId · ${int(id.contentOnly)} só content · ${int(id.unidentified)} sem identificação` : "—"],
+                  ]}
+                />
+              </Card>
+            ) : null}
             {result.errors?.length ? (
               <Card title={`Linhas com erro (${result.invalid})`} padded={false}>
                 <Table dense rows={result.errors} rowKey={(e: any) => `${e.line}-${e.message}`} columns={[{ key: "l", header: "Linha", render: (e: any) => e.line }, { key: "m", header: "Erro", render: (e: any) => e.message }]} />

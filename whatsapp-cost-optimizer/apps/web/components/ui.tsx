@@ -229,8 +229,9 @@ export function KeyValue({ items, cols = 2 }: { items: Array<[string, React.Reac
     <dl className={cx("grid grid-cols-1 gap-x-6 gap-y-2 text-sm", cols === 2 && "sm:grid-cols-2")}>
       {items.map(([k, v]) => (
         <div key={k} className="flex min-w-0 justify-between gap-3 border-b border-line py-1.5">
-          <dt className="shrink-0 text-ink-2">{k}</dt>
-          <dd className="min-w-0 break-words text-right text-ink">{v}</dd>
+          {/* Labels wrap between words; values keep their natural width (up to 65%) so numbers never split. */}
+          <dt className="min-w-0 text-ink-2">{k}</dt>
+          <dd className="max-w-[65%] shrink-0 break-words text-right text-ink">{v}</dd>
         </div>
       ))}
     </dl>

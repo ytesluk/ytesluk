@@ -47,14 +47,15 @@ describe("experiments A–F (spec §77)", () => {
 });
 
 describe("historical CSV import (spec §38)", () => {
+  const H = "timestamp,customer,eventType,category,country,template,delivered,status,source,isFEP,isServiceWindow,entityId,content";
   it("validates rows, prices as-sent traffic and replays through WCO", () => {
     const csv = [
-      "timestamp,customer,eventType,category,country,template,delivered,status,source,isFEP,isServiceWindow",
-      "2026-10-05T12:00:00Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,SHIPPED,erp,false,false",
-      "2026-10-05T12:00:10Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,SHIPPED,erp,false,false",
-      "2026-10-05T13:00:00Z,5511999990002,marketing.campaign,MARKETING,BR,weekly_offer,true,SENT,crm,true,false",
-      "not-a-date,5511999990003,x,UTILITY,BR,t,true,,,false,false",
-      "2026-10-05T14:00:00Z,5511999990004,x,PROMO,BR,t,true,,,false,false",
+      H,
+      "2026-10-05T12:00:00Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,SHIPPED,erp,false,false,ORD-1,",
+      "2026-10-05T12:00:10Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,SHIPPED,erp,false,false,ORD-1,",
+      "2026-10-05T13:00:00Z,5511999990002,marketing.campaign,MARKETING,BR,weekly_offer,true,SENT,crm,true,false,,",
+      "not-a-date,5511999990003,x,UTILITY,BR,t,true,,,false,false,,",
+      "2026-10-05T14:00:00Z,5511999990004,x,PROMO,BR,t,true,,,false,false,,",
     ].join("\n");
     const r = importHistory(csv);
     expect(r.rows).toBe(5);
@@ -64,7 +65,38 @@ describe("historical CSV import (spec §38)", () => {
     expect(r.asSent.cost).toBe("0.0800"); // two utility messages (0.04 DEMO); FEP marketing is free
     expect(r.asSent.free).toBe(1);
     expect(r.replay?.optimized.messagesSent).toBeLessThan(r.replay!.control.messagesSent);
+    expect(r.identification).toEqual({ withEntity: 2, contentOnly: 0, unidentified: 1 });
     expect(r.label).toBe("ESTIMATED");
+  });
+
+  it("never merges or drops rows it cannot identify (conservative)", () => {
+    // Same customer, same template, two DIFFERENT orders 10 s apart: both must be sent.
+    const twoOrders = [H, "2026-10-05T12:00:00Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,SHIPPED,erp,false,false,ORD-1,", "2026-10-05T12:00:10Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,SHIPPED,erp,false,false,ORD-2,"].join("\n");
+    expect(importHistory(twoOrders).savings?.messagesAvoided).toBe(0);
+    // No entityId and no content: replayed as-is, nothing counted as savings.
+    const unknown = [H, "2026-10-05T12:00:00Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,SHIPPED,erp,false,false,,", "2026-10-05T12:00:10Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,SHIPPED,erp,false,false,,"].join("\n");
+    const u = importHistory(unknown);
+    expect(u.savings?.messagesAvoided).toBe(0);
+    expect(u.identification.unidentified).toBe(2);
+    expect(u.notes[0]).toMatch(/sem entityId nem content/);
+    // Same content re-sent (integration retry) without entityId: deduplicated.
+    const retry = [H, "2026-10-05T12:00:00Z,5511999990001,payment.approved,UTILITY,BR,payment_ok,true,OK,erp,false,false,,Pagamento do pedido 991 aprovado", "2026-10-05T12:00:05Z,5511999990001,payment.approved,UTILITY,BR,payment_ok,true,OK,erp,false,false,,Pagamento do pedido 991 aprovado"].join("\n");
+    const d = importHistory(retry);
+    expect(d.savings?.messagesAvoided).toBe(1);
+    expect(d.mechanisms?.duplicatesBlocked).toBe(1);
+  });
+
+  it("supersedes rapid updates of the same order to the latest state", () => {
+    const burst = [
+      H,
+      "2026-10-05T12:00:00Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,CREATED,erp,false,false,ORD-9,",
+      "2026-10-05T12:00:08Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,PAID,erp,false,false,ORD-9,",
+      "2026-10-05T12:00:15Z,5511999990001,order.status,UTILITY,BR,order_status_update,true,PACKED,erp,false,false,ORD-9,",
+    ].join("\n");
+    const r = importHistory(burst);
+    expect(r.replay?.control.messagesSent).toBe(3);
+    expect(r.replay?.optimized.messagesSent).toBe(1);
+    expect(r.mechanisms?.supersessions).toBe(2);
   });
 });
 

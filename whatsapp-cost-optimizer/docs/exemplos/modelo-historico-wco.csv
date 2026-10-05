@@ -1,0 +1,9 @@
+timestamp,customer,eventType,category,country,template,delivered,status,source,isFEP,isServiceWindow,entityId,content
+2026-09-01T12:00:00Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,CRIADO,erp,false,false,PED-1001,
+2026-09-01T12:00:12Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,PAGO,erp,false,false,PED-1001,
+2026-09-01T12:00:25Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,SEPARADO,erp,false,false,PED-1001,
+2026-09-01T12:00:30Z,+5511900000001,order.status,UTILITY,BR,order_status_update,true,CRIADO,erp,false,false,PED-1002,
+2026-09-01T12:05:00Z,+5511900000004,payment.approved,UTILITY,BR,payment_ok,true,OK,erp,false,false,,Pagamento do pedido 2001 aprovado
+2026-09-01T12:05:04Z,+5511900000004,payment.approved,UTILITY,BR,payment_ok,true,OK,erp,false,false,,Pagamento do pedido 2001 aprovado
+2026-09-01T13:10:00Z,+5511900000002,authentication.otp,AUTHENTICATION,BR,otp_code,true,delivered,app,false,false,LOGIN-77,
+2026-09-02T09:00:00Z,+5511900000003,marketing.campaign,MARKETING,BR,weekly_offer,true,read,crm,true,false,CAMP-09,

@@ -7,6 +7,9 @@ import type { OptimizationPolicyConfig } from "@wco/policy";
  *  - eventHash:        content identity for deduplication
  *  - supersessionKey:  stream of state updates where the newest replaces older ones
  *  - consolidationKey: intents that can be merged into ONE message (same category + same approved template)
+ * Supersession and consolidation require a business entity (order, appointment, ticket…): without
+ * one, two updates of the same type could be about different things, and replacing or merging them
+ * would drop information the customer needs. Deduplication still applies (identical content).
  */
 export function groupKey(tenantId: string, phoneNumberId: string, customerKey: string, businessEntityId: string | null): string {
   return `${tenantId}:${phoneNumberId}:${customerKey}:${businessEntityId ?? "-"}`;
@@ -25,13 +28,13 @@ export function eventHash(input: {
   );
 }
 
-export function supersessionKey(group: string, eventType: string, policy: OptimizationPolicyConfig, allow: boolean): string | null {
-  if (!allow || !policy.allowSupersession) return null;
+export function supersessionKey(group: string, eventType: string, policy: OptimizationPolicyConfig, allow: boolean, businessEntityId: string | null): string | null {
+  if (!allow || !policy.allowSupersession || !businessEntityId) return null;
   return `${group}:${policy.supersessionGroup ?? eventType}`;
 }
 
-export function consolidationKey(group: string, category: string, policy: OptimizationPolicyConfig, allow: boolean): string | null {
-  if (!allow || !policy.allowAggregation || !policy.consolidationTemplate) return null;
+export function consolidationKey(group: string, category: string, policy: OptimizationPolicyConfig, allow: boolean, businessEntityId: string | null): string | null {
+  if (!allow || !policy.allowAggregation || !policy.consolidationTemplate || !businessEntityId) return null;
   return `${group}:${category}:${policy.consolidationTemplate}`;
 }
 

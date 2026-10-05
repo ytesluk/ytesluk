@@ -85,6 +85,7 @@ pnpm dev                             # API :4000, worker, dashboard :3000
 | `pnpm generate` | datasets sintéticos 10k/50k/100k (e 1M com `--sizes 1000000`) |
 | `pnpm research` | matriz do experimento acadêmico A–F → `reports/research/` |
 | `pnpm smoke` | verificação ponta a ponta contra uma implantação em execução |
+| `pnpm historico <arquivo.csv>` | reprocessa o histórico real de envios de uma empresa e estima a economia (ver TESTAR-ECONOMIA.md) |
 
 ## Estrutura
 
@@ -115,7 +116,7 @@ infra/docker/ Dockerfile multi-target, secrets
 - [Preços](docs/PRICING.md) · [Motor de cobrança](docs/BILLING-ENGINE.md) · [Motor de otimização](docs/OPTIMIZATION-ENGINE.md) · [Webhooks](docs/WEBHOOKS.md)
 - [Segurança](docs/SECURITY.md) · [LGPD](docs/LGPD.md) · [Limitações](docs/LIMITATIONS.md)
 - [Fontes da Meta consultadas](docs/META-SOURCES.md) · [Conflitos conhecidos](docs/KNOWN-CONFLICTS.md) · [Configurar a Meta](docs/SETUP-META.md)
-- [Experimento acadêmico](docs/ACADEMIC-EXPERIMENT.md)
+- **[Como testar se a economia funciona](docs/TESTAR-ECONOMIA.md)** · [Experimento acadêmico](docs/ACADEMIC-EXPERIMENT.md)
 
 ## Princípios
 

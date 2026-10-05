@@ -21,7 +21,14 @@ import { ARMS, runArm, type ArmResult } from "./experiment";
 
 /**
  * Historical CSV import (spec §38):
- *   timestamp,customer,eventType,category,country,template,delivered,status,source,isFEP,isServiceWindow
+ *   timestamp,customer,eventType,category,country,template,delivered,status,source,isFEP,isServiceWindow[,entityId][,content]
+ *
+ * entityId (order, appointment, ticket…) and content (message text or template variables, hashed in
+ * memory only) are optional but decide how much the replay may optimize, conservatively:
+ *   - entityId present           → deduplication, supersession and consolidation may apply;
+ *   - only content present       → deduplication only (identical content to the same customer);
+ *   - neither                    → the row is replayed as-is (no technique can tell a re-send from a
+ *                                  new message with the same template), so its savings are NOT counted.
  *
  * 1. validate every row (errors are reported per line, valid rows continue);
  * 2. baseline: what the historical traffic cost AS SENT (rows with delivered=true), priced with the
@@ -42,6 +49,8 @@ const Row = z.object({
   source: z.string().optional().default(""),
   isFEP: z.string().optional().default("false").transform((v) => /^(1|true|yes|sim|y)$/i.test(v.trim())),
   isServiceWindow: z.string().optional().default("false").transform((v) => /^(1|true|yes|sim|y)$/i.test(v.trim())),
+  entityId: z.string().optional().default("").transform((v) => v.trim()),
+  content: z.string().optional().default("").transform((v) => v.trim()),
 });
 export type HistoryRow = z.infer<typeof Row>;
 
@@ -54,6 +63,10 @@ export interface HistoryImportResult {
   asSent: { messages: number; delivered: number; cost: string; free: number; unknown: number; byCategory: Record<string, { delivered: number; cost: string }> };
   replay: { control: ArmResult; optimized: ArmResult } | null;
   savings: { meta: string; percent: string | null; messagesAvoided: number } | null;
+  /** How many rows the replay could identify (see header comment); unidentified rows are never optimized. */
+  identification: { withEntity: number; contentOnly: number; unidentified: number };
+  /** Where the avoided messages came from (optimized replay). */
+  mechanisms: { duplicatesBlocked: number; supersessions: number; consolidatedIntents: number; consolidatedMessages: number; freeEntryPoint: number; freeQuota: number } | null;
   currency: string;
   isDemoRate: boolean;
   label: "ESTIMATED";
@@ -137,6 +150,7 @@ export function importHistory(content: string, opts: { timezone?: string; curren
   // ---- replay through WCO (A vs E)
   let replay: HistoryImportResult["replay"] = null;
   let savings: HistoryImportResult["savings"] = null;
+  const identification = { withEntity: 0, contentOnly: 0, unidentified: 0 };
   if (rows.length > 0) {
     const events: DatasetEvent[] = [];
     rows.forEach((row, i) => {
@@ -145,17 +159,22 @@ export function importHistory(content: string, opts: { timezone?: string; curren
       const recipient = `+${row.customer.replace(/\D/g, "") || String(10_000_000_000 + i)}`;
       if (row.isFEP) events.push({ kind: "INBOUND", at: at - 120_000, customerKey, phoneNumberId: "pn-history", entryPoint: EntryPointType.CLICK_TO_WHATSAPP_AD, tag: "history_fep" });
       else if (row.isServiceWindow || row.category === "SERVICE") events.push({ kind: "INBOUND", at: at - 120_000, customerKey, phoneNumberId: "pn-history", tag: "history_csw" });
+      const entity = row.entityId || null;
+      if (entity) identification.withEntity++;
+      else if (row.content) identification.contentOnly++;
+      else identification.unidentified++;
       const sub: IntentSubmission = {
         customerKey,
         recipient,
         phoneNumberId: "pn-history",
         eventType: row.eventType,
-        businessEntityId: null,
+        businessEntityId: entity,
         category: row.category as BillingCategory,
         templateName: row.template || null,
         freeFormText: row.category === "SERVICE" ? "reply" : null,
-        data: { template: row.template, status: row.status },
+        data: { template: row.template, status: row.status, ...(row.content ? { content: row.content } : {}) },
         occurredAt: new Date(at),
+        ...(entity || row.content ? {} : { optimization: { allowDeduplication: false, allowAggregation: false, allowSupersession: false } }),
       };
       events.push({ kind: "INTENT", at, sub, tag: "history", duplicate: false });
     });
@@ -171,6 +190,16 @@ export function importHistory(content: string, opts: { timezone?: string; curren
   }
 
   const fmt = (d: Decimal) => d.toDecimalPlaces(4).toFixed(4);
+  const o = replay?.optimized;
+  const notes = [
+    "A comparação de economia usa o replay sem otimização (A) vs com WCO (E) sobre os mesmos eventos.",
+    "isFEP/isServiceWindow do arquivo são tratados como janelas confirmadas no custo 'como enviado'.",
+  ];
+  if (identification.unidentified > 0)
+    notes.unshift(
+      `${identification.unidentified} linha(s) sem entityId nem content: foram reenviadas como estão, sem deduplicação, substituição ou consolidação (resultado conservador). Inclua o ID do pedido/protocolo (entityId) para medir a economia real.`,
+    );
+  if (identification.contentOnly > 0) notes.unshift(`${identification.contentOnly} linha(s) só com content: apenas deduplicação foi aplicada (sem entityId não há substituição nem consolidação).`);
   const maxErrors = opts.maxErrors ?? 200;
   return {
     rows: total,
@@ -188,13 +217,11 @@ export function importHistory(content: string, opts: { timezone?: string; curren
     },
     replay,
     savings,
+    identification,
+    mechanisms: o ? { duplicatesBlocked: o.duplicatesBlocked, supersessions: o.supersessions, consolidatedIntents: o.consolidatedIntents, consolidatedMessages: o.consolidatedMessages, freeEntryPoint: o.freeEntryPoint, freeQuota: o.freeQuota } : null,
     currency,
     isDemoRate: rates.cards.every((c) => c.meta.isDemo),
     label: "ESTIMATED",
-    notes: [
-      "Histórico não traz IDs de entidade: deduplicação e supersession usam (cliente, tipo de evento, conteúdo).",
-      "isFEP/isServiceWindow do arquivo são tratados como janelas confirmadas no custo 'como enviado'.",
-      "A comparação de economia usa o replay sem otimização (A) vs com WCO (E) sobre os mesmos eventos.",
-    ],
+    notes,
   };
 }

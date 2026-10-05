@@ -80,3 +80,13 @@ test("only the Embedded Signup page may load Meta's SDK", async ({ page, request
   expect(res?.headers()["content-security-policy"]).toContain("https://connect.facebook.net");
   await expect(page.getByText("Embedded Signup não está configurado neste servidor")).toBeVisible();
 });
+
+test("history import explains where the savings came from", async ({ page }) => {
+  await login(page, "owner@loja-demo.wco.dev");
+  await page.goto("/simulator");
+  await page.getByRole("tab", { name: "Histórico CSV" }).click();
+  await page.getByRole("button", { name: "Calcular baseline e simulação" }).click();
+  await expect(page.getByText("De onde veio a economia")).toBeVisible();
+  await expect(page.getByText("Atualizações substituídas pela mais recente")).toBeVisible();
+  await expect(page.getByText("6 com entityId · 2 só content · 0 sem identificação")).toBeVisible();
+});

@@ -34,6 +34,7 @@
     "db:reset": "pnpm --filter @wco/database run reset",
     "pricing": "tsx scripts/pricing-cli.ts",
     "simulate": "tsx scripts/simulate.ts",
+    "historico": "tsx scripts/history.ts",
     "generate": "tsx scripts/generate-datasets.ts",
     "research": "tsx scripts/research.ts",
     "smoke": "tsx scripts/smoke.ts"

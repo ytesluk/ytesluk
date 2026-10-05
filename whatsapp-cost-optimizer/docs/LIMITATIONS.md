@@ -52,7 +52,7 @@
 1. Conectar um número de teste da Meta e validar envio/webhooks/pricing reais.
 2. Importar o rate card oficial (BRL) e reexecutar `pnpm simulate --rate-card`.
 3. Aplicar `forTenant()` em todos os repositórios e adicionar MFA para OWNER/ADMIN.
-4. Importar histórico real (CSV) para calibrar debounce/atraso por tipo de evento.
+4. Importar histórico real (CSV, com `entityId`) para medir a economia e calibrar debounce/atraso — ver TESTAR-ECONOMIA.md.
 5. SaaS: tornar-se Tech Provider na Meta e validar o Embedded Signup real; integrar um gateway de
    pagamento às faturas DRAFT; verificação de e-mail e recuperação de senha; termos de uso e política
    de privacidade publicados (`TERMS_URL`, `PRIVACY_URL`).
