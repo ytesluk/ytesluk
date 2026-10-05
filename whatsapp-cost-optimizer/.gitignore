@@ -19,3 +19,5 @@ playwright-report/
 test-results/
 infra/docker/secrets/
 dump.rdb
+# credenciais locais do assistente de teste com a Meta
+.wco-teste.json

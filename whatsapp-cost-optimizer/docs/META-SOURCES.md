@@ -288,6 +288,18 @@ Classificação usada em `packages/whatsapp/src/errors.ts`:
 
 ---
 
+## S13 — Webhook overrides
+
+- URL (consultada em 05/10/2026): <https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/override/>
+- `POST /<WABA_ID>/subscribed_apps` com `{"override_callback_uri": "<URL, máx. 200 caracteres>", "verify_token": "<token>"}`
+  → `{"success": true}`; o app precisa estar inscrito na WABA. Vale para os campos `messages`,
+  `message_echoes`, `calls`… Webhooks de template (`message_template_status_update`,
+  `template_category_update`…) e de conta (`account_update`…) **não** seguem o override e vão sempre para a
+  URL do app. Inscrever de novo sem corpo remove o override.
+  → `setWebhookOverride` (`POST /api/v1/onboarding/webhook-override`), usado por `scripts/configurar-teste.mjs`.
+
+---
+
 ## Política → fonte (rastreabilidade)
 
 | PricingPolicyVersion | Vigência | Fontes | Status |

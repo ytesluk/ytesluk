@@ -196,6 +196,39 @@ async function persistConnection(
   return result;
 }
 
+export const WebhookOverrideSchema = z.object({
+  callbackUrl: z.string().url().max(200).describe("Public URL of this API's /api/v1/webhooks/meta (max 200 chars, Meta's limit)"),
+});
+
+/**
+ * Points the tenant's WABA webhooks to this deployment (Meta "webhook overrides"): useful when the
+ * app's callback URL in the App Dashboard points elsewhere, e.g. a test from a Codespace. Meta checks
+ * the URL with a hub.challenge request answered with META_WEBHOOK_VERIFY_TOKEN, so the API must be
+ * publicly reachable first. Only fields that support overrides (`messages`, …) follow it.
+ */
+export async function setWebhookOverride(ctx: AppContext, actor: Actor, raw: unknown) {
+  const { callbackUrl } = WebhookOverrideSchema.parse(raw);
+  const url = new URL(callbackUrl);
+  const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  if (url.protocol !== "https:" && !(local && !ctx.config.isProduction)) throw Errors.validation("callbackUrl must use HTTPS");
+  if (!url.pathname.endsWith("/api/v1/webhooks/meta")) throw Errors.validation("callbackUrl must end with /api/v1/webhooks/meta");
+  const verifyToken = ctx.config.meta.webhookVerifyToken;
+  if (!verifyToken) throw Errors.validation("Set META_WEBHOOK_VERIFY_TOKEN before pointing webhooks here");
+  if (!ctx.config.meta.appSecret) throw Errors.validation("Set META_APP_SECRET: webhook signatures are validated with it");
+  const tenant = await ctx.tenants.get(actor.tenantId);
+  const wabas = [...tenant.wabas.values()].filter((w) => w.provider === "META_CLOUD_API");
+  if (wabas.length === 0) throw Errors.validation("No real WABA connected (use the manual connection first)");
+  for (const waba of wabas) {
+    const creds = { accessToken: waba.accessTokenEncrypted ? ctx.vault.decryptSecret(waba.accessTokenEncrypted) : "" };
+    const r = await ctx.provider(waba).setWebhookOverride(waba.metaWabaId, callbackUrl, verifyToken, creds);
+    if (!r.success) throw Errors.validation(`Meta did not accept the callback URL for WABA ${waba.metaWabaId}`);
+  }
+  await ctx.db.waba.updateMany({ where: { tenantId: actor.tenantId, provider: "META_CLOUD_API" }, data: { webhookSubscribedAt: ctx.now() } });
+  await audit(ctx.db, { tenantId: actor.tenantId, actor, action: "integration.webhook_override", entityType: "Tenant", entityId: actor.tenantId, data: { callbackUrl, wabas: wabas.length } });
+  await publishTenantChanged(ctx, actor.tenantId);
+  return { wabas: wabas.length, callbackUrl, note: "Webhooks de mensagens (messages) desta WABA vão para esta URL; webhooks de templates e da conta continuam indo para a URL do app." };
+}
+
 export const SimulateInboundSchema = z.object({
   customer: z.string().min(8),
   text: z.string().max(1000).default("Olá!"),

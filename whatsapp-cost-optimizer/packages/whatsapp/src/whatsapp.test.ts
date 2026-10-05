@@ -178,6 +178,17 @@ describe("MetaCloudApiProvider (no real network)", () => {
     expect(urls).toHaveLength(2);
   });
 
+  it("sets a WABA webhook override with the documented body", async () => {
+    let sent: { url: string; body: unknown } | null = null;
+    const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      sent = { url: String(url), body: JSON.parse(String(init?.body)) };
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const p = new MetaCloudApiProvider({ graphApiVersion: "v26.0", fetchImpl });
+    expect(await p.setWebhookOverride("W1", "https://x.example/api/v1/webhooks/meta", "vt", { accessToken: "T" })).toEqual({ success: true });
+    expect(sent).toEqual({ url: "https://graph.facebook.com/v26.0/W1/subscribed_apps", body: { override_callback_uri: "https://x.example/api/v1/webhooks/meta", verify_token: "vt" } });
+  });
+
   it("template body omits parameter_name for positional templates", () => {
     const b = templateBody({ phoneNumberId: "p", to: "+1", template: { name: "t", language: "en_US", bodyParameters: [{ name: "x", value: "1" }], parameterFormat: "POSITIONAL" } });
     expect((b.template as { components: Array<{ parameters: unknown[] }> }).components[0]!.parameters[0]).toEqual({ type: "text", text: "1" });

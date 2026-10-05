@@ -21,6 +21,7 @@ import {
   planUsageAlerts,
   signup,
   syncTemplates,
+  setWebhookOverride,
   summary,
   type Actor,
   type AppContext,
@@ -243,5 +244,14 @@ describe("template sync from the connected WABA", () => {
     const intent = await createIntent(ctx, demo, { customer: "+5511988880123", eventType: "order.status", entityId: "SYNC-1", template: { name: "hello_world", language: "en_US" }, consent: { optIn: true, source: "test" }, data: {} });
     expect(intent.intentId).toBeTruthy();
     expect((await syncTemplates(ctx, demo)).synced).toBe(1); // idempotent upsert
+  });
+});
+
+describe("webhook override (Meta webhook overrides)", () => {
+  it("refuses unsafe URLs and tenants without a real WABA", async () => {
+    await expect(setWebhookOverride(ctx, demo, { callbackUrl: "http://example.com/api/v1/webhooks/meta" })).rejects.toMatchObject({ httpStatus: 400 });
+    await expect(setWebhookOverride(ctx, demo, { callbackUrl: "https://example.com/other" })).rejects.toMatchObject({ httpStatus: 400 });
+    // The demo tenant only has a MOCK WABA: nothing to point at Meta.
+    await expect(setWebhookOverride(ctx, demo, { callbackUrl: "https://example.com/api/v1/webhooks/meta" })).rejects.toThrow(/No real WABA/);
   });
 });

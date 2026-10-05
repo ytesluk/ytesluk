@@ -143,6 +143,11 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     return { success: data.success === true };
   }
 
+  async setWebhookOverride(wabaId: string, callbackUrl: string, verifyToken: string, creds: ProviderCredentials): Promise<{ success: boolean }> {
+    const { data } = await this.call<{ success?: boolean }>("setWebhookOverride", "POST", `${encodeURIComponent(wabaId)}/subscribed_apps`, creds, { override_callback_uri: callbackUrl, verify_token: verifyToken });
+    return { success: data.success === true };
+  }
+
   validateWebhook(input: WebhookVerificationInput): boolean {
     return verifySignature(input.rawBody, input.signatureHeader, this.opts.appSecret);
   }

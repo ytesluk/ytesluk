@@ -157,6 +157,10 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
     return { success: true };
   }
 
+  async setWebhookOverride(): Promise<{ success: boolean }> {
+    return { success: true };
+  }
+
   validateWebhook(input: WebhookVerificationInput): boolean {
     return verifySignature(input.rawBody, input.signatureHeader, this.opts.appSecret);
   }

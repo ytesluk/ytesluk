@@ -110,6 +110,12 @@ export interface WhatsAppProvider {
   validateWebhook(input: WebhookVerificationInput): boolean;
   getPhoneNumber(phoneNumberId: string, creds: ProviderCredentials): Promise<PhoneNumberInfo>;
   getBusinessAccount(wabaId: string, creds: ProviderCredentials): Promise<BusinessAccountInfo>;
+  /**
+   * Sends this WABA's supported webhooks (`messages`, …) to an alternate callback URL
+   * (POST /<WABA_ID>/subscribed_apps with override_callback_uri + verify_token). Meta verifies the URL
+   * with the usual hub.challenge request. Template and account webhooks still go to the app's URL.
+   */
+  setWebhookOverride(wabaId: string, callbackUrl: string, verifyToken: string, creds: ProviderCredentials): Promise<{ success: boolean }>;
   /** Templates of a WABA, all pages (GET /<WABA_ID>/message_templates). */
   listTemplates(wabaId: string, creds: ProviderCredentials): Promise<MetaTemplateInfo[]>;
 }

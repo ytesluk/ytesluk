@@ -5,6 +5,7 @@ import {
   EmbeddedSignupSchema,
   HistoryImportSchema,
   ManualConnectSchema,
+  WebhookOverrideSchema,
   OptimizationPolicySchema,
   PricingImportSchema,
   RateCardSimulationSchema,
@@ -20,6 +21,7 @@ import {
   classificationAssistant,
   completeEmbeddedSignup,
   connectManual,
+  setWebhookOverride,
   connectMock,
   deleteCustomerData,
   exportCustomerData,
@@ -86,6 +88,9 @@ export async function adminRoutes(app: FastifyInstance, ctx: AppContext) {
   // ---------------------------------------------------------------- onboarding (spec §70)
   app.get("/api/v1/onboarding", { schema: { tags: ["onboarding"] }, preHandler: guard(ctx, Permission.PROVIDERS_MANAGE) }, async (req) => onboardingStatus(ctx, t(req)));
   app.post("/api/v1/onboarding/mock", { schema: { tags: ["onboarding"] }, preHandler: guard(ctx, Permission.PROVIDERS_MANAGE) }, async (req) => connectMock(ctx, actorOf(req)));
+  app.post("/api/v1/onboarding/webhook-override", { schema: { tags: ["onboarding"], summary: "Point the WABA's message webhooks to this API (Meta webhook overrides)", body: doc(WebhookOverrideSchema) }, preHandler: guard(ctx, Permission.PROVIDERS_MANAGE) }, async (req) =>
+    setWebhookOverride(ctx, actorOf(req), req.body),
+  );
   app.post("/api/v1/onboarding/manual", { schema: { tags: ["onboarding"], body: doc(ManualConnectSchema) }, preHandler: guard(ctx, Permission.PROVIDERS_MANAGE) }, async (req) => connectManual(ctx, actorOf(req), req.body));
   app.post("/api/v1/onboarding/embedded-signup", { schema: { tags: ["onboarding"], body: doc(EmbeddedSignupSchema) }, preHandler: guard(ctx, Permission.PROVIDERS_MANAGE) }, async (req) =>
     completeEmbeddedSignup(ctx, actorOf(req), req.body),

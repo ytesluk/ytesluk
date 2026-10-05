@@ -35,7 +35,8 @@
     "pricing": "tsx scripts/pricing-cli.ts",
     "simulate": "tsx scripts/simulate.ts",
     "historico": "tsx scripts/history.ts",
-    "teste-numero": "tsx scripts/test-number.ts",
+    "teste-numero": "node scripts/test-number.mjs",
+    "configurar-teste": "node scripts/configurar-teste.mjs",
     "generate": "tsx scripts/generate-datasets.ts",
     "research": "tsx scripts/research.ts",
     "smoke": "tsx scripts/smoke.ts"

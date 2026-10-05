@@ -111,6 +111,25 @@ no seu celular (7 eventos → 3 mensagens), e mostra o que a Meta informa sobre 
 **O que não prova:** economia em R$ na escala de uma empresa — o número de teste é para desenvolvimento e
 só envia para os destinatários cadastrados na lista dele (até 5). Para dinheiro, veja TESTAR-ECONOMIA.md.
 
+### Jeito rápido: assistente
+
+Faça só a parte da Meta (passos 1 a 3 abaixo; o token pode ser o do botão **Generate access token** da
+tela *API Setup*, que expira em algumas horas) e copie também o **App ID** e o **App secret** (passo 5).
+Depois, no terminal do Codespaces, na pasta do projeto:
+
+```bash
+git pull
+node scripts/configurar-teste.mjs
+```
+
+Ele pede os valores (segredos aparecem como `****`), grava o `.env`, deixa a porta 4000 pública, reinicia o
+sistema, confere se o endereço público responde à verificação da Meta, cria uma conta de teste no WCO,
+conecta a conta do WhatsApp (o token é validado na Meta e guardado criptografado), aponta os webhooks de
+mensagens para o Codespace (*webhook overrides* da Meta, S13) e roda o teste dos 7 eventos. No fim mostra o
+login do painel. Rodar de novo reaproveita a mesma conta (`.wco-teste.json`, fora do Git).
+
+Os passos manuais abaixo fazem o mesmo, um a um.
+
 ### Na Meta
 
 1. Em <https://developers.facebook.com/apps> → **Create App** → caso de uso **Connect with customers through
@@ -164,8 +183,7 @@ só envia para os destinatários cadastrados na lista dele (até 5). Para dinhei
 11. No terminal do Codespaces:
 
     ```bash
-    corepack enable && pnpm install        # só na primeira vez
-    API_KEY=wco_... pnpm teste-numero --to +5541999999999 --comparar
+    API_KEY=wco_... node scripts/test-number.mjs --to +5541999999999 --comparar
     ```
 
     `--to` é o seu celular do passo 3. O script manda 7 eventos duas vezes: sem otimização (7 mensagens) e
