@@ -3,6 +3,7 @@ import { classifyMetaError, ProviderError } from "./errors";
 import type {
   BusinessAccountInfo,
   CommonSendFields,
+  MetaTemplateInfo,
   PhoneNumberInfo,
   ProviderMessageInfo,
   SendMediaRequest,
@@ -166,6 +167,11 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
 
   async getBusinessAccount(wabaId: string): Promise<BusinessAccountInfo> {
     return { id: wabaId, name: "WCO Mock WABA", timezoneId: "America/Sao_Paulo", currency: "BRL" };
+  }
+
+  /** One approved template without variables, shaped like the Graph API response. */
+  async listTemplates(): Promise<MetaTemplateInfo[]> {
+    return [{ id: "mock-template-hello", name: "hello_world", language: "en_US", status: "APPROVED", category: "UTILITY", components: [{ type: "BODY", text: "Hello World (mock)" }] }];
   }
 }
 

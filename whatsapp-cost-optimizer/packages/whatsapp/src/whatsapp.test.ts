@@ -159,6 +159,25 @@ describe("MetaCloudApiProvider (no real network)", () => {
     expect(JSON.stringify(err)).not.toContain("SECRET-TOKEN");
   });
 
+  it("lists templates following cursor pagination", async () => {
+    const urls: string[] = [];
+    const pages = [
+      { data: [{ id: "1", name: "hello_world", language: "en_US", status: "APPROVED", category: "UTILITY", components: [{ type: "BODY", text: "Hi" }] }], paging: { cursors: { after: "C1" }, next: "https://graph.facebook.com/next" } },
+      { data: [{ id: "2", name: "pedido", language: "pt_BR", status: "PENDING", category: "UTILITY", parameter_format: "POSITIONAL", components: [] }], paging: { cursors: { after: "C2" } } },
+    ];
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify(pages[urls.length - 1]), { status: 200 });
+    }) as unknown as typeof fetch;
+    const p = new MetaCloudApiProvider({ graphApiVersion: "v26.0", fetchImpl });
+    const list = await p.listTemplates("W1", { accessToken: "T" });
+    expect(list.map((t) => t.name)).toEqual(["hello_world", "pedido"]);
+    expect(list[1]!.parameterFormat).toBe("POSITIONAL");
+    expect(urls[0]).toMatch(/^https:\/\/graph\.facebook\.com\/v26\.0\/W1\/message_templates\?fields=/);
+    expect(urls[1]).toContain("after=C1");
+    expect(urls).toHaveLength(2);
+  });
+
   it("template body omits parameter_name for positional templates", () => {
     const b = templateBody({ phoneNumberId: "p", to: "+1", template: { name: "t", language: "en_US", bodyParameters: [{ name: "x", value: "1" }], parameterFormat: "POSITIONAL" } });
     expect((b.template as { components: Array<{ parameters: unknown[] }> }).components[0]!.parameters[0]).toEqual({ type: "text", text: "1" });

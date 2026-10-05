@@ -4,6 +4,7 @@ import { classifyMetaError, isProviderError, ProviderError } from "./errors";
 import { mediaBody, templateBody, textBody } from "./payloads";
 import type {
   BusinessAccountInfo,
+  MetaTemplateInfo,
   PhoneNumberInfo,
   ProviderCredentials,
   ProviderMessageInfo,
@@ -177,6 +178,30 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
   async registerPhoneNumber(phoneNumberId: string, pin: string, creds: ProviderCredentials): Promise<{ success: boolean }> {
     const { data } = await this.call<{ success?: boolean }>("registerPhone", "POST", `${encodeURIComponent(phoneNumberId)}/register`, creds, { messaging_product: "whatsapp", pin });
     return { success: data.success === true };
+  }
+
+  /** GET /<WABA_ID>/message_templates, following cursor pagination (paging.cursors.after while paging.next exists). */
+  async listTemplates(wabaId: string, creds: ProviderCredentials): Promise<MetaTemplateInfo[]> {
+    const out: MetaTemplateInfo[] = [];
+    let after: string | undefined;
+    for (let page = 0; page < 50; page++) {
+      const qs = new URLSearchParams({ fields: "id,name,language,status,category,parameter_format,components", limit: "100", ...(after ? { after } : {}) });
+      const { data } = await this.call<{ data?: Array<Record<string, unknown>>; paging?: { cursors?: { after?: string }; next?: string } }>("listTemplates", "GET", `${encodeURIComponent(wabaId)}/message_templates?${qs.toString()}`, creds);
+      for (const t of data.data ?? []) {
+        out.push({
+          id: String(t.id ?? ""),
+          name: String(t.name ?? ""),
+          language: String(t.language ?? ""),
+          status: String(t.status ?? ""),
+          category: String(t.category ?? ""),
+          parameterFormat: t.parameter_format ? String(t.parameter_format) : undefined,
+          components: Array.isArray(t.components) ? (t.components as MetaTemplateInfo["components"]) : [],
+        });
+      }
+      after = data.paging?.cursors?.after;
+      if (!data.paging?.next || !after) break;
+    }
+    return out;
   }
 
   async getBusinessAccount(wabaId: string, creds: ProviderCredentials): Promise<BusinessAccountInfo> {

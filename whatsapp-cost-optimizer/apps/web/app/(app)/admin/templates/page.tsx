@@ -92,13 +92,61 @@ function Analysis({ id }: { id: string }) {
   );
 }
 
+interface SyncResult {
+  wabas: number;
+  synced: number;
+  approved: number;
+  skipped: string[];
+  warnings: string[];
+}
+
+/** Imports the templates that already exist on the connected WABA (Meta is the source of truth). */
+function SyncFromMeta({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<SyncResult | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setResult(await api<SyncResult>("templates/sync", { body: {} }));
+      onDone();
+    } catch (e) {
+      setError(e instanceof ApiError ? e : new ApiError(0, String(e)));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <Button onClick={() => void run()} loading={busy}>
+        Sincronizar com a Meta
+      </Button>
+      {result ? (
+        <Notice tone={result.synced > 0 ? "good" : "warning"}>
+          {result.synced > 0
+            ? `${result.synced} template(s) importado(s) de ${result.wabas} conta(s), ${result.approved} aprovado(s).`
+            : "Nenhum template encontrado na conta conectada. Crie e aprove templates no WhatsApp Manager."}
+          {[...result.warnings, ...result.skipped.map((x) => `Ignorado: ${x}`)].map((w) => (
+            <span key={w} className="mt-1 block text-xs">
+              {w}
+            </span>
+          ))}
+        </Notice>
+      ) : null}
+      {error ? <ErrorBox error={error} title="Sincronização recusada" /> : null}
+    </div>
+  );
+}
+
 export default function TemplatesPage() {
   const { data, error, loading, reload } = useApi<Template[]>("templates");
   return (
     <>
       <PageHeader title="Templates" description="Categoria declarada × categoria atribuída pela Meta, e o impacto de custo. O WCO nunca sugere alterar o texto para mudar a categoria, nem converte Marketing em Utility." />
       <div className="space-y-6">
-        <Notice>A categoria final é determinada pela Meta. Mudanças de categoria pela Meta geram alerta e passam a valer para o custo a partir da data informada no webhook.</Notice>
+        <Notice>A categoria final é determinada pela Meta. Mudanças de categoria pela Meta geram alerta e passam a valer para o custo a partir da data informada no webhook. Templates criados no WhatsApp Manager entram aqui por “Sincronizar com a Meta”.</Notice>
+        <SyncFromMeta onDone={reload} />
         <NewTemplate onSaved={reload} />
         {error ? <ErrorBox error={error} /> : null}
         {loading && !data ? <Loading /> : null}

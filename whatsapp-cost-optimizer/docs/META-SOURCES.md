@@ -271,6 +271,23 @@ Classificação usada em `packages/whatsapp/src/errors.ts`:
 
 ---
 
+## S12 — Get Started (número de teste) e listagem de templates
+
+- URLs (consultadas em 05/10/2026):
+  <https://developers.facebook.com/documentation/business-messaging/whatsapp/get-started/> (atualizado em 16/06/2026),
+  <https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/template-management>,
+  <https://developers.facebook.com/documentation/business-messaging/whatsapp/reference/whatsapp-business-account/message-template-api>
+- "When you complete the steps in the Get Started document, a **test** business phone number is generated
+  and registered for you automatically." O token temporário do painel "expires quickly"; para uso contínuo,
+  token de System User com `business_management`, `whatsapp_business_messaging`,
+  `whatsapp_business_management`.
+- `GET /<WABA_ID>/message_templates` com `fields` (id, name, language, status, category,
+  parameter_format, components…) e paginação por `paging.cursors.after` / `paging.next`.
+  → `MetaCloudApiProvider.listTemplates` + `syncTemplates` (Admin › Templates › Sincronizar com a Meta).
+- Limite de destinatários do número de teste (até 5) citado de material secundário; confirme no painel.
+
+---
+
 ## Política → fonte (rastreabilidade)
 
 | PricingPolicyVersion | Vigência | Fontes | Status |

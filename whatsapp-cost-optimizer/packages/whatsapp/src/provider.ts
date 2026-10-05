@@ -81,6 +81,17 @@ export interface BusinessAccountInfo {
   currency?: string;
 }
 
+/** A message template as returned by GET /<WABA_ID>/message_templates (subset of fields). */
+export interface MetaTemplateInfo {
+  id: string;
+  name: string;
+  language: string;
+  status: string;
+  category: string;
+  parameterFormat?: string;
+  components: Array<{ type: string; format?: string; text?: string }>;
+}
+
 export interface WebhookVerificationInput {
   rawBody: Buffer | string;
   signatureHeader: string | undefined;
@@ -99,4 +110,6 @@ export interface WhatsAppProvider {
   validateWebhook(input: WebhookVerificationInput): boolean;
   getPhoneNumber(phoneNumberId: string, creds: ProviderCredentials): Promise<PhoneNumberInfo>;
   getBusinessAccount(wabaId: string, creds: ProviderCredentials): Promise<BusinessAccountInfo>;
+  /** Templates of a WABA, all pages (GET /<WABA_ID>/message_templates). */
+  listTemplates(wabaId: string, creds: ProviderCredentials): Promise<MetaTemplateInfo[]>;
 }

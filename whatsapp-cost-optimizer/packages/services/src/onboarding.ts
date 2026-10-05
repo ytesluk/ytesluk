@@ -4,6 +4,7 @@ import { Errors, isValidTimeZone, localDate } from "@wco/domain";
 import { MetaCloudApiProvider, buildInboundPayload, computeSignature } from "@wco/whatsapp";
 import { audit } from "./audit";
 import { publishTenantChanged, type Actor, type AppContext } from "./context";
+import { syncTemplates } from "./template-sync";
 import { ingestWebhook } from "./webhooks";
 
 /**
@@ -83,7 +84,17 @@ export async function connectManual(ctx: AppContext, actor: Actor, raw: unknown)
   const creds = { accessToken: input.accessToken };
   const [waba, phone] = await Promise.all([provider.getBusinessAccount(input.wabaId, creds), provider.getPhoneNumber(input.phoneNumberId, creds)]);
   const sub = await provider.registerWebhook(input.wabaId, creds);
-  return persistConnection(ctx, actor, { ...input, wabaName: waba.name ?? input.businessName, display: phone.displayPhoneNumber, verifiedName: phone.verifiedName, quality: phone.qualityRating, provider: "META_CLOUD_API", webhookSubscribed: sub.success, mode: "MANUAL" });
+  const connected = await persistConnection(ctx, actor, { ...input, wabaName: waba.name ?? input.businessName, display: phone.displayPhoneNumber, verifiedName: phone.verifiedName, quality: phone.qualityRating, provider: "META_CLOUD_API", webhookSubscribed: sub.success, mode: "MANUAL" });
+  return { ...connected, templates: await syncAfterConnect(ctx, actor) };
+}
+
+/** Best effort: a template-listing failure must not undo a successful connection. */
+async function syncAfterConnect(ctx: AppContext, actor: Actor) {
+  try {
+    return await syncTemplates(ctx, actor);
+  } catch (e) {
+    return { error: `Templates não sincronizados: ${(e as Error).message}. Use "Sincronizar com a Meta" em Templates.` };
+  }
 }
 
 /**
@@ -116,7 +127,8 @@ export async function completeEmbeddedSignup(ctx: AppContext, actor: Actor, raw:
   const sub = await meta.registerWebhook(input.wabaId, creds);
   await meta.registerPhoneNumber(input.phoneNumberId, input.pin, creds);
   const [waba, phone] = await Promise.all([meta.getBusinessAccount(input.wabaId, creds), meta.getPhoneNumber(input.phoneNumberId, creds)]);
-  return persistConnection(ctx, actor, { ...input, currency: waba.currency ?? input.currency, accessToken, wabaName: waba.name ?? input.businessName, display: phone.displayPhoneNumber, verifiedName: phone.verifiedName, quality: phone.qualityRating, provider: "META_CLOUD_API", webhookSubscribed: sub.success, mode: "EMBEDDED_SIGNUP" });
+  const connected = await persistConnection(ctx, actor, { ...input, currency: waba.currency ?? input.currency, accessToken, wabaName: waba.name ?? input.businessName, display: phone.displayPhoneNumber, verifiedName: phone.verifiedName, quality: phone.qualityRating, provider: "META_CLOUD_API", webhookSubscribed: sub.success, mode: "EMBEDDED_SIGNUP" });
+  return { ...connected, templates: await syncAfterConnect(ctx, actor) };
 }
 
 /** Development: connect a mock WABA/phone so the full pipeline runs without Meta credentials. */

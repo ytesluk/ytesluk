@@ -85,6 +85,7 @@ pnpm dev                             # API :4000, worker, dashboard :3000
 | `pnpm generate` | datasets sintéticos 10k/50k/100k (e 1M com `--sizes 1000000`) |
 | `pnpm research` | matriz do experimento acadêmico A–F → `reports/research/` |
 | `pnpm smoke` | verificação ponta a ponta contra uma implantação em execução |
+| `pnpm teste-numero --to +55…` | teste real pelo número de teste da Meta: 7 eventos → 3 mensagens no seu WhatsApp (ver SETUP-META.md) |
 | `pnpm historico <arquivo.csv>` | reprocessa o histórico real de envios de uma empresa e estima a economia (ver TESTAR-ECONOMIA.md) |
 
 ## Estrutura

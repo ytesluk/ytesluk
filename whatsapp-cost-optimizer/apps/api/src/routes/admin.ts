@@ -31,6 +31,7 @@ import {
   listPricing,
   listResearchRuns,
   listTemplates,
+  syncTemplates,
   onboardingStatus,
   rateCardSimulation,
   recordConsent,
@@ -65,6 +66,7 @@ export async function adminRoutes(app: FastifyInstance, ctx: AppContext) {
   // ---------------------------------------------------------------- templates (spec §19, §65)
   app.get("/api/v1/templates", { schema: { tags: ["templates"] }, preHandler: guard(ctx, Permission.TEMPLATES_READ) }, async (req) => listTemplates(ctx, t(req)));
   app.post("/api/v1/templates", { schema: { tags: ["templates"], body: doc(TemplateSchema) }, preHandler: guard(ctx, Permission.TEMPLATES_WRITE) }, async (req, reply) => reply.status(201).send(await upsertTemplate(ctx, actorOf(req), req.body)));
+  app.post("/api/v1/templates/sync", { schema: { tags: ["templates"], summary: "Import the WABA's templates from Meta (status and category as Meta reports them)" }, preHandler: guard(ctx, Permission.TEMPLATES_WRITE) }, async (req) => syncTemplates(ctx, actorOf(req)));
   app.post("/api/v1/templates/cost-analysis", { schema: { tags: ["templates"], summary: "Template Cost Analyzer (final category is determined by Meta)", body: doc(TemplateCostSchema) }, preHandler: guard(ctx, Permission.TEMPLATES_READ) }, async (req) =>
     templateCost(ctx, t(req), req.body),
   );

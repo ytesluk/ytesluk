@@ -104,6 +104,10 @@ o pagamento reenviado 4 s depois é bloqueado; OTP e campanha não mudam → 8 �
 
 ## 3. Economizou de verdade? (piloto)
 
+Antes do piloto, dá para ver o WCO funcionando com o WhatsApp real usando o **número de teste da Meta**
+(`pnpm teste-numero`, passo a passo em [SETUP-META.md](SETUP-META.md#teste-com-o-número-de-teste-da-meta-passo-a-passo)):
+7 eventos viram 3 mensagens no seu celular. Isso prova a integração, não a economia em escala.
+
 1. Conecte um número real (Admin › Conectar WhatsApp; ver SETUP-META.md) com o rate card oficial.
 2. Integre o sistema da empresa à API (`POST /api/v1/messages/intents`, com `entityId`).
 3. Rode 2 a 4 semanas. Os custos marcados **REALIZED** vêm do objeto `pricing` dos webhooks da Meta.

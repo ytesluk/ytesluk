@@ -90,3 +90,11 @@ test("history import explains where the savings came from", async ({ page }) => 
   await expect(page.getByText("Atualizações substituídas pela mais recente")).toBeVisible();
   await expect(page.getByText("6 com entityId · 2 só content · 0 sem identificação")).toBeVisible();
 });
+
+test("templates can be imported from the connected account", async ({ page }) => {
+  await login(page, "owner@loja-demo.wco.dev");
+  await page.goto("/admin/templates");
+  await page.getByRole("button", { name: "Sincronizar com a Meta" }).click();
+  await expect(page.getByText(/template\(s\) importado\(s\)/)).toBeVisible();
+  await expect(page.getByRole("cell", { name: "hello_world" }).first()).toBeVisible();
+});

@@ -20,6 +20,7 @@ import {
   seedAll,
   planUsageAlerts,
   signup,
+  syncTemplates,
   summary,
   type Actor,
   type AppContext,
@@ -230,5 +231,17 @@ describe("SaaS plan usage and invoices", () => {
     } finally {
       await ctx.db.plan.update({ where: { code: "PRO" }, data: { includedIntents: pro.includedIntents } });
     }
+  });
+});
+
+describe("template sync from the connected WABA", () => {
+  it("imports Meta's templates with Meta's status and category and makes them sendable by name", async () => {
+    const r = await syncTemplates(ctx, demo);
+    expect(r).toMatchObject({ wabas: 1, synced: 1, approved: 1 });
+    const t = await ctx.db.template.findUniqueOrThrow({ where: { tenantId_name_language: { tenantId: demo.tenantId, name: "hello_world", language: "en_US" } } });
+    expect(t).toMatchObject({ status: "APPROVED", metaCategory: "UTILITY", externalId: "mock-template-hello" });
+    const intent = await createIntent(ctx, demo, { customer: "+5511988880123", eventType: "order.status", entityId: "SYNC-1", template: { name: "hello_world", language: "en_US" }, consent: { optIn: true, source: "test" }, data: {} });
+    expect(intent.intentId).toBeTruthy();
+    expect((await syncTemplates(ctx, demo)).synced).toBe(1); // idempotent upsert
   });
 });

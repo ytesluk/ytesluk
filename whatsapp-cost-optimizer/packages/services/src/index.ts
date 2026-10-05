@@ -18,5 +18,6 @@ export * from "./tenants";
 export * from "./billing";
 export * from "./admin";
 export * from "./onboarding";
+export * from "./template-sync";
 export * from "./simulation";
 export * from "./seed";
