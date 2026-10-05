@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Gauge } from "lucide-react";
+import Link from "next/link";
+import { Brand } from "@/components/brand";
 import { Button, Field, Input, Notice } from "@/components/ui";
 
 export default function LoginPage() {
@@ -37,15 +38,7 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen place-items-center px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="grid size-9 place-items-center rounded-lg bg-accent text-white">
-            <Gauge className="size-5" aria-hidden />
-          </span>
-          <div>
-            <h1 className="text-lg font-semibold text-ink">WhatsApp Cost Optimizer</h1>
-            <p className="text-xs text-muted">Custo de WhatsApp sob controle, com evidência</p>
-          </div>
-        </div>
+        <Brand />
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-line bg-surface p-6">
           {expired ? <Notice tone="warning">Sua sessão expirou. Entre novamente.</Notice> : null}
           <Field label="E-mail">
@@ -63,7 +56,13 @@ export default function LoginPage() {
             Entrar
           </Button>
         </form>
-        <p className="mt-4 text-center text-[11px] text-muted">Ambiente de desenvolvimento: usuários de demonstração são criados por <code>pnpm db:seed</code>.</p>
+        <p className="mt-4 text-center text-sm text-muted">
+          Ainda não tem conta?{" "}
+          <Link href="/signup" className="font-medium text-accent hover:underline">
+            Criar conta grátis
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-[11px] text-muted">Ambiente de desenvolvimento: usuários de demonstração são criados por <code>pnpm db:seed</code>.</p>
       </div>
     </main>
   );

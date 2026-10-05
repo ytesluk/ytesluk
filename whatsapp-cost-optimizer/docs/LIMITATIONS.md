@@ -14,8 +14,9 @@
 * **Tiers**: o WCO estima a posição no mês a partir do que ele próprio enviou; mensagens enviadas por
   outros sistemas no mesmo portfólio não são vistas (o tier real pode ser mais alto).
 * **Meta Business Agent**: cobrado por token; não modelado (avaliações retornam UNKNOWN) e não enviado pelo WCO.
-* **Embedded Signup**: o lado navegador (SDK JavaScript da Meta, `FB.login` com `config_id`) não está
-  embarcado no dashboard — a CSP restringe scripts externos; o servidor aceita o `code` e conclui o fluxo.
+* **Embedded Signup**: o fluxo completo (SDK da Meta no navegador + troca do código, webhooks e registro
+  no servidor) está implementado e foi testado com o SDK e a Graph API simulados; precisa ser validado
+  com um app Tech Provider real, em domínio HTTPS aprovado.
 
 ## Produto
 
@@ -23,8 +24,11 @@
 * Atrasos de 30–120 s (debounce) são o preço da supersession/consolidação; cada tenant deve calibrar.
 * Mensagens de mídia, interativas e listas: o provedor suporta envio, mas o otimizador trata principalmente
   templates e texto.
-* Faturamento do próprio SaaS (`Plan`, `Subscription`, `Usage`, `Invoice`) tem modelo de dados, sem
-  integração com gateway de pagamento.
+* Faturamento do próprio SaaS: uso mensal medido, alertas de volume do plano e faturas em rascunho
+  (DRAFT) geradas no fechamento do mês; **sem gateway de pagamento** (cobrança, boleto/Pix/cartão, nota
+  fiscal) e sem troca de plano pelo próprio cliente — o operador muda o plano em
+  `POST /api/v1/admin/platform/tenants/{id}/plan`.
+* Cadastro self-service não verifica o e-mail nem tem recuperação de senha.
 * Assistente de classificação de templates (IA) é um ponto de extensão desligado: não há integração com
   provedor de LLM embarcada.
 
@@ -49,4 +53,6 @@
 2. Importar o rate card oficial (BRL) e reexecutar `pnpm simulate --rate-card`.
 3. Aplicar `forTenant()` em todos os repositórios e adicionar MFA para OWNER/ADMIN.
 4. Importar histórico real (CSV) para calibrar debounce/atraso por tipo de evento.
-5. Embarcar o SDK do Embedded Signup em uma página dedicada (CSP específica) se o produto for ofertado a terceiros.
+5. SaaS: tornar-se Tech Provider na Meta e validar o Embedded Signup real; integrar um gateway de
+   pagamento às faturas DRAFT; verificação de e-mail e recuperação de senha; termos de uso e política
+   de privacidade publicados (`TERMS_URL`, `PRIVACY_URL`).

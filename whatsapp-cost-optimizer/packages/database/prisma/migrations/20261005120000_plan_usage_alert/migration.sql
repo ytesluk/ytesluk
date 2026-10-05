@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AlertType" ADD VALUE 'PLAN_USAGE_NEAR_LIMIT';

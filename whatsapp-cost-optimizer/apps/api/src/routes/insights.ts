@@ -15,6 +15,9 @@ import {
   operations,
   optimizationBreakdown,
   platformTenants,
+  billingOverview,
+  changeTenantPlan,
+  ChangePlanSchema,
   summary,
   type AppContext,
 } from "@wco/services";
@@ -63,4 +66,10 @@ export async function insightRoutes(app: FastifyInstance, ctx: AppContext) {
     if (!a.platformAdmin) throw Errors.forbidden("Platform administrators only");
     return platformTenants(ctx);
   });
+  app.post("/api/v1/admin/platform/tenants/:id/plan", { schema: { tags: ["admin"], summary: "Change a tenant's SaaS plan (PLATFORM_ADMIN_EMAILS only)", body: doc(ChangePlanSchema) } }, async (req) => {
+    const a = await authenticate(ctx, req);
+    if (!a.platformAdmin) throw Errors.forbidden("Platform administrators only");
+    return changeTenantPlan(ctx, a, z.string().uuid().parse((req.params as { id: string }).id), req.body);
+  });
+  app.get("/api/v1/billing", { schema: { tags: ["billing"], summary: "WCO subscription: plan, current-month usage and draft invoices (not WhatsApp charges)" }, preHandler: guard(ctx, Permission.ANALYTICS_READ) }, async (req) => billingOverview(ctx, actorOf(req).tenantId));
 }

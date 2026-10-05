@@ -4,6 +4,9 @@ import { Role } from "@wco/domain";
 import { TEST_APP_SECRET, migrateTestDatabase, statusWebhook, truncateAll, useTestEnv } from "@wco/testing";
 import { computeSignature } from "@wco/whatsapp";
 import {
+  authenticateBearer,
+  billingOverview,
+  closeBillingPeriod,
   createAppContext,
   createIntent,
   deleteCustomerData,
@@ -15,6 +18,8 @@ import {
   optimizeIntent,
   processWebhook,
   seedAll,
+  planUsageAlerts,
+  signup,
   summary,
   type Actor,
   type AppContext,
@@ -165,5 +170,65 @@ describe("LGPD (spec §24)", () => {
     // The other tenant's relationship with the same person is untouched.
     const other = await createIntent(ctx, acme, { customer: "+5511966660001", eventType: "payment.approved", entityId: "L-3", data: {} });
     expect(other.intentId).toBeTruthy();
+  });
+});
+
+describe("SaaS self-service signup", () => {
+  const body = { companyName: "Padaria São João", name: "Ana", email: "ana@padaria.test", password: "senha-forte-123", acceptTerms: true };
+
+  it("creates an isolated FREE tenant with its OWNER, default policies and a working session", async () => {
+    const s = await signup(ctx, body);
+    expect(s.user.role).toBe("OWNER");
+    expect(s.user.tenant.slug).toBe("padaria-sao-joao");
+    const actor = await authenticateBearer(ctx, s.token);
+    expect(actor).toMatchObject({ tenantId: s.user.tenant.id, role: "OWNER" });
+    const tenant = await ctx.db.tenant.findUniqueOrThrow({ where: { id: actor.tenantId }, include: { subscription: true } });
+    expect(tenant.plan).toBe("FREE");
+    expect(tenant.subscription?.plan).toBe("FREE");
+    expect(tenant.requireOptIn).toBe(true);
+    expect(await ctx.db.optimizationPolicy.count({ where: { tenantId: actor.tenantId } })).toBeGreaterThan(0);
+    expect(await ctx.db.waba.count({ where: { tenantId: actor.tenantId } })).toBe(0);
+    expect((await listIntents(ctx, actor.tenantId, { limit: 100 } as never)).items).toHaveLength(0);
+    const logged = await ctx.db.auditLog.findFirstOrThrow({ where: { tenantId: actor.tenantId, action: "tenant.signup" } });
+    expect(logged.data).toMatchObject({ termsVersion: ctx.config.env.TERMS_VERSION });
+  });
+
+  it("refuses a duplicate e-mail, missing consent and keeps slugs unique", async () => {
+    await expect(signup(ctx, { ...body, email: "ANA@padaria.test" })).rejects.toMatchObject({ httpStatus: 409 });
+    await expect(signup(ctx, { ...body, email: "b@padaria.test", acceptTerms: false })).rejects.toThrow();
+    const other = await signup(ctx, { ...body, email: "c@padaria.test" });
+    expect(other.user.tenant.slug).toMatch(/^padaria-sao-joao-[0-9a-f]{6}$/);
+  });
+});
+
+describe("SaaS plan usage and invoices", () => {
+  it("counts this month's usage and drafts last month's invoice exactly once", async () => {
+    const overview = await billingOverview(ctx, demo.tenantId);
+    expect(overview.plan.code).toBe("PRO");
+    expect(overview.usage.intents).toBeGreaterThan(0);
+    const nextMonth = new Date(overview.usage.periodEnd.getTime() + 86_400_000);
+    const first = await closeBillingPeriod(ctx, nextMonth);
+    expect(first.created).toBeGreaterThan(0);
+    const invoice = await ctx.db.invoice.findUniqueOrThrow({ where: { tenantId_periodKey: { tenantId: demo.tenantId, periodKey: overview.usage.periodKey } } });
+    expect(invoice.status).toBe("DRAFT");
+    expect(invoice.amount.toString()).toBe("899");
+    expect(invoice.snapshot).toMatchObject({ usage: { intents: overview.usage.intents }, plan: { code: "PRO" } });
+    const again = await closeBillingPeriod(ctx, nextMonth);
+    expect(again.created).toBe(0);
+  });
+
+  it("warns near the included volume once per level and never blocks", async () => {
+    const pro = await ctx.db.plan.findUniqueOrThrow({ where: { code: "PRO" } });
+    await ctx.db.plan.update({ where: { code: "PRO" }, data: { includedIntents: 1 } });
+    try {
+      expect(await planUsageAlerts(ctx, demo.tenantId)).toBe(1);
+      expect(await planUsageAlerts(ctx, demo.tenantId)).toBe(0);
+      const alert = await ctx.db.alert.findFirstOrThrow({ where: { tenantId: demo.tenantId, type: "PLAN_USAGE_NEAR_LIMIT" } });
+      expect(alert.title).toBe("Volume do plano ultrapassado");
+      const r = await createIntent(ctx, demo, { customer: "+5511988880099", eventType: "payment.approved", entityId: "ORD-OVER", data: { orderId: "ORD-OVER" } });
+      expect(r.intentId).toBeTruthy();
+    } finally {
+      await ctx.db.plan.update({ where: { code: "PRO" }, data: { includedIntents: pro.includedIntents } });
+    }
   });
 });

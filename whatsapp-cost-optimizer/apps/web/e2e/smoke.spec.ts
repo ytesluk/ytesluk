@@ -54,3 +54,29 @@ test("operator cannot see admin navigation", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Preços" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Tenant e acesso" })).toHaveCount(0);
 });
+
+test("self-service signup creates a FREE account and guides to the WhatsApp connection", async ({ page }) => {
+  const email = `pw-${Date.now()}@example.test`;
+  await page.goto("/login");
+  await page.getByRole("link", { name: "Criar conta grátis" }).click();
+  await page.getByLabel("Nome da empresa").fill("Empresa Playwright");
+  await page.getByLabel("Seu nome").fill("Teste");
+  await page.getByLabel("E-mail de trabalho").fill(email);
+  await page.getByLabel("Senha").fill("senha-forte-123");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Criar conta" }).click();
+  await page.waitForURL(/\/admin\/providers/);
+  await expect(page.getByText("Conta criada. Próximo passo")).toBeVisible();
+  await page.goto("/admin/billing");
+  await expect(page.getByText("Free (atual)")).toBeVisible();
+  await expect(page.getByText("0 de 1.000 eventos incluídos")).toBeVisible();
+});
+
+test("only the Embedded Signup page may load Meta's SDK", async ({ page, request }) => {
+  const general = (await request.get("/login")).headers()["content-security-policy"] ?? "";
+  expect(general).not.toContain("facebook");
+  await login(page, "owner@loja-demo.wco.dev");
+  const res = await page.goto("/admin/providers/embedded-signup");
+  expect(res?.headers()["content-security-policy"]).toContain("https://connect.facebook.net");
+  await expect(page.getByText("Embedded Signup não está configurado neste servidor")).toBeVisible();
+});

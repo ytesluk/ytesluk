@@ -42,7 +42,7 @@ export interface MockEmitJob {
   payload: Record<string, unknown>;
 }
 export interface MaintenanceJob {
-  task: "rollup" | "anomalies" | "retention" | "alerts";
+  task: "rollup" | "anomalies" | "retention" | "alerts" | "billing";
 }
 export interface DeadLetterJob {
   queue: string;

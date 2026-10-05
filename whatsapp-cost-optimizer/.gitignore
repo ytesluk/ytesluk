@@ -18,3 +18,4 @@ reports/runs/
 playwright-report/
 test-results/
 infra/docker/secrets/
+dump.rdb

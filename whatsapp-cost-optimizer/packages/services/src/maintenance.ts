@@ -3,6 +3,7 @@ import { detectCostAnomaly } from "@wco/optimization";
 import { retentionCutoffs, DEFAULT_RETENTION, type DataRetentionPolicyConfig, type RetentionDays } from "@wco/policy";
 import { daily } from "./analytics";
 import { audit, raiseAlert } from "./audit";
+import { planUsageAlerts } from "./billing";
 import type { AppContext } from "./context";
 
 /** DailyMetric rollup (cheap dashboards over long ranges). Idempotent: recomputes the last N days. */
@@ -72,6 +73,7 @@ export async function evaluateAlerts(ctx: AppContext): Promise<number> {
     if (total >= 20 && failed / total >= 0.2) {
       if (await raiseAlert(ctx.db, { tenantId: t.id, type: AlertType.HIGH_API_ERROR_RATE, severity: AlertSeverity.CRITICAL, title: "Taxa alta de erros da API", message: `${Math.round((failed / total) * 100)}% das tentativas falharam na última hora.`, dedupKey: `apierr:${t.id}:${now.toISOString().slice(0, 13)}` })) raised++;
     }
+    raised += await planUsageAlerts(ctx, t.id);
   }
   return raised;
 }

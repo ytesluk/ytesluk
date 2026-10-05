@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, CircleDashed, Lock } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge, Button, Card, ErrorBox, Field, Input, KeyValue, Loading, Notice, PageHeader } from "@/components/ui";
 import { ApiError, api, useApi } from "@/lib/api";
 
@@ -52,13 +52,18 @@ export default function ProvidersPage() {
   const { data, error, loading, reload } = useApi<Status>("onboarding");
   const mock = useAction();
   const manual = useAction();
-  const es = useAction();
   const [m, setM] = useState({ businessName: "", wabaId: "", phoneNumberId: "", accessToken: "", timezone: "America/Sao_Paulo", currency: "BRL" });
-  const [e, setE] = useState({ code: "", wabaId: "", phoneNumberId: "", pin: "", businessName: "" });
+  const [welcome, setWelcome] = useState(false);
+  useEffect(() => setWelcome(new URLSearchParams(window.location.search).has("welcome")), []);
 
   return (
     <>
       <PageHeader title="Conectar WhatsApp" description="Conecte a WhatsApp Business Platform (Cloud API). As chamadas à Meta acontecem só no servidor; tokens ficam criptografados (AES-256-GCM) e nunca aparecem em logs." />
+      {welcome ? (
+        <div className="mb-6">
+          <Notice tone="good">Conta criada. Próximo passo: conecte o WhatsApp da sua empresa. Sem credenciais da Meta, use o modo MOCK para testar o fluxo completo.</Notice>
+        </div>
+      ) : null}
       {error ? <ErrorBox error={error} /> : null}
       {loading && !data ? <Loading /> : null}
       {data ? (
@@ -128,31 +133,17 @@ export default function ProvidersPage() {
 
           <Card title="3. Embedded Signup (clientes do SaaS)" subtitle="Fluxo oficial da Meta para que cada cliente conecte a própria WABA. Exige app Tech Provider/Solution Partner, configuração de Embedded Signup e acesso avançado aprovado.">
             {data.embeddedSignup ? (
-              <div className="space-y-3">
-                <Notice>
-                  App {data.embeddedSignup.appId} · config {data.embeddedSignup.configId} · Graph {data.embeddedSignup.graphApiVersion}. O popup é aberto pelo SDK JavaScript da Meta (FB.login com config_id) no domínio aprovado; o código retornado é trocado por token no servidor.
-                </Notice>
-                <form
-                  onSubmit={(ev) => {
-                    ev.preventDefault();
-                    void es.run(() => api("onboarding/embedded-signup", { body: e }).then(reload), "Embedded Signup concluído.");
-                  }}
-                  className="grid grid-cols-1 gap-3 md:grid-cols-5"
-                >
-                  <Field label="Código (code)"><Input value={e.code} onChange={(x) => setE({ ...e, code: x.target.value })} required /></Field>
-                  <Field label="WABA ID"><Input value={e.wabaId} onChange={(x) => setE({ ...e, wabaId: x.target.value })} required /></Field>
-                  <Field label="Phone Number ID"><Input value={e.phoneNumberId} onChange={(x) => setE({ ...e, phoneNumberId: x.target.value })} required /></Field>
-                  <Field label="PIN (6 dígitos)"><Input value={e.pin} onChange={(x) => setE({ ...e, pin: x.target.value })} inputMode="numeric" required /></Field>
-                  <Field label="Empresa"><Input value={e.businessName} onChange={(x) => setE({ ...e, businessName: x.target.value })} required /></Field>
-                  <div className="md:col-span-5">
-                    <Button type="submit" variant="primary" loading={es.busy}>Concluir Embedded Signup</Button>
-                  </div>
-                </form>
-                {es.done ? <Notice tone="good">{es.done}</Notice> : null}
-                {es.error ? <ErrorBox error={es.error} title="Embedded Signup recusado" /> : null}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Full page load (not <Link>): the route's own CSP, which allows Meta's SDK, applies only to a fresh document. */}
+                <a href="/admin/providers/embedded-signup" className="inline-flex items-center rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90">
+                  Conectar com o Facebook
+                </a>
+                <span className="text-xs text-muted">
+                  App {data.embeddedSignup.appId} · config {data.embeddedSignup.configId} · Graph {data.embeddedSignup.graphApiVersion}
+                </span>
               </div>
             ) : (
-              <Notice tone="warning">Não configurado: defina META_PARTNER_TYPE, META_APP_ID, META_APP_SECRET e META_EMBEDDED_SIGNUP_CONFIG_ID (ver docs/SETUP-META.md).</Notice>
+              <Notice tone="warning">Não configurado: defina META_PARTNER_TYPE, META_APP_ID, META_APP_SECRET, META_EMBEDDED_SIGNUP_CONFIG_ID e META_GRAPH_API_VERSION (ver docs/SETUP-META.md).</Notice>
             )}
           </Card>
         </div>

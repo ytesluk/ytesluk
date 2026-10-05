@@ -32,6 +32,13 @@ export async function login(ctx: AppContext, raw: unknown) {
     await audit(ctx.db, { tenantId: user?.tenantId ?? null, action: "auth.login_failed", entityType: "User", entityId: user?.id ?? null, data: { email: input.email.replace(/(.).+(@.*)/, "$1***$2") } });
     throw Errors.unauthorized("Invalid credentials");
   }
+  await ctx.db.user.update({ where: { id: user.id }, data: { lastLoginAt: ctx.now() } });
+  await audit(ctx.db, { tenantId: user.tenantId, actor: { type: "USER", id: user.id, tenantId: user.tenantId, role: user.role }, action: "auth.login", entityType: "User", entityId: user.id });
+  return issueSession(ctx, user);
+}
+
+/** Signs the dashboard JWT for a user and returns the session payload shared by login and signup. */
+export async function issueSession(ctx: AppContext, user: { id: string; tenantId: string; role: Role; email: string; name: string }) {
   const token = await new SignJWT({ tid: user.tenantId, role: user.role })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
@@ -39,8 +46,6 @@ export async function login(ctx: AppContext, raw: unknown) {
     .setIssuer("wco")
     .setExpirationTime(`${ctx.config.env.JWT_TTL_SECONDS}s`)
     .sign(secretKey(ctx));
-  await ctx.db.user.update({ where: { id: user.id }, data: { lastLoginAt: ctx.now() } });
-  await audit(ctx.db, { tenantId: user.tenantId, actor: { type: "USER", id: user.id, tenantId: user.tenantId, role: user.role }, action: "auth.login", entityType: "User", entityId: user.id });
   const tenant = await ctx.db.tenant.findUniqueOrThrow({ where: { id: user.tenantId } });
   return { token, expiresIn: ctx.config.env.JWT_TTL_SECONDS, user: { id: user.id, email: user.email, name: user.name, role: user.role, tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name }, platformAdmin: isPlatformAdmin(user.email) } };
 }

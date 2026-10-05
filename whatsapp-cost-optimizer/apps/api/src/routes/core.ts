@@ -8,6 +8,7 @@ import {
   CreateUserSchema,
   ListIntentsQuery,
   LoginSchema,
+  SignupSchema,
   createApiKey,
   createIntent,
   createUser,
@@ -17,6 +18,7 @@ import {
   listIntents,
   listUsers,
   login,
+  signup,
   revokeApiKey,
   type AppContext,
 } from "@wco/services";
@@ -46,6 +48,11 @@ export async function coreRoutes(app: FastifyInstance, ctx: AppContext) {
 
   // ---------------------------------------------------------------- auth
   app.post("/api/v1/auth/login", { schema: { tags: ["auth"], body: doc(LoginSchema) }, config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => login(ctx, req.body));
+  app.post(
+    "/api/v1/auth/signup",
+    { schema: { tags: ["auth"], summary: "Self-service account: creates a tenant (FREE plan) and its OWNER user", body: doc(SignupSchema) }, config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
+    async (req, reply) => reply.status(201).send(await signup(ctx, req.body)),
+  );
   app.get("/api/v1/auth/me", { schema: { tags: ["auth"] } }, async (req) => {
     const a = await authenticate(ctx, req);
     const tenant = await ctx.db.tenant.findUniqueOrThrow({ where: { id: a.tenantId } });

@@ -158,6 +158,8 @@ enum AlertType {
   TEMPLATE_CATEGORY_CHANGED
   PAYMENT_METHOD_ISSUE
   ACCOUNT_RESTRICTION
+  /// SaaS plan: monthly intents near/over the plan's included volume (informative; nothing is blocked).
+  PLAN_USAGE_NEAR_LIMIT
 }
 
 enum AlertSeverity {

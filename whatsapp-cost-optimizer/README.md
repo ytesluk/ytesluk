@@ -26,6 +26,10 @@ Nunca atrasa OTP/autenticação, fraude, segurança, mensagens críticas/urgente
 `mustSendImmediately`. Nunca converte Marketing em Utility nem sugere alterar texto para mudar categoria
 ("Final category is determined by Meta").
 
+**Como SaaS:** cada empresa cria a conta em `/signup` (plano Free), conecta o próprio WhatsApp pelo
+fluxo oficial da Meta (Embedded Signup — requer que o operador seja Tech Provider) e acompanha
+consumo e faturas em **Plano e uso**. As mensagens continuam cobradas pela Meta diretamente do cliente.
+
 ## Resultado da simulação obrigatória (100.000 eventos, tarifas DEMO)
 
 Mesmo dataset reprocessado em seis braços (detalhes em [`reports/final-100k/REPORT.md`](reports/final-100k/REPORT.md)):

@@ -4,6 +4,7 @@ import {
   QUEUE,
   RetryLaterError,
   applyRetention,
+  closeBillingPeriod,
   dispatchAttempt,
   evaluateAlerts,
   flushGroup,
@@ -97,6 +98,8 @@ export function startWorkers(ctx: AppContext): Worker[] {
           return { raised: await evaluateAlerts(ctx) };
         case "retention":
           return applyRetention(ctx);
+        case "billing":
+          return closeBillingPeriod(ctx);
         default:
           return null;
       }
@@ -113,6 +116,8 @@ export async function scheduleMaintenance(ctx: AppContext): Promise<void> {
   await q.upsertJobScheduler("rollup", { every: 10 * 60_000 }, { name: "rollup", data: { task: "rollup" } });
   await q.upsertJobScheduler("alerts", { every: 15 * 60_000 }, { name: "alerts", data: { task: "alerts" } });
   await q.upsertJobScheduler("retention", { pattern: "30 6 * * *" }, { name: "retention", data: { task: "retention" } });
+  // Daily and idempotent: drafts last month's invoice once each tenant's month has closed (any timezone).
+  await q.upsertJobScheduler("billing", { pattern: "15 7 * * *" }, { name: "billing", data: { task: "billing" } });
 }
 
 export async function updateQueueMetrics(ctx: AppContext): Promise<void> {

@@ -36,6 +36,8 @@ x-app-env: &app-env
   META_EMBEDDED_SIGNUP_CONFIG_ID: ${META_EMBEDDED_SIGNUP_CONFIG_ID:-}
   META_ADVANCED_ACCESS_CONFIRMED: ${META_ADVANCED_ACCESS_CONFIRMED:-false}
   PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-}
+  SIGNUP_ENABLED: ${SIGNUP_ENABLED:-true}
+  TERMS_VERSION: ${TERMS_VERSION:-2026-10}
 
 x-build: &build
   context: .
@@ -117,6 +119,8 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       # Public origins allowed to post to the dashboard (CSRF check) when it sits behind a proxy.
       WEB_ALLOWED_ORIGINS: ${WEB_ALLOWED_ORIGINS:-}
+      TERMS_URL: ${TERMS_URL:-}
+      PRIVACY_URL: ${PRIVACY_URL:-}
       # Set automatically inside GitHub Codespaces terminals; allows the codespace's forwarded URL.
       CODESPACE_NAME: ${CODESPACE_NAME:-}
       GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: ${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}

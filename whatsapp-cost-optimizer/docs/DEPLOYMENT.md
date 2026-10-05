@@ -84,4 +84,13 @@ antiga, cifrar com a nova) — ainda não automatizado (ver LIMITATIONS.md). Gua
 Veja `.env.example` (comentado). Destaques: `DATABASE_URL`, `REDIS_URL`, `ENCRYPTION_KEY`, `JWT_SECRET`,
 `HASH_PEPPER`, `SECRET_PROVIDER`, `MOCK_WHATSAPP`, `META_*`, `RATE_LIMIT_PER_MINUTE`,
 `DISPATCH_MAX_PER_SECOND`, `WORKER_CONCURRENCY`, `INFRA_COST_PER_MESSAGE_PROCESSED`,
-`INFRA_COST_PER_PROVIDER_CALL`, `AI_ASSISTANT_ENABLED` (padrão `false`).
+`INFRA_COST_PER_PROVIDER_CALL`, `AI_ASSISTANT_ENABLED` (padrão `false`), `SIGNUP_ENABLED`,
+`TERMS_URL`/`PRIVACY_URL` (links do cadastro) e `PLATFORM_ADMIN_EMAILS` (operadores do SaaS).
+
+## Operar como SaaS
+
+* Clientes criam a conta em `/signup` (plano FREE) e conectam o WhatsApp em **Conectar WhatsApp**
+  (Embedded Signup — exige app Tech Provider e domínio HTTPS aprovado; ver SETUP-META.md §6).
+* **Plano e uso** mostra o consumo do mês; alertas em 80% e 100% do volume incluído (nada é bloqueado).
+* Um job diário (07:15 UTC) fecha o mês anterior de cada tenant e grava `Usage` + fatura DRAFT
+  (idempotente; uma fatura gerada nunca é recalculada). A cobrança em si ainda é manual.

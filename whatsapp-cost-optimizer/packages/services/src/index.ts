@@ -14,6 +14,8 @@ export * from "./analytics";
 export * from "./maintenance";
 export * from "./privacy";
 export * from "./auth";
+export * from "./tenants";
+export * from "./billing";
 export * from "./admin";
 export * from "./onboarding";
 export * from "./simulation";

@@ -33,6 +33,10 @@ export const EnvSchema = z.object({
   ENCRYPTION_KEY: optionalString,
   JWT_SECRET: optionalString,
   JWT_TTL_SECONDS: z.coerce.number().int().positive().default(8 * 3600),
+  /** Self-service account creation (SaaS). Turn off for invite-only deployments. */
+  SIGNUP_ENABLED: bool(true),
+  /** Version of the terms of use / privacy notice a new account accepts (recorded in the audit log). */
+  TERMS_VERSION: z.string().default("2026-10"),
   HASH_PEPPER: optionalString,
   SECRET_PROVIDER: z.enum(["development", "docker", "production"]).default("development"),
   SECRETS_DIR: z.string().default("/run/secrets"),

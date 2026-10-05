@@ -258,6 +258,16 @@ Classificação usada em `packages/whatsapp/src/errors.ts`:
   for advanced access for each of the permissions it requires"
   (`whatsapp_business_management`, `whatsapp_business_messaging`).
   → Production Mode do WCO bloqueia onboarding comercial sem essas configurações.
+- Lado navegador (guia de implementação, atualizado em 24/07/2026, Embedded Signup v4; "Embedded signup
+  v2 will be deprecated on October 15, 2026"): SDK `https://connect.facebook.net/en_US/sdk.js`,
+  `FB.init({ appId, autoLogAppEvents: true, xfbml: true, version })`,
+  `FB.login(cb, { config_id, response_type: 'code', override_default_response_type: true, extras: { setup: {} } })`;
+  evento `message` com `type: 'WA_EMBEDDED_SIGNUP'` e `event` `FINISH` (dados `phone_number_id`,
+  `waba_id`, `business_id`), `FINISH_ONLY_WABA` e outros `FINISH_*`, `CANCEL` (`current_step` ou
+  `error_message`/`error_code`/`session_id`). O domínio precisa estar em "Allowed domains" e ter HTTPS.
+  → Implementado em `apps/web/app/(app)/admin/providers/embedded-signup/page.tsx` (verificado em 05/10/2026).
+- Último passo do cliente: adicionar forma de pagamento no WhatsApp Manager
+  (<https://business.facebook.com/wa/manage/home/>).
 
 ---
 

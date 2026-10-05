@@ -27,6 +27,7 @@ import { BUILTIN_POLICIES, CostEngine, PolicyRegistry, demoRateCards, type CostD
 import { DEFAULT_SCENARIO, generateDataset } from "@wco/simulator";
 import { hashApiKey } from "./auth";
 import type { AppContext } from "./context";
+import { provisionTenant } from "./tenants";
 
 /**
  * Seed (spec §50): demo tenant(s), users, DEMO pricing policy + rate cards, templates, optimization
@@ -51,18 +52,16 @@ export async function seedPricing(ctx: AppContext): Promise<void> {
 export async function seedTenant(ctx: AppContext, slug: string, name: string, opts: { usesBsp: boolean }) {
   const existing = await ctx.db.tenant.findUnique({ where: { slug } });
   if (existing) return { tenantId: existing.id, created: false };
-  const tenant = await ctx.db.tenant.create({
-    data: {
+  const tenant = await ctx.db.$transaction((tx) =>
+    provisionTenant(tx, {
       slug,
       name,
-      defaultCurrency: "BRL",
-      defaultTimezone: "America/Sao_Paulo",
       requireOptIn: false,
       usesBsp: opts.usesBsp,
       bspFeeModel: opts.usesBsp ? { type: "PERCENTAGE", percentOfMeta: "10", label: "BSP hipotético (demo): 10% sobre cobranças da Meta" } : { type: "NONE" },
       plan: "PRO",
-    },
-  });
+    }),
+  );
   const pw = hashPassword(DEMO_PASSWORD);
   await ctx.db.user.createMany({
     data: (["OWNER", "ADMIN", "ANALYST", "OPERATOR"] as const).map((role) => ({ tenantId: tenant.id, email: `${role.toLowerCase()}@${slug}.wco.dev`, name: `${role[0]}${role.slice(1).toLowerCase()} ${name}`, passwordHash: pw, role })),
@@ -93,12 +92,6 @@ export async function seedTenant(ctx: AppContext, slug: string, name: string, op
       externalId: `mock-template-${t.name}`,
     })),
   });
-  await ctx.db.optimizationPolicy.createMany({
-    data: DEFAULT_OPTIMIZATION_POLICIES.map((p) => ({ ...p, tenantId: tenant.id, supersessionGroup: p.supersessionGroup ?? null, consolidationTemplate: p.consolidationTemplate ?? null, defaultTemplate: p.defaultTemplate ?? null, defaultLanguage: p.defaultLanguage ?? "pt_BR", category: (p.category ?? null) as never })),
-  });
-  await ctx.db.policyRuleSet.create({ data: { tenantId: tenant.id, name: DEFAULT_RULESET.name, rules: DEFAULT_RULESET as never, active: true } });
-  await ctx.db.dataRetentionPolicy.create({ data: { tenantId: tenant.id } });
-  await ctx.db.subscription.create({ data: { tenantId: tenant.id, plan: "PRO" } });
   return { tenantId: tenant.id, created: true };
 }
 

@@ -40,6 +40,8 @@ Campos opcionais: `priority` (LOW/NORMAL/HIGH/CRITICAL), `maxDelaySeconds`, `cat
 | GET | `/health` | pública | DB + Redis, modo, versão da Graph API |
 | GET | `/metrics` | autenticada | Prometheus |
 | POST | `/auth/login` · GET `/auth/me` | — | sessão |
+| POST | `/auth/signup` | pública (5/min) | cadastro self-service: cria tenant (plano FREE) + usuário OWNER; `SIGNUP_ENABLED` |
+| GET | `/billing` | analytics:read | assinatura do WCO: plano, uso do mês, faturas DRAFT (não é a cobrança da Meta) |
 | GET/POST/DELETE | `/api-keys`, `/users` | tenant/usuários | gestão de acesso |
 | POST | `/messages/intents`, `/messages/send` | messages:write | criar intents |
 | GET | `/messages`, `/messages/{id}` | messages:read | lista (filtros, cursor) e **auditoria** (decisões, custos, tentativas, webhooks, economia, "por quê") |
@@ -62,6 +64,7 @@ Campos opcionais: `priority` (LOW/NORMAL/HIGH/CRITICAL), `maxDelaySeconds`, `cat
 | POST | `/import/history` | simulator | CSV histórico → baseline + simulação |
 | POST · GET | `/research/run`, `/research/runs` | simulator | experimento A–F (até 20k eventos) |
 | GET | `/admin/platform/tenants` | `PLATFORM_ADMIN_EMAILS` | visão de plataforma |
+| POST | `/admin/platform/tenants/{id}/plan` | `PLATFORM_ADMIN_EMAILS` | mudar o plano de um tenant |
 
 Filtros de período: `?from=<ISO>&to=<ISO>` (padrão: últimos 30 dias).
 

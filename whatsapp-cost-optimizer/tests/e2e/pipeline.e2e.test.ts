@@ -225,6 +225,25 @@ describe("tenant isolation over HTTP (spec §41 case 9)", () => {
   });
 });
 
+describe("SaaS self-service signup over HTTP", () => {
+  it("creates an account, signs in, sees an empty FREE tenant and cannot reach other tenants", async () => {
+    const r = await call("POST", "/api/v1/auth/signup", { body: { companyName: "Ótica Central", name: "Bia", email: "bia@otica.test", password: "senha-forte-123", acceptTerms: true } });
+    expect(r.status).toBe(201);
+    expect(r.body.user).toMatchObject({ role: "OWNER", tenant: { slug: "otica-central" } });
+    const token = r.body.token as string;
+    expect((await call("GET", "/api/v1/auth/me", { token })).body.tenant.name).toBe("Ótica Central");
+    const billing = await call("GET", "/api/v1/billing", { token });
+    expect(billing.status).toBe(200);
+    expect(billing.body.plan.code).toBe("FREE");
+    expect(billing.body.usage.intents).toBe(0);
+    expect((await call("GET", "/api/v1/messages?limit=5", { token })).body.items).toHaveLength(0);
+    const other = await intent({ customer: "+5511955550007", eventType: "payment.approved", entityId: "S-1", data: { orderId: "S-1" } });
+    expect((await call("GET", `/api/v1/messages/${other.body.intentId}`, { token })).status).toBe(404);
+    expect((await call("POST", "/api/v1/auth/signup", { body: { companyName: "Outra", name: "X", email: "BIA@otica.test", password: "senha-forte-123", acceptTerms: true } })).status).toBe(409);
+    expect((await call("POST", "/api/v1/auth/signup", { body: { companyName: "Outra", name: "X", email: "x@otica.test", password: "senha-forte-123", acceptTerms: false } })).status).toBe(400);
+  });
+});
+
 describe("Meta webhooks (spec §25)", () => {
   it("answers the verification challenge only with the right token", async () => {
     const ok = await call("GET", `/api/v1/webhooks/meta?hub.mode=subscribe&hub.verify_token=${TEST_VERIFY_TOKEN}&hub.challenge=1158201444`);

@@ -86,19 +86,37 @@ export async function connectManual(ctx: AppContext, actor: Actor, raw: unknown)
   return persistConnection(ctx, actor, { ...input, wabaName: waba.name ?? input.businessName, display: phone.displayPhoneNumber, verifiedName: phone.verifiedName, quality: phone.qualityRating, provider: "META_CLOUD_API", webhookSubscribed: sub.success, mode: "MANUAL" });
 }
 
-export const EmbeddedSignupSchema = z.object({ code: z.string().min(10), wabaId: z.string().min(3), phoneNumberId: z.string().min(3), pin: z.string().regex(/^\d{6}$/), businessName: z.string().min(1), timezone: z.string().default("America/Sao_Paulo"), currency: z.string().length(3).default("BRL") });
+/**
+ * Data the dashboard collects from Embedded Signup (Meta JS SDK): the exchangeable `code` from the
+ * FB.login callback (TTL ~30 s, so it is posted immediately) plus the WABA / phone number / business
+ * portfolio IDs from the WA_EMBEDDED_SIGNUP session-info message. `pin` is the two-step verification
+ * PIN the customer chooses, used by POST /<PHONE_NUMBER_ID>/register.
+ */
+export const EmbeddedSignupSchema = z.object({
+  code: z.string().min(10),
+  wabaId: z.string().min(3),
+  phoneNumberId: z.string().min(3),
+  metaBusinessId: z.string().min(3).optional(),
+  pin: z.string().regex(/^\d{6}$/),
+  businessName: z.string().min(1),
+  timezone: z.string().default("America/Sao_Paulo"),
+  currency: z.string().length(3).default("BRL"),
+});
 
 export async function completeEmbeddedSignup(ctx: AppContext, actor: Actor, raw: unknown) {
   const input = EmbeddedSignupSchema.parse(raw);
   const gate = commercialOnboardingStatus(ctx.config);
   if (!gate.allowed || !ctx.config.meta.partnerType) throw Errors.forbidden(`Embedded Signup indisponível; faltam: ${[...gate.missing, ...(ctx.config.meta.partnerType ? [] : ["META_PARTNER_TYPE"])].join(", ")}`);
   const meta = new MetaCloudApiProvider({ graphApiVersion: ctx.config.meta.graphApiVersion!, baseUrl: ctx.config.meta.graphApiBaseUrl, appSecret: ctx.config.meta.appSecret });
+  if (!isValidTimeZone(input.timezone)) throw Errors.validation("Invalid IANA timezone");
+  // Tech Provider onboarding: exchange the code for the business token, subscribe the app to the
+  // customer's WABA webhooks, register the phone number (server-to-server only).
   const { accessToken } = await meta.exchangeCodeForToken(input.code, ctx.config.meta.appId!, ctx.config.meta.appSecret!);
   const creds = { accessToken };
   const sub = await meta.registerWebhook(input.wabaId, creds);
   await meta.registerPhoneNumber(input.phoneNumberId, input.pin, creds);
-  const phone = await meta.getPhoneNumber(input.phoneNumberId, creds);
-  return persistConnection(ctx, actor, { ...input, accessToken, wabaName: input.businessName, display: phone.displayPhoneNumber, verifiedName: phone.verifiedName, quality: phone.qualityRating, provider: "META_CLOUD_API", webhookSubscribed: sub.success, mode: "EMBEDDED_SIGNUP" });
+  const [waba, phone] = await Promise.all([meta.getBusinessAccount(input.wabaId, creds), meta.getPhoneNumber(input.phoneNumberId, creds)]);
+  return persistConnection(ctx, actor, { ...input, currency: waba.currency ?? input.currency, accessToken, wabaName: waba.name ?? input.businessName, display: phone.displayPhoneNumber, verifiedName: phone.verifiedName, quality: phone.qualityRating, provider: "META_CLOUD_API", webhookSubscribed: sub.success, mode: "EMBEDDED_SIGNUP" });
 }
 
 /** Development: connect a mock WABA/phone so the full pipeline runs without Meta credentials. */

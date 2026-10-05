@@ -68,9 +68,16 @@ Necessário apenas para conectar WABAs **de clientes**:
    `whatsapp_business_management` e `whatsapp_business_messaging` (S11).
 2. Crie a configuração de Embedded Signup e defina `META_PARTNER_TYPE`, `META_APP_ID`,
    `META_EMBEDDED_SIGNUP_CONFIG_ID` e `META_ADVANCED_ACCESS_CONFIRMED=true`.
-3. O front-end abre o fluxo com o SDK JavaScript da Meta (`FB.login` com `config_id`) no domínio
-   aprovado e envia `code`, WABA ID, Phone Number ID e PIN para `POST /api/v1/onboarding/embedded-signup`;
-   o servidor troca o código por token (TTL curto), inscreve o webhook e registra o número.
+3. No app da Meta: *Facebook Login for Business › Settings* com o domínio do dashboard em
+   **Allowed domains** e **Valid OAuth redirect URIs** (HTTPS obrigatório; Codespaces/localhost não servem
+   para o fluxo real). Crie a configuração a partir do template de Embedded Signup e use o ID em
+   `META_EMBEDDED_SIGNUP_CONFIG_ID`.
+4. O cliente usa **Conectar WhatsApp › Conectar com o Facebook** (`/admin/providers/embedded-signup`):
+   informa um PIN de 6 dígitos, a página carrega o SDK JavaScript da Meta (CSP liberada só nessa rota),
+   chama `FB.login` com `config_id` e envia na hora `code` + WABA ID + Phone Number ID + business ID
+   para `POST /api/v1/onboarding/embedded-signup` (o código vale ~30 s). O servidor troca o código pelo
+   token da empresa (guardado cifrado), inscreve o app nos webhooks da WABA e registra o número.
+5. O cliente adiciona a forma de pagamento no WhatsApp Manager — a Meta cobra o cliente diretamente.
 
 Em `APP_MODE=production`, sem essas configurações o onboarding comercial fica **bloqueado** — um token
 de desenvolvedor não administra a WABA de qualquer cliente.
