@@ -89,6 +89,8 @@ export async function applyRetention(ctx: AppContext): Promise<Record<string, nu
       : DEFAULT_RETENTION;
     const c = retentionCutoffs(p, now);
     out.payloads! += (await ctx.db.messageIntent.updateMany({ where: { tenantId: t.id, requestedAt: { lt: c.payloads }, payloadPurgedAt: null }, data: { data: {}, freeFormText: null, payloadPurgedAt: now } })).count;
+    // Inbox transcript bodies follow the same (short) payload retention; the timeline metadata stays.
+    out.payloads! += (await ctx.db.chatMessage.updateMany({ where: { tenantId: t.id, occurredAt: { lt: c.payloads }, bodyPurgedAt: null }, data: { bodyEncrypted: null, bodyPurgedAt: now } })).count;
     out.attempts! += (await ctx.db.messageAttempt.updateMany({ where: { tenantId: t.id, requestedAt: { lt: c.payloads }, payload: { not: null as never } }, data: { payload: null as never } })).count;
     out.events! += (await ctx.db.conversationEvent.deleteMany({ where: { tenantId: t.id, occurredAt: { lt: c.messages } } })).count;
     // Savings rows survive (intentId set null) so aggregated analytics remain; message rows are deleted.

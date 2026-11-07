@@ -11,6 +11,7 @@ import {
   attributeSavings,
   detectCostAnomaly,
   planFlush,
+  consolidationKey,
   type IntentSubmission,
   type OptimizationFeatures,
 } from "./index";
@@ -144,6 +145,33 @@ describe("Case 2 — four updates of the same order within 60s → consolidation
     expect(merged.coveredIntentIds).toEqual(["u1", "u2"]);
     expect(merged.category).toBe(BillingCategory.UTILITY);
     expect(merged.parameters.find((x) => x.name === "updates")?.value).toBe("u1; u2");
+  });
+});
+
+describe("Inbox replies (agent.reply)", () => {
+  it("joins an agent's consecutive free-form replies into one text, in order, never with templates", () => {
+    const reply = DEFAULT_OPTIMIZATION_POLICIES.find((p) => p.eventType === "agent.reply")!;
+    const key = consolidationKey("g", BillingCategory.SERVICE, reply, true, "chat:1", MessageKind.NON_TEMPLATE);
+    expect(key).toBe("g:SERVICE:freeform");
+    // A template policy never yields a free-form key, and no entity → no joining.
+    expect(consolidationKey("g", BillingCategory.SERVICE, reply, true, null, MessageKind.NON_TEMPLATE)).toBeNull();
+    const support = DEFAULT_OPTIMIZATION_POLICIES.find((p) => p.eventType === "support.reply")!;
+    expect(consolidationKey("g", BillingCategory.SERVICE, support, true, "chat:1", MessageKind.NON_TEMPLATE)).toBeNull();
+    const mk = (id: string, text: string, sec: number) => ({
+      id, tenantId: "t1", customerKey: "c", phoneNumberId: "pn", businessEntityId: "chat:1", eventType: "agent.reply",
+      payloadHash: id, eventHash: id, idempotencyKey: id, occurredAt: at(sec), requestedAt: at(sec), earliestSendAt: at(sec), preferredSendAt: at(sec),
+      deadlineAt: at(sec + 20), status: MessageStatus.DELAYED, priority: Priority.NORMAL, maxDelaySeconds: 20, mustSendImmediately: false,
+      allowDeduplication: false, allowAggregation: true, allowSupersession: false, category: BillingCategory.SERVICE, messageKind: MessageKind.NON_TEMPLATE,
+      templateName: null, freeFormText: text, data: { text }, groupKey: "g", supersessionKey: null, consolidationKey: key,
+    });
+    const plan = planFlush([mk("b", "Tudo bem?", 2), mk("a", "Oi!", 0), mk("c", "Segue o valor", 4)], {
+      policyFor: () => reply,
+      templateFor: () => undefined,
+      features: ALL_FEATURES,
+    });
+    expect(plan.messages).toHaveLength(1);
+    expect(plan.messages[0]).toMatchObject({ messageKind: MessageKind.NON_TEMPLATE, text: "Oi!\nTudo bem?\nSegue o valor", coveredIntentIds: ["a", "b", "c"], primaryIntentId: "c" });
+    expect(plan.consolidated).toEqual([{ intentId: "a", into: "c" }, { intentId: "b", into: "c" }]);
   });
 });
 

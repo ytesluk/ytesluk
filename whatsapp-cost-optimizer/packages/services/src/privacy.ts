@@ -19,7 +19,7 @@ export async function exportCustomerData(ctx: AppContext, actor: Actor, phone: s
       select: { id: true, eventType: true, status: true, category: true, templateName: true, requestedAt: true, sentAt: true, deliveredAt: true, readAt: true, data: true, payloadPurgedAt: true },
       orderBy: { requestedAt: "asc" },
     }),
-    ctx.db.conversation.findMany({ where: { tenantId: actor.tenantId, customerId: customer.id }, include: { window: true, entryPoints: true } }),
+    ctx.db.conversation.findMany({ where: { tenantId: actor.tenantId, customerId: customer.id }, include: { window: true, entryPoints: true, messages: { orderBy: { occurredAt: "asc" } } } }),
   ]);
   const request = await ctx.db.dataSubjectRequest.create({ data: { tenantId: actor.tenantId, type: "EXPORT", customerHash: hash, status: "COMPLETED", requestedBy: actor.id, completedAt: ctx.now(), result: { intents: intents.length, consents: consents.length } } });
   await audit(ctx.db, { tenantId: actor.tenantId, actor, action: "privacy.export", entityType: "Customer", entityId: customer.id, data: { requestId: request.id } });
@@ -28,8 +28,16 @@ export async function exportCustomerData(ctx: AppContext, actor: Actor, phone: s
     customer: { phone: ctx.vault.decryptPhone(customer.phoneEncrypted), createdAt: customer.createdAt, optedInAt: customer.optedInAt, optedOutAt: customer.optedOutAt, marketingOptedOutAt: customer.marketingOptedOutAt, market: customer.market },
     consents,
     messages: intents,
-    conversations: conversations.map((c) => ({ id: c.id, lastInboundAt: c.lastInboundAt, lastOutboundAt: c.lastOutboundAt, window: c.window, entryPoints: c.entryPoints.map((e) => ({ type: e.type, occurredAt: e.occurredAt, verificationStatus: e.verificationStatus })) })),
-    note: "Message contents of inbound messages are never stored by WCO.",
+    conversations: conversations.map((c) => ({
+      id: c.id,
+      lastInboundAt: c.lastInboundAt,
+      lastOutboundAt: c.lastOutboundAt,
+      window: c.window,
+      entryPoints: c.entryPoints.map((e) => ({ type: e.type, occurredAt: e.occurredAt, verificationStatus: e.verificationStatus })),
+      // Inbox transcript (only exists when the tenant enabled the inbox; purged after the payload retention).
+      chat: c.messages.map((m) => ({ direction: m.direction, kind: m.kind, occurredAt: m.occurredAt, text: m.bodyEncrypted ? ctx.vault.decryptSecret(m.bodyEncrypted) : null, templateName: m.templateName })),
+    })),
+    note: "Message contents are stored only in the inbox (when enabled by the business), encrypted and with retention.",
   };
 }
 
@@ -43,6 +51,7 @@ export async function deleteCustomerData(ctx: AppContext, actor: Actor, phone: s
     const attempts = await tx.messageAttempt.updateMany({ where: { tenantId: actor.tenantId, intent: { customerId: customer.id } }, data: { payload: null as never } });
     const convs = await tx.conversation.findMany({ where: { tenantId: actor.tenantId, customerId: customer.id }, select: { id: true } });
     const events = await tx.conversationEvent.deleteMany({ where: { tenantId: actor.tenantId, conversationId: { in: convs.map((c) => c.id) } } });
+    await tx.chatMessage.updateMany({ where: { tenantId: actor.tenantId, conversationId: { in: convs.map((c) => c.id) } }, data: { bodyEncrypted: null, bodyPurgedAt: now } });
     await tx.customer.update({ where: { id: customer.id }, data: { phoneEncrypted: null, phoneMasked: "[erased]", erasedAt: now, optedOutAt: now } });
     return { intents: intents.count, attempts: attempts.count, events: events.count };
   });

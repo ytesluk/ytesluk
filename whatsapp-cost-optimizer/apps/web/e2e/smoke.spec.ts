@@ -98,3 +98,19 @@ test("templates can be imported from the connected account", async ({ page }) =>
   await expect(page.getByText(/template\(s\) importado\(s\)/)).toBeVisible();
   await expect(page.getByRole("cell", { name: "hello_world" }).first()).toBeVisible();
 });
+
+test("inbox: a lead writes, the agent's three quick replies go out as one message", async ({ page }) => {
+  test.setTimeout(90_000);
+  await login(page, "owner@loja-demo.wco.dev");
+  await page.goto("/inbox");
+  await page.getByLabel("Telefone do cliente").fill(`+55419${String(Date.now()).slice(-8)}`);
+  await page.getByRole("button", { name: "Cliente envia" }).click();
+  await page.getByText("Oi! Vi o anúncio, quanto custa?").first().click({ timeout: 20_000 });
+  const box = page.getByLabel("Resposta");
+  for (const t of ["Oi!", "Tudo bem?", "O plano custa R$ 199 por mês"]) {
+    await box.fill(t);
+    await box.press("Enter");
+    await page.waitForTimeout(500);
+  }
+  await expect(page.getByText(/3 resposta\(s\) digitada\(s\) → 1 mensagem\(ns\) enviada\(s\) · 2 juntada/)).toBeVisible({ timeout: 45_000 });
+});

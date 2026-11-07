@@ -26,6 +26,11 @@ Nunca atrasa OTP/autenticação, fraude, segurança, mensagens críticas/urgente
 `mustSendImmediately`. Nunca converte Marketing em Utility nem sugere alterar texto para mudar categoria
 ("Final category is determined by Meta").
 
+**Caixa de entrada:** os atendentes conversam com os clientes dentro do WCO (**Caixa de entrada**). Mensagens
+digitadas em sequência viram **uma** mensagem paga, o painel mostra quando a janela de 24 h fecha e quanto
+tempo resta para responder um lead de anúncio (resposta em 24 h = 72 h grátis); fora da janela só é possível
+enviar template aprovado. Textos guardados só com a caixa ativada, cifrados e com retenção (LGPD).
+
 **Como SaaS:** cada empresa cria a conta em `/signup` (plano Free), conecta o próprio WhatsApp pelo
 fluxo oficial da Meta (Embedded Signup — requer que o operador seja Tech Provider) e acompanha
 consumo e faturas em **Plano e uso**. As mensagens continuam cobradas pela Meta diretamente do cliente.

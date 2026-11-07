@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { forTenant } from "@wco/database";
 import { Role } from "@wco/domain";
 import { TEST_APP_SECRET, migrateTestDatabase, statusWebhook, truncateAll, useTestEnv } from "@wco/testing";
-import { computeSignature } from "@wco/whatsapp";
+import { buildInboundPayload, computeSignature } from "@wco/whatsapp";
 import {
   authenticateBearer,
   billingOverview,
@@ -20,6 +20,11 @@ import {
   seedAll,
   planUsageAlerts,
   signup,
+  flushGroup,
+  getInboxConversation,
+  listInbox,
+  sendInboxReply,
+  setInboxEnabled,
   syncTemplates,
   setWebhookOverride,
   summary,
@@ -253,5 +258,58 @@ describe("webhook override (Meta webhook overrides)", () => {
     await expect(setWebhookOverride(ctx, demo, { callbackUrl: "https://example.com/other" })).rejects.toMatchObject({ httpStatus: 400 });
     // The demo tenant only has a MOCK WABA: nothing to point at Meta.
     await expect(setWebhookOverride(ctx, demo, { callbackUrl: "https://example.com/api/v1/webhooks/meta" })).rejects.toThrow(/No real WABA/);
+  });
+});
+
+describe("Inbox: agents chat inside the WCO", () => {
+  const owner = () => ({ type: "USER" as const, id: null, tenantId: demo.tenantId, role: Role.OWNER });
+  async function customerWrites(from: string, text: string, viaAd = false) {
+    const payload = buildInboundPayload({ wabaId: "mock-waba-loja-demo", phoneNumberId: "mock-pn-loja-demo-1", from, text, timestamp: ctx.now(), referral: viaAd ? { sourceType: "ad", sourceId: "ad-1" } : undefined });
+    const raw = Buffer.from(JSON.stringify(payload));
+    const r = await ingestWebhook(ctx, { rawBody: raw, signature: computeSignature(raw, TEST_APP_SECRET) });
+    await processWebhook(ctx, { webhookEventId: r.id! }, { finalAttempt: true });
+  }
+
+  it("stores what the customer wrote only after the inbox is enabled, encrypted", async () => {
+    await setInboxEnabled(ctx, owner(), { enabled: false }); // the demo seed turns it on
+    await customerWrites("5511955550101", "mensagem antes de ativar");
+    expect(await ctx.db.chatMessage.count({ where: { tenantId: demo.tenantId } })).toBe(0);
+    await setInboxEnabled(ctx, owner(), { enabled: true });
+    await customerWrites("5511955550101", "Oi, quero um orçamento", true);
+    const row = await ctx.db.chatMessage.findFirstOrThrow({ where: { tenantId: demo.tenantId, direction: "IN" } });
+    expect(row.bodyEncrypted).not.toContain("orçamento");
+    const inbox = await listInbox(ctx, demo.tenantId);
+    const conv = inbox.conversations.find((c) => c.lastMessage === "Oi, quero um orçamento")!;
+    expect(conv).toMatchObject({ waitingReply: true, windowOpen: true, fep: { state: "REPLY_TO_UNLOCK" } });
+  });
+
+  it("joins the agent's consecutive short replies into ONE WhatsApp message", async () => {
+    const conv = (await listInbox(ctx, demo.tenantId)).conversations.find((c) => c.lastMessage === "Oi, quero um orçamento")!;
+    const ids: string[] = [];
+    for (const text of ["Oi!", "Tudo bem?", "O valor é R$ 100"]) ids.push((await sendInboxReply(ctx, owner(), conv.id, { text })).intentId);
+    for (const id of ids) await optimizeIntent(ctx, { tenantId: demo.tenantId, intentId: id });
+    const group = (await ctx.db.messageIntent.findUniqueOrThrow({ where: { id: ids[0]! } })).groupKey;
+    const realNow = ctx.now;
+    ctx.now = () => new Date(realNow.call(ctx).getTime() + 60_000);
+    try {
+      await flushGroup(ctx, { tenantId: demo.tenantId, groupKey: group });
+    } finally {
+      ctx.now = realNow;
+    }
+    const attempts = await ctx.db.messageAttempt.findMany({ where: { tenantId: demo.tenantId, coveredIntentIds: { hasSome: ids } } });
+    expect(attempts).toHaveLength(1);
+    expect((attempts[0]!.payload as { text: string }).text).toBe("Oi!\nTudo bem?\nO valor é R$ 100");
+    const detail = await getInboxConversation(ctx, demo.tenantId, conv.id);
+    expect(detail.savings).toEqual({ repliesTyped: 3, messagesSent: 0, joined: 2, pending: 1 }); // dispatch not run here
+    expect(detail.messages.filter((m) => m.direction === "OUT").map((m) => m.text)).toEqual(["Oi!", "Tudo bem?", "O valor é R$ 100"]);
+  });
+
+  it("refuses free text once the 24 h window closed (only an approved template, which is paid)", async () => {
+    const conv = (await listInbox(ctx, demo.tenantId)).conversations.find((c) => c.lastMessage === "O valor é R$ 100")!;
+    await ctx.db.customerServiceWindow.update({ where: { conversationId: conv.id }, data: { expiresAt: new Date(ctx.now().getTime() - 1000) } });
+    await expect(sendInboxReply(ctx, owner(), conv.id, { text: "ainda está aí?" })).rejects.toMatchObject({ httpStatus: 409 });
+    const tpl = await ctx.db.template.findFirstOrThrow({ where: { tenantId: demo.tenantId, status: "APPROVED", declaredCategory: "UTILITY" } });
+    const r = await sendInboxReply(ctx, owner(), conv.id, { template: { name: tpl.name, language: tpl.language }, data: {} });
+    expect(r.intentId).toBeTruthy();
   });
 });

@@ -60,6 +60,7 @@ export async function seedTenant(ctx: AppContext, slug: string, name: string, op
       usesBsp: opts.usesBsp,
       bspFeeModel: opts.usesBsp ? { type: "PERCENTAGE", percentOfMeta: "10", label: "BSP hipotético (demo): 10% sobre cobranças da Meta" } : { type: "NONE" },
       plan: "PRO",
+      inboxEnabled: true,
     }),
   );
   const pw = hashPassword(DEMO_PASSWORD);

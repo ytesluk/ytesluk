@@ -33,8 +33,12 @@ export function supersessionKey(group: string, eventType: string, policy: Optimi
   return `${group}:${policy.supersessionGroup ?? eventType}`;
 }
 
-export function consolidationKey(group: string, category: string, policy: OptimizationPolicyConfig, allow: boolean, businessEntityId: string | null): string | null {
-  if (!allow || !policy.allowAggregation || !policy.consolidationTemplate || !businessEntityId) return null;
+export function consolidationKey(group: string, category: string, policy: OptimizationPolicyConfig, allow: boolean, businessEntityId: string | null, messageKind?: string): string | null {
+  if (!allow || !policy.allowAggregation || !businessEntityId) return null;
+  // Free-form (service) replies of one conversation can be joined into one message — only for
+  // policies that send free-form text inside the window (e.g. inbox replies), never templates.
+  if (messageKind === "NON_TEMPLATE") return policy.allowFreeFormInWindow ? `${group}:${category}:freeform` : null;
+  if (!policy.consolidationTemplate) return null;
   return `${group}:${category}:${policy.consolidationTemplate}`;
 }
 

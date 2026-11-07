@@ -48,6 +48,7 @@ Campos opcionais: `priority` (LOW/NORMAL/HIGH/CRITICAL), `maxDelaySeconds`, `cat
 | GET/POST | `/webhooks/meta` | assinatura Meta | verificação e recebimento |
 | GET | `/webhooks/events` | webhooks:read | eventos recebidos/DLQ |
 | GET | `/conversations`, `/conversations/{id}` | conversations:read | janelas CSW/FEP |
+| GET · POST | `/inbox`, `/inbox/{id}`, `/inbox/{id}/reply`, `/inbox/settings` | conversations:read · messages:write · tenant:manage | caixa de entrada: conversas, transcrição, resposta (texto na janela, juntado com as próximas; ou template) e ativação |
 | GET | `/cost/estimate`, `/cost/actual` | cost:read | estimado vs realizado |
 | GET | `/savings`, `/analytics` | analytics:read | economia (Meta, BSP, infra separados), séries diárias, breakdown, insights |
 | GET | `/observability` | observability:read | filas, throughput, erros, latência |

@@ -128,6 +128,19 @@ export const DEFAULT_OPTIMIZATION_POLICIES: OptimizationPolicyConfig[] = [
     category: BillingCategory.SERVICE,
     allowFreeFormInWindow: true,
   }),
+  // Inbox replies typed by an agent. Consecutive short messages ("Oi" / "tudo bem?" / "segue o valor")
+  // are joined into ONE free-form message after a short pause (aggregation of free-form text in the
+  // same conversation); never deduplicated — a repeated "ok" is a deliberate reply.
+  p({
+    eventType: "agent.reply",
+    debounceSeconds: 8,
+    maxDelaySeconds: 20,
+    allowAggregation: true,
+    allowDeduplication: false,
+    priority: Priority.NORMAL,
+    category: BillingCategory.SERVICE,
+    allowFreeFormInWindow: true,
+  }),
   p({
     eventType: "authentication.otp",
     priority: Priority.CRITICAL,

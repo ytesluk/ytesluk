@@ -19,5 +19,6 @@ export * from "./billing";
 export * from "./admin";
 export * from "./onboarding";
 export * from "./template-sync";
+export * from "./inbox";
 export * from "./simulation";
 export * from "./seed";

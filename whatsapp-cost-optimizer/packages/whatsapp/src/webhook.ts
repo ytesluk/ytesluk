@@ -65,6 +65,11 @@ export interface InboundMessageEvent {
   referral?: { sourceType?: string; sourceId?: string; sourceUrl?: string; ctwaClid?: string; headline?: string };
   /** Text body is exposed ONLY for opt-out keyword detection and is never persisted. */
   textForKeywordDetection?: string;
+  /**
+   * What the customer wrote (text, button/list reply title or media caption). Persisted only by the
+   * inbox when the tenant enabled it (encrypted, with retention); never logged.
+   */
+  body?: string;
 }
 
 export interface TemplateStatusEvent {
@@ -127,6 +132,18 @@ const ts = (v: unknown): Date => {
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : typeof v === "number" ? String(v) : undefined);
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 const arr = (v: unknown): Array<Record<string, unknown>> => (Array.isArray(v) ? (v as Array<Record<string, unknown>>) : []);
+
+/** Human-readable content of an inbound message: text, button/list reply title or media caption. */
+function inboundBody(type: string, m: Record<string, unknown>): string | undefined {
+  if (type === "text") return str(obj(m.text).body);
+  if (type === "button") return str(obj(m.button).text);
+  if (type === "interactive") {
+    const i = obj(m.interactive);
+    return str(obj(i.button_reply).title) ?? str(obj(i.list_reply).title);
+  }
+  if (["image", "video", "document"].includes(type)) return str(obj(m[type]).caption);
+  return undefined;
+}
 
 export function webhookFields(payload: unknown): string[] {
   const parsed = EnvelopeSchema.safeParse(payload);
@@ -194,6 +211,7 @@ export function parseWebhook(payload: unknown): WebhookEvent[] {
                 ? { sourceType: str(ref.source_type), sourceId: str(ref.source_id), sourceUrl: str(ref.source_url), ctwaClid: str(ref.ctwa_clid), headline: str(ref.headline) }
                 : undefined,
               textForKeywordDetection: type === "text" ? str(obj(m.text).body) : type === "button" ? str(obj(m.button).text) : undefined,
+              body: inboundBody(type, m),
             });
           }
           break;

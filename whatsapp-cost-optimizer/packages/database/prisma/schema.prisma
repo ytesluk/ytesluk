@@ -242,6 +242,8 @@ model Tenant {
   /// Whether this tenant currently sends through a BSP (affects realized BSP costs).
   usesBsp          Boolean  @default(false)
   plan             PlanCode @default(FREE)
+  /// Inbox: store conversation texts (encrypted) so agents can chat inside the WCO. Off = data minimization.
+  inboxEnabled     Boolean  @default(false)
   createdAt        DateTime @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime @updatedAt @db.Timestamptz(3)
 
@@ -444,6 +446,7 @@ model Conversation {
   window      CustomerServiceWindow?
   entryPoints ConversationEntryPoint[]
   events      ConversationEvent[]
+  messages    ChatMessage[]
 
   @@unique([tenantId, phoneNumberId, customerId])
   @@index([tenantId, updatedAt])
@@ -498,6 +501,33 @@ model ConversationEntryPoint {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, conversationId, userMessageAt])
+}
+
+/// Inbox transcript (only when Tenant.inboxEnabled). Bodies are encrypted (AES-256-GCM) and purged after
+/// DataRetentionPolicy.payloadRetentionDays; metadata stays for the conversation timeline.
+model ChatMessage {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  tenantId          String    @db.Uuid
+  conversationId    String    @db.Uuid
+  /// IN (customer → business) | OUT (business → customer)
+  direction         String
+  /// text | template | image | audio | video | document | sticker | location | button | interactive | other
+  kind              String
+  bodyEncrypted     String?
+  templateName      String?
+  /// Meta message id of an inbound message.
+  providerMessageId String?   @unique
+  /// Outbound: the intent created for this reply (status, cost and savings come from it).
+  intentId          String?   @db.Uuid
+  authorUserId      String?   @db.Uuid
+  occurredAt        DateTime  @db.Timestamptz(3)
+  bodyPurgedAt      DateTime? @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, conversationId, occurredAt])
+  @@index([tenantId, occurredAt])
 }
 
 /// Append-only history of everything that happened in a conversation/intent (audit trail for Message Audit).

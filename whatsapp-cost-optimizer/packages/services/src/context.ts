@@ -42,6 +42,16 @@ export class PricingStore {
   }
 }
 
+/**
+ * Tenant policies plus the built-in defaults for event types the tenant has no row for — so a new
+ * built-in flow (e.g. inbox replies) works for tenants created before it existed. Tenant rows win.
+ */
+function withBuiltInDefaults(rows: OptimizationPolicyConfig[]): OptimizationPolicyConfig[] {
+  if (rows.length === 0) return DEFAULT_OPTIMIZATION_POLICIES;
+  const own = new Set(rows.map((r) => r.eventType));
+  return [...rows, ...DEFAULT_OPTIMIZATION_POLICIES.filter((p) => !own.has(p.eventType))];
+}
+
 export interface TemplateConfig extends TemplateInfo {
   id: string;
   parameterFormat: "NAMED" | "POSITIONAL";
@@ -72,6 +82,7 @@ export interface TenantConfig {
   slug: string;
   requireOptIn: boolean;
   usesBsp: boolean;
+  inboxEnabled: boolean;
   bspFeeModel: Record<string, unknown> | null;
   defaultCurrency: string;
   defaultTimezone: string;
@@ -113,11 +124,12 @@ export class TenantConfigCache {
       slug: tenant.slug,
       requireOptIn: tenant.requireOptIn,
       usesBsp: tenant.usesBsp,
+      inboxEnabled: tenant.inboxEnabled,
       bspFeeModel: (tenant.bspFeeModel as Record<string, unknown> | null) ?? null,
       defaultCurrency: tenant.defaultCurrency,
       defaultTimezone: tenant.defaultTimezone,
-      policies: policies.length
-        ? policies.map((p) => ({
+      policies: withBuiltInDefaults(
+        policies.map((p) => ({
             eventType: p.eventType,
             maxDelaySeconds: p.maxDelaySeconds,
             debounceSeconds: p.debounceSeconds,
@@ -135,8 +147,8 @@ export class TenantConfigCache {
             allowFreeFormInWindow: p.allowFreeFormInWindow,
             maxConsolidatedItems: p.maxConsolidatedItems,
             enabled: p.enabled,
-          }))
-        : DEFAULT_OPTIMIZATION_POLICIES,
+          })),
+      ),
       rules: new PolicyEngine(rs),
       ruleSet: rs,
       templates: new Map(

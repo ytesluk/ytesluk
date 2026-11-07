@@ -369,7 +369,15 @@ async function handleInbound(ctx: AppContext, tenant: TenantConfig, phoneId: str
     policyVersionId: policy?.id ?? null,
     referral: ev.referral,
   });
-  // Message contents are NOT stored (data minimization, spec §24).
+  // Message contents are NOT stored (data minimization, spec §24) — except in the inbox, which the
+  // tenant turns on explicitly: then the text is kept encrypted, with the payload retention period.
+  if (tenant.inboxEnabled) {
+    await ctx.db.chatMessage.upsert({
+      where: { providerMessageId: ev.messageId },
+      create: { tenantId: tenant.id, conversationId, direction: "IN", kind: ev.messageType, bodyEncrypted: ev.body ? ctx.vault.encryptSecret(ev.body) : null, providerMessageId: ev.messageId, occurredAt: ev.timestamp },
+      update: {},
+    });
+  }
   await event(ctx.db, { tenantId: tenant.id, type: "INBOUND_MESSAGE", conversationId, occurredAt: ev.timestamp, data: { messageType: ev.messageType, referral: ev.referral ? { sourceType: ev.referral.sourceType, sourceId: ev.referral.sourceId } : null, entryPointId } });
   if (isOptOutKeyword(ev.textForKeywordDetection)) {
     await ctx.db.consentRecord.create({ data: { tenantId: tenant.id, customerId: customer.id, type: "OPT_OUT", scope: "ALL", source: "INBOUND_KEYWORD", occurredAt: ev.timestamp } });

@@ -15,6 +15,11 @@ import {
   operations,
   optimizationBreakdown,
   platformTenants,
+  InboxReplySchema,
+  getInboxConversation,
+  listInbox,
+  sendInboxReply,
+  setInboxEnabled,
   billingOverview,
   changeTenantPlan,
   ChangePlanSchema,
@@ -26,6 +31,16 @@ import { actorOf, authenticate, doc, guard } from "../http";
 export async function insightRoutes(app: FastifyInstance, ctx: AppContext) {
   const q = (req: { query: unknown }) => RangeQuery.parse(req.query);
   const t = (req: Parameters<typeof actorOf>[0]) => actorOf(req).tenantId;
+
+  // ---------------------------------------------------------------- inbox (agents chat inside the WCO)
+  app.get("/api/v1/inbox", { schema: { tags: ["inbox"], summary: "Conversations with last message, window and ad (FEP) deadlines" }, preHandler: guard(ctx, Permission.CONVERSATIONS_READ) }, async (req) => listInbox(ctx, actorOf(req).tenantId));
+  app.get("/api/v1/inbox/:id", { schema: { tags: ["inbox"], summary: "Conversation transcript with send status and joined replies" }, preHandler: guard(ctx, Permission.CONVERSATIONS_READ) }, async (req) =>
+    getInboxConversation(ctx, actorOf(req).tenantId, z.string().uuid().parse((req.params as { id: string }).id)),
+  );
+  app.post("/api/v1/inbox/:id/reply", { schema: { tags: ["inbox"], summary: "Agent reply: free-form text inside the window (joined with the next few messages) or an approved template", body: doc(InboxReplySchema) }, preHandler: guard(ctx, Permission.MESSAGES_WRITE) }, async (req, reply) =>
+    reply.status(202).send(await sendInboxReply(ctx, actorOf(req), z.string().uuid().parse((req.params as { id: string }).id), req.body)),
+  );
+  app.post("/api/v1/inbox/settings", { schema: { tags: ["inbox"], summary: "Turn the inbox on/off (stores conversation texts, encrypted, with retention)" }, preHandler: guard(ctx, Permission.TENANT_MANAGE) }, async (req) => setInboxEnabled(ctx, actorOf(req), req.body));
 
   app.get("/api/v1/conversations", { schema: { tags: ["conversations"] }, preHandler: guard(ctx, Permission.CONVERSATIONS_READ) }, async (req) =>
     listConversations(ctx, t(req), { limit: Number((req.query as { limit?: string }).limit ?? 50) }),

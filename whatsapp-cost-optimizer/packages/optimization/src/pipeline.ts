@@ -281,7 +281,7 @@ export class InMemoryPipeline {
       data,
       groupKey: g,
       supersessionKey: supersessionKey(g, sub.eventType, policy, allowSup, sub.businessEntityId ?? null),
-      consolidationKey: consolidationKey(g, category, policy, allowAgg, sub.businessEntityId ?? null),
+      consolidationKey: consolidationKey(g, category, policy, allowAgg, sub.businessEntityId ?? null, messageKind),
     };
     this.idempotency.set(rec.idempotencyKey, id);
     this.byId.set(id, rec);

@@ -19,6 +19,7 @@ export interface ProvisionTenantInput {
   requireOptIn?: boolean;
   usesBsp?: boolean;
   bspFeeModel?: Record<string, unknown>;
+  inboxEnabled?: boolean;
 }
 
 /**
@@ -38,6 +39,7 @@ export async function provisionTenant(tx: Tx, input: ProvisionTenantInput) {
       usesBsp: input.usesBsp ?? false,
       bspFeeModel: (input.bspFeeModel ?? { type: "NONE" }) as never,
       plan,
+      inboxEnabled: input.inboxEnabled ?? false,
     },
   });
   await tx.optimizationPolicy.createMany({

@@ -54,14 +54,52 @@ function single(intent: IntentRecord, templateFor: FlushOptions["templateFor"]):
   };
 }
 
+/** Cloud API limit for a text message body. */
+export const MAX_TEXT_LENGTH = 4096;
+
+/**
+ * Consecutive free-form replies of one conversation become ONE text message, lines kept in order
+ * (split, never truncated, past the text limit). The newest intent carries the message.
+ */
+function joinFreeForm(members: IntentRecord[], messages: FlushMessage[], consolidated: FlushPlan["consolidated"]): void {
+  let chunk: IntentRecord[] = [];
+  let length = 0;
+  const flush = () => {
+    if (chunk.length === 0) return;
+    const primary = chunk[chunk.length - 1]!;
+    messages.push({
+      primaryIntentId: primary.id,
+      coveredIntentIds: chunk.map((c) => c.id),
+      consolidated: chunk.length > 1,
+      templateName: null,
+      messageKind: MessageKind.NON_TEMPLATE,
+      category: primary.category,
+      parameters: [],
+      text: chunk.map((c) => c.freeFormText ?? "").join("\n"),
+      reasons: chunk.length > 1 ? ["joined_replies", `items_${chunk.length}`, "same_conversation"] : ["single_message"],
+    });
+    for (const c of chunk) if (c.id !== primary.id) consolidated.push({ intentId: c.id, into: primary.id });
+    chunk = [];
+    length = 0;
+  };
+  for (const m of members) {
+    const text = m.freeFormText ?? "";
+    if (chunk.length > 0 && length + 1 + text.length > MAX_TEXT_LENGTH) flush();
+    chunk.push(m);
+    length += (chunk.length > 1 ? 1 : 0) + text.length;
+  }
+  flush();
+}
+
 export function planFlush(pending: IntentRecord[], opts: FlushOptions): FlushPlan {
   const notes: string[] = [];
   const buffered = pending.filter((i) => BUFFERED_STATUSES.has(i.status)).sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
   const groups = new Map<string, IntentRecord[]>();
   const singles: IntentRecord[] = [];
   for (const i of buffered) {
-    // A free-form (service) intent is never merged into a template message.
-    if (!opts.features.aggregation || !i.consolidationKey || i.messageKind === MessageKind.NON_TEMPLATE) singles.push(i);
+    // A free-form (service) intent is never merged into a template message: free-form keys are
+    // distinct (":freeform") and only join other free-form replies of the same conversation.
+    if (!opts.features.aggregation || !i.consolidationKey) singles.push(i);
     else groups.set(i.consolidationKey, [...(groups.get(i.consolidationKey) ?? []), i]);
   }
 
@@ -71,6 +109,10 @@ export function planFlush(pending: IntentRecord[], opts: FlushOptions): FlushPla
   for (const [key, members] of groups) {
     if (members.length === 1) {
       messages.push(single(members[0]!, opts.templateFor));
+      continue;
+    }
+    if (members.every((m) => m.messageKind === MessageKind.NON_TEMPLATE)) {
+      joinFreeForm(members, messages, consolidated);
       continue;
     }
     const policy = opts.policyFor(members[members.length - 1]!.eventType);

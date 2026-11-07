@@ -17,6 +17,7 @@ processando dados para enviar mensagens em nome do tenant. A Meta é destinatár
 | Webhooks brutos | auditoria/reprocessamento | removidos após `rawWebhookRetentionDays` (padrão 30) |
 | Decisões, custos, economia, status | faturamento, auditoria, analytics | sem telefone; vinculados a ids pseudônimos |
 | Consentimento | base para envio | `ConsentRecord` com data, origem e escopo (ALL/MARKETING) |
+| Conversas da caixa de entrada (texto recebido e enviado) | atendimento dentro do WCO | **só se a empresa ativar a caixa de entrada**; cifrado (AES-256-GCM), removido após `payloadRetentionDays`; incluído na exportação e apagado na exclusão do titular |
 | Usuários do dashboard | acesso | e-mail, nome, hash de senha |
 
 Logs nunca contêm telefone completo nem conteúdo de mensagem.
