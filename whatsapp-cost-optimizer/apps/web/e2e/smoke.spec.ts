@@ -103,6 +103,7 @@ test("inbox: a lead writes, the agent's three quick replies go out as one messag
   test.setTimeout(90_000);
   await login(page, "owner@loja-demo.wco.dev");
   await page.goto("/inbox");
+  await page.getByRole("button", { name: "Simular cliente" }).click();
   await page.getByLabel("Telefone do cliente").fill(`+55419${String(Date.now()).slice(-8)}`);
   await page.getByRole("button", { name: "Cliente envia" }).click();
   await page.getByText("Oi! Vi o anúncio, quanto custa?").first().click({ timeout: 20_000 });
@@ -112,5 +113,6 @@ test("inbox: a lead writes, the agent's three quick replies go out as one messag
     await box.press("Enter");
     await page.waitForTimeout(500);
   }
-  await expect(page.getByText(/3 resposta\(s\) digitada\(s\) → 1 mensagem\(ns\) enviada\(s\) · 2 juntada/)).toBeVisible({ timeout: 45_000 });
+  // The three replies end up in one bubble: that is what the customer received (one message).
+  await expect(page.getByText("3 mensagens juntadas em 1", { exact: false })).toBeVisible({ timeout: 45_000 });
 });

@@ -66,9 +66,10 @@ export async function listInbox(ctx: AppContext, tenantId: string) {
       customer: { select: { phoneMasked: true } },
       window: { select: { expiresAt: true } },
       entryPoints: { select: { eligibility: true, userMessageAt: true, firstBusinessReplyAt: true, freeWindowExpiresAt: true } },
-      messages: { orderBy: { occurredAt: "desc" }, take: 1 },
+      messages: { orderBy: { occurredAt: "desc" }, take: 30, select: { direction: true, kind: true, bodyEncrypted: true, templateName: true, occurredAt: true, intentId: true } },
     },
   });
+  const lastStatus = await lastOutStatuses(ctx, tenantId, rows.map((c) => c.messages[0]));
   const items = rows.map((c) => {
     const last = c.messages[0];
     const preview = last ? (decrypt(ctx, last.bodyEncrypted) ?? (last.templateName ? `[template ${last.templateName}]` : `[${last.kind}]`)) : null;
@@ -78,13 +79,37 @@ export async function listInbox(ctx: AppContext, tenantId: string) {
       customer: c.customer.phoneMasked,
       lastMessage: preview ? (preview.length > PREVIEW ? `${preview.slice(0, PREVIEW)}…` : preview) : null,
       lastDirection: last?.direction ?? null,
+      // Delivery state of the business's last message, for the list ticks (null for customer messages).
+      lastStatus: last?.intentId ? (lastStatus.get(last.intentId) ?? null) : null,
       lastAt,
       waitingReply: last ? last.direction === "IN" : !!c.lastInboundAt && (!c.lastOutboundAt || c.lastOutboundAt < c.lastInboundAt),
+      // Customer messages since the business last wrote (WhatsApp-style unread counter).
+      unread: (() => {
+        const i = c.messages.findIndex((m) => m.direction === "OUT");
+        return i === -1 ? c.messages.length : i;
+      })(),
       ...deadlines(now, c),
     };
   });
   items.sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
   return { inboxEnabled: (await ctx.tenants.get(tenantId)).inboxEnabled, conversations: items };
+}
+
+/**
+ * Status of each business message shown last in the list. A reply joined into the next one takes the
+ * status of the message that actually went out.
+ */
+async function lastOutStatuses(ctx: AppContext, tenantId: string, last: Array<{ direction: string; intentId: string | null } | undefined>) {
+  const ids = last.filter((m) => m?.direction === "OUT" && m.intentId).map((m) => m!.intentId!);
+  const out = new Map<string, string>();
+  if (!ids.length) return out;
+  const intents = await ctx.db.messageIntent.findMany({ where: { tenantId, id: { in: ids } }, select: { id: true, status: true, consolidatedIntoId: true } });
+  const targets = intents.filter((i) => i.status === "CONSOLIDATED" && i.consolidatedIntoId).map((i) => i.consolidatedIntoId!);
+  const joined = targets.length
+    ? new Map((await ctx.db.messageIntent.findMany({ where: { tenantId, id: { in: targets } }, select: { id: true, status: true } })).map((i) => [i.id, i.status]))
+    : new Map<string, string>();
+  for (const i of intents) out.set(i.id, (i.consolidatedIntoId && joined.get(i.consolidatedIntoId)) || i.status);
+  return out;
 }
 
 const SENT = new Set(["SENT", "DELIVERED", "READ"]);
@@ -127,6 +152,7 @@ export async function getInboxConversation(ctx: AppContext, tenantId: string, co
     const i = m.intentId ? byId.get(m.intentId) : undefined;
     return {
       id: m.id,
+      intentId: m.intentId,
       direction: m.direction,
       kind: m.kind,
       text: decrypt(ctx, m.bodyEncrypted),

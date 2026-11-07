@@ -302,6 +302,10 @@ describe("Inbox: agents chat inside the WCO", () => {
     const detail = await getInboxConversation(ctx, demo.tenantId, conv.id);
     expect(detail.savings).toEqual({ repliesTyped: 3, messagesSent: 0, joined: 2, pending: 1 }); // dispatch not run here
     expect(detail.messages.filter((m) => m.direction === "OUT").map((m) => m.text)).toEqual(["Oi!", "Tudo bem?", "O valor é R$ 100"]);
+    // The list shows the real delivery state of the message that went out, and nothing unread.
+    const item = (await listInbox(ctx, demo.tenantId)).conversations.find((c) => c.id === conv.id)!;
+    const primary = await ctx.db.messageIntent.findUniqueOrThrow({ where: { id: attempts[0]!.intentId } });
+    expect(item).toMatchObject({ unread: 0, lastDirection: "OUT", lastStatus: primary.status });
   });
 
   it("refuses free text once the 24 h window closed (only an approved template, which is paid)", async () => {

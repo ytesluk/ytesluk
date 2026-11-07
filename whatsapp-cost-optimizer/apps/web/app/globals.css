@@ -29,6 +29,15 @@
   --critical: #d03b3b;
   --demo-bg: #fff4d6;
   --demo-ink: #6b4a00;
+  /* Inbox (chat look familiar to WhatsApp users) */
+  --chat-bg: #efeae2;
+  --chat-in: #ffffff;
+  --chat-out: #d9fdd3;
+  --chat-ink: #111b21;
+  --chat-meta: #667781;
+  --chat-read: #53bdeb;
+  --chat-send: #00a884;
+  --chat-unread: #25d366;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -51,6 +60,14 @@
     --good-ink: #0ca30c;
     --demo-bg: #3a2c05;
     --demo-ink: #f5d27a;
+    --chat-bg: #0b141a;
+    --chat-in: #202c33;
+    --chat-out: #005c4b;
+    --chat-ink: #e9edef;
+    --chat-meta: #8696a0;
+    --chat-read: #53bdeb;
+    --chat-send: #00a884;
+    --chat-unread: #25d366;
   }
 }
 
@@ -73,6 +90,14 @@
   --good-ink: #0ca30c;
   --demo-bg: #3a2c05;
   --demo-ink: #f5d27a;
+  --chat-bg: #0b141a;
+  --chat-in: #202c33;
+  --chat-out: #005c4b;
+  --chat-ink: #e9edef;
+  --chat-meta: #8696a0;
+  --chat-read: #53bdeb;
+  --chat-send: #00a884;
+  --chat-unread: #25d366;
 }
 
 @theme inline {
@@ -89,6 +114,14 @@
   --color-critical: var(--critical);
   --color-serious: var(--serious);
   --color-warning: var(--warning);
+  --color-chat-bg: var(--chat-bg);
+  --color-chat-in: var(--chat-in);
+  --color-chat-out: var(--chat-out);
+  --color-chat-ink: var(--chat-ink);
+  --color-chat-meta: var(--chat-meta);
+  --color-chat-read: var(--chat-read);
+  --color-chat-send: var(--chat-send);
+  --color-chat-unread: var(--chat-unread);
   --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
