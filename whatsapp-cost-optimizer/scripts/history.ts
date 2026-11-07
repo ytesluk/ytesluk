@@ -2,7 +2,7 @@
  * pnpm historico <arquivo.csv> [--rate-card tarifas.json] [--timezone America/Sao_Paulo] [--json saida.json]
  *
  * Replays a company's REAL sending history through the optimizer, locally (the file never leaves
- * this machine — useful for a prospect's data under LGPD). Same engine as "Simular economia ›
+ * this machine — useful for a prospect's data under LGPD). Same engine as "Plataforma › Simular economia ›
  * Histórico CSV" in the dashboard. Columns: see docs/TESTAR-ECONOMIA.md.
  * Without --rate-card the money values use the DEMO (fictitious) rates; message counts are real.
  */

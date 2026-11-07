@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BarCard, LineCard } from "@/components/charts";
+import { OptimizationDetails } from "@/components/optimization-details";
 import { RangePicker, useRange } from "@/components/range";
 import { Badge, Card, DemoBadge, ErrorBox, Kpi, Loading, Notice, PageHeader } from "@/components/ui";
 import { useApi } from "@/lib/api";
@@ -25,6 +26,7 @@ const MECHANISM: Record<string, string> = {
 export default function OverviewPage() {
   const [range, setRange, query] = useRange("30");
   const { data, error, loading } = useApi<Analytics>(`analytics?${query}`);
+  const me = useApi<{ actor: { platformAdmin?: boolean } }>("auth/me");
   const s = data?.summary;
   const c = s?.currency ?? "BRL";
   const m = (v: number) => money(v, c);
@@ -47,7 +49,14 @@ export default function OverviewPage() {
         <div className="space-y-6">
           {s.isDemoRates ? (
             <Notice tone="warning">
-              Os custos usam o <strong>rate card DEMO</strong> (valores fictícios). Importe o rate card oficial da Meta em <Link className="underline" href="/admin/pricing">Admin › Preços</Link> para valores reais.
+              Os custos usam o <strong>rate card DEMO</strong> (valores fictícios).{" "}
+              {me.data?.actor.platformAdmin ? (
+                <>
+                  Importe o rate card oficial da Meta em <Link className="underline" href="/admin/pricing">Preços</Link> para valores reais.
+                </>
+              ) : (
+                "Os valores reais aparecem quando o rate card oficial da Meta for carregado na plataforma."
+              )}
             </Notice>
           ) : null}
 
@@ -147,6 +156,13 @@ export default function OverviewPage() {
               </ul>
             </Card>
           </div>
+          <section id="economia" className="scroll-mt-20 space-y-4 pt-2">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Onde a economia acontece</h2>
+              <p className="text-sm text-ink-2">Por categoria, tipo de evento, janela gratuita e tier. Estimado = decisão do WCO; realizado = confirmado pelos webhooks da Meta.</p>
+            </div>
+            <OptimizationDetails data={data} />
+          </section>
           <p className="text-xs text-muted">{s.savings.note}</p>
         </div>
       ) : null}

@@ -94,7 +94,7 @@ interpretadas no fuso da WABA.
 * Prometheus: API em `/api/v1/metrics`, worker em `:9100/metrics` (`wco_intents_received_total`,
   `wco_messages_avoided_total`, `wco_estimated_savings_total`, `wco_meta_api_latency_seconds`,
   `wco_queue_depth`, `wco_circuit_breaker_open`, `wco_cost_calculation_errors_total`, …).
-* `/api/v1/observability` e a página Observabilidade mostram filas, throughput e taxa de erro.
+* `/api/v1/observability` e a página Plataforma › Observabilidade (só `PLATFORM_ADMIN_EMAILS`) mostram filas, throughput e taxa de erro.
 
 ## Escala
 

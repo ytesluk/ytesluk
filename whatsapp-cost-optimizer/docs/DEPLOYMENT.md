@@ -60,7 +60,7 @@ O Dockerfile usa o segredo `ca` (se existir) como `NODE_EXTRA_CA_CERTS` apenas d
 3. `SEED=false` (não criar tenants de demonstração) e crie o primeiro tenant/usuário por script
    administrativo; importe o rate card oficial (`pnpm pricing import`) e aposente os DEMO.
 4. TLS na borda (proxy reverso/ingress) para API e dashboard; o webhook da Meta exige HTTPS público.
-5. `PLATFORM_ADMIN_EMAILS` para a visão de plataforma.
+5. `PLATFORM_ADMIN_EMAILS` para a visão de plataforma e o menu interno (Preços, Políticas, simuladores, Observabilidade).
 
 ### Alterar `ENCRYPTION_KEY`
 
@@ -77,7 +77,7 @@ antiga, cifrar com a nova) — ainda não automatizado (ver LIMITATIONS.md). Gua
 * **Backups**: PostgreSQL (dump/PITR). O Redis guarda filas; perdas são recuperáveis porque o estado de
   verdade está no banco, mas jobs em voo podem precisar de reprocessamento.
 * **Monitoração**: Prometheus (`/api/v1/metrics`, `worker:9100/metrics`), alertas do próprio WCO
-  (custo anômalo, cota, falha de webhook, pagamento, restrição de conta), filas na página Observabilidade.
+  (custo anômalo, cota, falha de webhook, pagamento, restrição de conta), filas na página Plataforma › Observabilidade.
 
 ## Variáveis principais
 

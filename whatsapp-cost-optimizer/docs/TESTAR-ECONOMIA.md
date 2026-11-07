@@ -64,7 +64,7 @@ painel, botão **Baixar modelo CSV**).
 Ou seja: sem identificação o resultado subestima a economia, nunca superestima.
 
 **`eventType` e atrasos.** As regras de espera (ex.: `order.status` espera até 30 s por novas
-atualizações, no máximo 60 s) vêm das políticas em **Admin › Políticas**. Tipos que não existem lá usam a
+atualizações, no máximo 60 s) vêm das políticas em **Plataforma › Políticas**. Tipos que não existem lá usam a
 política padrão (sem espera: só deduplicação). Use os nomes existentes ou crie a política do tipo antes
 de testar.
 
@@ -73,13 +73,13 @@ de testar.
 Sem isso os valores em R$ usam o rate card **DEMO** (fictício) — as **contagens** de mensagens evitadas
 continuam reais. Baixe o rate card oficial da sua moeda na página de preços da Meta
 (<https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing/>) e importe em
-**Admin › Preços** (ou `pnpm pricing import <arquivo>`). O formato exato do arquivo oficial não pôde ser
+**Plataforma › Preços** (ou `pnpm pricing import <arquivo>`). O formato exato do arquivo oficial não pôde ser
 verificado neste ambiente (KNOWN-CONFLICTS C6): se a importação recusar o arquivo, `pnpm pricing
 export-demo <pasta>` gera o modelo JSON para preencher com os valores da tabela oficial.
 
 ### 2.3 Rodar
 
-* **No painel:** **Simular economia › Histórico CSV** → escolher o arquivo → *Calcular baseline e simulação*.
+* **No painel:** **Plataforma › Simular economia › Histórico CSV** (só para `PLATFORM_ADMIN_EMAILS`) → escolher o arquivo → *Calcular baseline e simulação*.
 * **No terminal, sem subir o arquivo para servidor nenhum** (bom para dados de cliente em prospecção):
 
   ```bash

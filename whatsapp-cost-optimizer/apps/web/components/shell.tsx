@@ -9,7 +9,6 @@ import {
   BookOpenCheck,
   Calculator,
   CreditCard,
-  ChartColumn,
   FileText,
   FlaskConical,
   Gauge,
@@ -40,31 +39,20 @@ const CONFIG: Role[] = ["OWNER", "ADMIN"];
 const ANALYTICS: Role[] = ["OWNER", "ADMIN", "ANALYST"];
 
 /** Navigation mirrors the API's RBAC (the API re-checks every request; hiding is only UX). */
-const NAV: Array<{ section: string; items: Array<{ href: string; label: string; icon: React.ComponentType<{ className?: string }>; roles: Role[] }> }> = [
+const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: string; label: string; icon: React.ComponentType<{ className?: string }>; roles: Role[] }> }> = [
   {
     section: "Operação",
     items: [
-      { href: "/", label: "Visão geral", icon: LayoutDashboard, roles: ANALYTICS },
-      { href: "/optimization", label: "Otimização", icon: ChartColumn, roles: ANALYTICS },
-      { href: "/messages", label: "Mensagens", icon: MessageSquare, roles: ALL },
       { href: "/inbox", label: "Caixa de entrada", icon: Inbox, roles: ALL },
+      { href: "/", label: "Visão geral", icon: LayoutDashboard, roles: ANALYTICS },
+      { href: "/messages", label: "Mensagens", icon: MessageSquare, roles: ALL },
       { href: "/conversations", label: "Conversas e janelas", icon: MessagesSquare, roles: ALL },
       { href: "/alerts", label: "Alertas", icon: Bell, roles: ANALYTICS },
-      { href: "/observability", label: "Observabilidade", icon: Activity, roles: ["OWNER", "ADMIN", "OPERATOR"] },
-    ],
-  },
-  {
-    section: "Análise",
-    items: [
-      { href: "/simulator", label: "Simular economia", icon: Calculator, roles: ANALYTICS },
-      { href: "/research", label: "Experimento A–F", icon: FlaskConical, roles: ANALYTICS },
     ],
   },
   {
     section: "Administração",
     items: [
-      { href: "/admin/pricing", label: "Preços", icon: Tags, roles: ANALYTICS },
-      { href: "/admin/policies", label: "Políticas", icon: SlidersHorizontal, roles: ANALYTICS },
       { href: "/admin/templates", label: "Templates", icon: FileText, roles: ALL },
       { href: "/admin/providers", label: "Conectar WhatsApp", icon: Plug, roles: CONFIG },
       { href: "/admin/webhooks", label: "Webhooks", icon: Webhook, roles: ["OWNER", "ADMIN", "OPERATOR"] },
@@ -72,6 +60,18 @@ const NAV: Array<{ section: string; items: Array<{ href: string; label: string; 
       { href: "/admin/billing", label: "Plano e uso", icon: CreditCard, roles: ANALYTICS },
       { href: "/admin/privacy", label: "Privacidade (LGPD)", icon: ShieldCheck, roles: CONFIG },
       { href: "/admin/audit", label: "Auditoria", icon: ScrollText, roles: CONFIG },
+    ],
+  },
+  {
+    // Internal tools of the SaaS operator: only PLATFORM_ADMIN_EMAILS see them (client companies don't).
+    section: "Plataforma (interno)",
+    platform: true,
+    items: [
+      { href: "/admin/pricing", label: "Preços", icon: Tags, roles: ALL },
+      { href: "/admin/policies", label: "Políticas", icon: SlidersHorizontal, roles: ALL },
+      { href: "/simulator", label: "Simular economia", icon: Calculator, roles: ALL },
+      { href: "/research", label: "Experimento A–F", icon: FlaskConical, roles: ALL },
+      { href: "/observability", label: "Observabilidade", icon: Activity, roles: ALL },
     ],
   },
 ];
@@ -127,6 +127,7 @@ export function Shell({ me, mode, apiDocsUrl, children }: { me: Me; mode: { mock
   const nav = (
     <nav aria-label="Navegação principal" className="space-y-5">
       {NAV.map((s) => {
+        if (s.platform && !me.actor.platformAdmin) return null;
         const items = s.items.filter((i) => i.roles.includes(role));
         if (!items.length) return null;
         return (

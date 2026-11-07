@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const PASSWORD = process.env.DEMO_PASSWORD ?? "wco-demo-2026!";
+/** Must be listed in the API's PLATFORM_ADMIN_EMAILS (internal tools: simulator, rate cards, ...). */
+const PLATFORM_ADMIN = process.env.E2E_PLATFORM_ADMIN ?? "admin@loja-demo.wco.dev";
 
 async function login(page: Page, email: string) {
   await page.goto("/login");
@@ -32,8 +34,22 @@ test("owner sees overview KPIs, DEMO label and charts with table view", async ({
   await expect(page.getByRole("columnheader", { name: "Dia" }).first()).toBeVisible();
 });
 
-test("savings simulator returns an estimated result", async ({ page }) => {
+test("company users don't see the operator's internal tools; the optimization breakdown is on the overview", async ({ page }) => {
   await login(page, "owner@loja-demo.wco.dev");
+  const nav = page.getByRole("navigation", { name: "Navegação principal" }).first();
+  await expect(nav.getByRole("link").first()).toHaveText("Caixa de entrada");
+  for (const name of ["Preços", "Políticas", "Simular economia", "Experimento A–F", "Observabilidade", "Otimização"]) {
+    await expect(nav.getByRole("link", { name })).toHaveCount(0);
+  }
+  await expect(page.getByRole("heading", { name: "Onde a economia acontece" })).toBeVisible();
+  await page.goto("/simulator");
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/optimization");
+  await expect(page.getByRole("heading", { name: "Onde a economia acontece" })).toBeVisible();
+});
+
+test("savings simulator returns an estimated result", async ({ page }) => {
+  await login(page, PLATFORM_ADMIN);
   await page.goto("/simulator");
   await page.getByRole("button", { name: "Simular economia" }).click();
   await expect(page.getByText("Resultado estimado")).toBeVisible();
@@ -82,7 +98,7 @@ test("only the Embedded Signup page may load Meta's SDK", async ({ page, request
 });
 
 test("history import explains where the savings came from", async ({ page }) => {
-  await login(page, "owner@loja-demo.wco.dev");
+  await login(page, PLATFORM_ADMIN);
   await page.goto("/simulator");
   await page.getByRole("tab", { name: "Histórico CSV" }).click();
   await page.getByRole("button", { name: "Calcular baseline e simulação" }).click();

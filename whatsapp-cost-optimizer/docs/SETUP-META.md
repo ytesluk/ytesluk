@@ -59,8 +59,8 @@ conexão usa o token **da própria empresa** — só alcança as WABAs às quais
 * Cadastre/aprove templates no WhatsApp Manager. O WCO sincroniza status e categoria pelos webhooks;
   a categoria final é sempre a da Meta.
 * Para consolidação, crie e aprove um template-resumo (ex.: `order_update_summary` com um parâmetro de
-  lista) e configure-o em Admin › Políticas.
-* Importe o **rate card oficial** da moeda da WABA (`pnpm pricing import` ou Admin › Preços). Enquanto só
+  lista) e configure-o em Plataforma › Políticas.
+* Importe o **rate card oficial** da moeda da WABA (`pnpm pricing import` ou Plataforma › Preços). Enquanto só
   houver DEMO, todos os custos aparecem como "TARIFAS DEMO".
 
 ## 6. Embedded Signup (SaaS para outras empresas)

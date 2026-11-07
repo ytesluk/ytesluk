@@ -58,7 +58,7 @@ Todas usam identificadores pseudônimos (hash do cliente), nunca o telefone.
 primeira que casa decide). Ações: `SEND_NOW`, `DELAY`, `CONSOLIDATE`, `SUPERSEDE`, `SUPPRESS_DUPLICATE`,
 `BLOCK`, `CANCEL`. Cada decisão grava motivos (`reasons`), fatos, regra e versão do conjunto de regras.
 
-Regras padrão (editáveis em Admin › Políticas ou `PUT /api/v1/optimization/rules`):
+Regras padrão (editáveis em Plataforma › Políticas ou `PUT /api/v1/optimization/rules`):
 
 ```
 optedOut → BLOCK · marketingOptedOut ∧ isMarketing → BLOCK · noOptIn → BLOCK

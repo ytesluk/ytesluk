@@ -95,7 +95,7 @@ export default function ProvidersPage() {
                   Produção sem credenciais de parceiro: o onboarding de outras empresas está bloqueado. Faltam: {data.commercialOnboarding.missing.join(", ")}.
                 </Notice>
               ) : null}
-              {data.pricingDemoOnly ? <Notice tone="warning">Só há rate cards DEMO. Importe o rate card oficial em Admin › Preços antes de usar custos reais.</Notice> : null}
+              {data.pricingDemoOnly ? <Notice tone="warning">Só há rate cards DEMO (valores fictícios): os custos reais aparecem quando o rate card oficial da Meta for carregado na plataforma (Plataforma › Preços).</Notice> : null}
               {data.notes.map((n) => (
                 <Notice key={n}>{n}</Notice>
               ))}
