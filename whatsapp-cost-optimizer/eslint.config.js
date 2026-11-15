@@ -34,4 +34,9 @@ export default tseslint.config(
     files: ["scripts/**", "**/*.test.ts", "**/*.int.test.ts", "**/*.e2e.test.ts", "**/cli/**"],
     rules: { "no-console": "off" },
   },
+  {
+    // Standalone FinOps verification scripts (run by hand with tsx), not runtime code.
+    files: ["packages/optimization/src/finops/**/*.mts"],
+    rules: { "no-console": "off", "@typescript-eslint/no-explicit-any": "off", "@typescript-eslint/no-unused-vars": "off" },
+  },
 );

@@ -141,11 +141,13 @@ export async function processWebhook(ctx: AppContext, job: { webhookEventId: str
           break;
       }
     }
+    /* eslint-disable @typescript-eslint/no-explicit-any -- the FinOps bridge takes a structural Prisma-like client */
     if ((ctx.db as any).globalSuppression) {
-        const rawObj = typeof row.rawPayload === "string" ? JSON.parse(row.rawPayload) : row.rawPayload;
-        await handleMetaWebhookFinOps(ctx.db as any, rawObj, tenantId ?? "default");
-      }
-      await ctx.db.webhookEvent.update({ where: { id: row.id }, data: { status: events.length ? "PROCESSED" : "IGNORED", processedAt: ctx.now(), tenantId, error: null } });
+      const rawObj = typeof row.rawPayload === "string" ? JSON.parse(row.rawPayload) : row.rawPayload;
+      await handleMetaWebhookFinOps(ctx.db as any, rawObj, tenantId ?? "default");
+    }
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+    await ctx.db.webhookEvent.update({ where: { id: row.id }, data: { status: events.length ? "PROCESSED" : "IGNORED", processedAt: ctx.now(), tenantId, error: null } });
     return { events: events.length };
   } catch (e) {
     await ctx.db.webhookEvent.update({ where: { id: row.id }, data: { status: opts.finalAttempt ? "DEAD" : "FAILED", error: (e as Error).message.slice(0, 1000), tenantId } });

@@ -14,6 +14,7 @@ import type { AppContext } from "./context";
 import { loadConversationContext, markBusinessReply } from "./conversations";
 import { incrementQuota, incrementTier, loadCounters } from "./counters";
 import { recordDeliveryFailure } from "./deliverability";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the FinOps integration
 import { getFinOpsBridge } from "@wco/optimization";
 import { costRows } from "./optimizer";
 import { toIntentRecord } from "./records";

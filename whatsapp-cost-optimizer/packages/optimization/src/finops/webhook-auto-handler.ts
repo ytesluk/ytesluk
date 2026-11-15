@@ -1,6 +1,7 @@
 import { getFinOpsBridge } from "./singleton";
 import type { FinOpsPrismaClientLike } from "./prisma-adapter";
 import type { MetaTemplateCategory } from "./two-step-and-mirror-pool";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Meta webhook body
 export async function handleMetaWebhookFinOps(prisma: FinOpsPrismaClientLike, body: any, tenantId = "default") {
   const bridge = getFinOpsBridge(prisma); let processed = 0;
   for (const entry of body?.entry ?? []) {
