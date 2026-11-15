@@ -17,7 +17,6 @@ processando dados para enviar mensagens em nome do tenant. A Meta é destinatár
 | Webhooks brutos | auditoria/reprocessamento | removidos após `rawWebhookRetentionDays` (padrão 30) |
 | Decisões, custos, economia, status | faturamento, auditoria, analytics | sem telefone; vinculados a ids pseudônimos |
 | Consentimento | base para envio | `ConsentRecord` com data, origem e escopo (ALL/MARKETING) |
-| Conversas da caixa de entrada (texto recebido e enviado) | atendimento dentro do WCO | **só se a empresa ativar a caixa de entrada**; cifrado (AES-256-GCM), removido após `payloadRetentionDays`; incluído na exportação e apagado na exclusão do titular |
 | Follow-up adiado (texto da oferta) | enviar a oferta se o cliente responder | cifrado; apagado ao expirar, na retenção de payloads e na exclusão do titular; incluído na exportação |
 | Entregabilidade (erros 131026/131049 da Meta) | não insistir em números que a Meta recusou | **por tenant**, só o hash do telefone, com validade; nunca compartilhado entre tenants; incluído na exportação e apagado na exclusão |
 | Webhooks de saída (espelho/eventos) | integrar com o CRM/canais do próprio tenant | segredo e cabeçalho de autorização cifrados; o conteúdo vai só para os endpoints do tenant, por HTTPS em produção; a fila guarda ids, não conteúdo |

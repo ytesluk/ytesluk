@@ -268,7 +268,7 @@ model Tenant {
   /// Whether this tenant currently sends through a BSP (affects realized BSP costs).
   usesBsp          Boolean  @default(false)
   plan             PlanCode @default(FREE)
-  /// Inbox: store conversation texts (encrypted) so agents can chat inside the WCO. Off = data minimization.
+  /// Deprecated: the inbox was removed (the business answers in its own WhatsApp). No longer read.
   inboxEnabled     Boolean  @default(false)
   /// Fee model of the BSP the tenant used BEFORE connecting directly through the WCO (JSON BspFeeModel).
   /// When set, each message records the BSP fee no longer paid (kind BSP, ESTIMATED; never mixed with Meta savings).
@@ -533,7 +533,7 @@ model ConversationEntryPoint {
   @@index([tenantId, conversationId, userMessageAt])
 }
 
-/// Inbox transcript (only when Tenant.inboxEnabled). Bodies are encrypted (AES-256-GCM) and purged after
+/// Deprecated: transcript of the removed inbox. No longer written; old rows are purged by retention. Bodies are encrypted (AES-256-GCM) and purged after
 /// DataRetentionPolicy.payloadRetentionDays; metadata stays for the conversation timeline.
 model ChatMessage {
   id                String    @id @default(uuid(7)) @db.Uuid

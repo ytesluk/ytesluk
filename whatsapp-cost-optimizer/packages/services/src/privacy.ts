@@ -36,14 +36,14 @@ export async function exportCustomerData(ctx: AppContext, actor: Actor, phone: s
       lastOutboundAt: c.lastOutboundAt,
       window: c.window,
       entryPoints: c.entryPoints.map((e) => ({ type: e.type, occurredAt: e.occurredAt, verificationStatus: e.verificationStatus })),
-      // Inbox transcript (only exists when the tenant enabled the inbox; purged after the payload retention).
+      // Transcript kept by the former inbox (no longer written; purged after the payload retention).
       chat: c.messages.map((m) => ({ direction: m.direction, kind: m.kind, occurredAt: m.occurredAt, text: m.bodyEncrypted ? ctx.vault.decryptSecret(m.bodyEncrypted) : null, templateName: m.templateName })),
     })),
     // Follow-ups waiting for a reply (text kept encrypted until sent, expired or purged).
     followUps: followUps.map((f) => ({ status: f.status, contentCategory: f.contentCategory, createdAt: f.createdAt, expiresAt: f.expiresAt, triggeredAt: f.triggeredAt, text: f.deferredFreeFormPayload ? ((JSON.parse(ctx.vault.decryptSecret(f.deferredFreeFormPayload)) as { text?: string }).text ?? null) : null })),
     // What Meta reported to this business about delivering to this number (kept by hash, with expiry).
     deliverability: deliverability.map((d) => ({ kind: d.kind, errorCode: d.errorCode, occurrences: d.strikes, firstSeenAt: d.firstSeenAt, lastSeenAt: d.lastSeenAt, expiresAt: d.expiresAt })),
-    note: "Message contents are stored only in the inbox (when enabled by the business), encrypted and with retention.",
+    note: "Message contents are not stored. Texts kept by the former inbox, if any, are listed above until purged.",
   };
 }
 

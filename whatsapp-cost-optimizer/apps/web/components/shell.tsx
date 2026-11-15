@@ -12,7 +12,6 @@ import {
   FileText,
   FlaskConical,
   Gauge,
-  Inbox,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -43,7 +42,6 @@ const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: str
   {
     section: "Operação",
     items: [
-      { href: "/inbox", label: "Caixa de entrada", icon: Inbox, roles: ALL },
       { href: "/", label: "Visão geral", icon: LayoutDashboard, roles: ANALYTICS },
       { href: "/messages", label: "Mensagens", icon: MessageSquare, roles: ALL },
       { href: "/conversations", label: "Conversas e janelas", icon: MessagesSquare, roles: ALL },

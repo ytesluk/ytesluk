@@ -44,7 +44,7 @@ export class PricingStore {
 
 /**
  * Tenant policies plus the built-in defaults for event types the tenant has no row for — so a new
- * built-in flow (e.g. inbox replies) works for tenants created before it existed. Tenant rows win.
+ * built-in flow works for tenants created before it existed. Tenant rows win.
  */
 function withBuiltInDefaults(rows: OptimizationPolicyConfig[]): OptimizationPolicyConfig[] {
   if (rows.length === 0) return DEFAULT_OPTIMIZATION_POLICIES;
@@ -92,7 +92,6 @@ export interface TenantConfig {
   slug: string;
   requireOptIn: boolean;
   usesBsp: boolean;
-  inboxEnabled: boolean;
   bspFeeModel: Record<string, unknown> | null;
   /** Fee model of the BSP used before connecting directly (BSP_MARKUP_AVOIDED). */
   legacyBspFeeModel: Record<string, unknown> | null;
@@ -141,7 +140,6 @@ export class TenantConfigCache {
       slug: tenant.slug,
       requireOptIn: tenant.requireOptIn,
       usesBsp: tenant.usesBsp,
-      inboxEnabled: tenant.inboxEnabled,
       bspFeeModel: (tenant.bspFeeModel as Record<string, unknown> | null) ?? null,
       legacyBspFeeModel: (tenant.legacyBspFeeModel as Record<string, unknown> | null) ?? null,
       mirrorWebhookUrls: hooks.filter((h) => h.kind === "MIRROR"),

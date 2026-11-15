@@ -37,15 +37,13 @@
 * Assistente de classificação de templates (IA) é um ponto de extensão desligado: não há integração com
   provedor de LLM embarcada.
 
-## Caixa de entrada
+## Atendimento (respostas aos clientes)
 
-* Envia texto (dentro da janela de 24 h) e templates aprovados; ainda não envia mídia, botões ou listas, e
-  mensagens recebidas de mídia aparecem como `[image]`, `[audio]`… (com a legenda, se houver).
-* Atualização por consulta a cada 3–4 s (sem WebSocket); sem atribuição/transferência entre atendentes,
-  respostas rápidas ou boas-vindas automáticas (próximos passos).
-* Só mostra conversas a partir da ativação: o WCO não guardava textos antes (minimização).
-* Só funciona com número da API oficial (Cloud API). Números no app WhatsApp Business exigem o modo de
-  coexistência via Embedded Signup (Tech Provider).
+* O WCO não tem caixa de entrada: a empresa responde no próprio WhatsApp. Para um número continuar no app
+  WhatsApp Business e ao mesmo tempo usar a API, a Meta exige o modo de coexistência no Embedded Signup
+  (Tech Provider). Esse modo ainda não foi validado neste projeto com um número real.
+* Respostas digitadas no app não passam pelo WCO: ele não as junta, não as atrasa e não calcula economia
+  sobre elas.
 
 ## Segurança e operação
 

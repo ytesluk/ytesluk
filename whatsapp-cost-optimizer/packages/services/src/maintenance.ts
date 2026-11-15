@@ -91,7 +91,7 @@ export async function applyRetention(ctx: AppContext): Promise<Record<string, nu
       : DEFAULT_RETENTION;
     const c = retentionCutoffs(p, now);
     out.payloads! += (await ctx.db.messageIntent.updateMany({ where: { tenantId: t.id, requestedAt: { lt: c.payloads }, payloadPurgedAt: null }, data: { data: {}, freeFormText: null, payloadPurgedAt: now } })).count;
-    // Inbox transcript bodies follow the same (short) payload retention; the timeline metadata stays.
+    // Transcripts left by the former inbox follow the same (short) payload retention; the timeline metadata stays.
     out.payloads! += (await ctx.db.chatMessage.updateMany({ where: { tenantId: t.id, occurredAt: { lt: c.payloads }, bodyPurgedAt: null }, data: { bodyEncrypted: null, bodyPurgedAt: now } })).count;
     // Follow-up texts already sent/dropped follow the payload retention too.
     out.payloads! += (await ctx.db.deferredFollowUp.updateMany({ where: { tenantId: t.id, createdAt: { lt: c.payloads }, deferredFreeFormPayload: { not: null } }, data: { deferredFreeFormPayload: null, payloadPurgedAt: now } })).count;
