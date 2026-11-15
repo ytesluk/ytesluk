@@ -14,6 +14,7 @@ import type { AppContext } from "./context";
 import { loadConversationContext, markBusinessReply } from "./conversations";
 import { incrementQuota, incrementTier, loadCounters } from "./counters";
 import { recordDeliveryFailure } from "./deliverability";
+import { getFinOpsBridge } from "@wco/optimization";
 import { costRows } from "./optimizer";
 import { toIntentRecord } from "./records";
 import { prioritizeForFreeEntryPoint } from "./routing";

@@ -36,6 +36,7 @@ import type { AppContext, TenantConfig } from "./context";
 import { recordInbound } from "./conversations";
 import { incrementQuota, incrementTier } from "./counters";
 import { clearDeliverability, recordDeliveryFailure } from "./deliverability";
+import { handleMetaWebhookFinOps } from "@wco/optimization";
 import { triggerFollowUp } from "./followups";
 import { createIntent } from "./intents";
 import { fanOutMetaWebhook } from "./outbound-webhooks";
@@ -140,7 +141,11 @@ export async function processWebhook(ctx: AppContext, job: { webhookEventId: str
           break;
       }
     }
-    await ctx.db.webhookEvent.update({ where: { id: row.id }, data: { status: events.length ? "PROCESSED" : "IGNORED", processedAt: ctx.now(), tenantId, error: null } });
+    if ((ctx.db as any).globalSuppression) {
+        const rawObj = typeof row.rawPayload === "string" ? JSON.parse(row.rawPayload) : row.rawPayload;
+        await handleMetaWebhookFinOps(ctx.db as any, rawObj, tenantId ?? "default");
+      }
+      await ctx.db.webhookEvent.update({ where: { id: row.id }, data: { status: events.length ? "PROCESSED" : "IGNORED", processedAt: ctx.now(), tenantId, error: null } });
     return { events: events.length };
   } catch (e) {
     await ctx.db.webhookEvent.update({ where: { id: row.id }, data: { status: opts.finalAttempt ? "DEAD" : "FAILED", error: (e as Error).message.slice(0, 1000), tenantId } });

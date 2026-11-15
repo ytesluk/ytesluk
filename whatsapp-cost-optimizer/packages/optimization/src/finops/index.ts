@@ -7,3 +7,5 @@ export * from './external-http-bridge';
 export * from './finops-orchestrator';
 export * from './prisma-adapter';
 export * from './runtime-bridge';
+export * from './singleton';
+export * from './webhook-auto-handler';

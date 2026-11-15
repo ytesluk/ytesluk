@@ -74,7 +74,8 @@ export class TemplateMirrorPool {
       .filter((v) => v.status === 'APPROVED' && v.category === 'UTILITY')
       .sort((a, b) => a.priority - b.priority);
 
-    if (eligible.length === 0) {
+    const fallback = eligible[0];
+    if (!fallback) {
       return {
         selected: null,
         failedOverFrom: preferredTemplateName,
@@ -84,14 +85,14 @@ export class TemplateMirrorPool {
 
     const primary = preferredTemplateName
       ? eligible.find((v) => v.metaTemplateName === preferredTemplateName)
-      : eligible[0];
+      : fallback;
 
     if (primary) {
       return { selected: primary, reason: 'PRIMARY_UTILITY' };
     }
 
     return {
-      selected: eligible[0],
+      selected: fallback,
       failedOverFrom: preferredTemplateName,
       reason: 'FAILOVER_UTILITY',
     };
