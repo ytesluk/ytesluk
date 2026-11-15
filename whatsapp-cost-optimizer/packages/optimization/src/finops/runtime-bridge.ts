@@ -1,3 +1,4 @@
+import { runAdvancedFinOps, type AdvancedFinOpsInput } from "./advanced-finops-hook";
 import { GlobalDeliverabilityCache } from './global-deliverability-cache';
 import {
   FinOpsCostOrchestrator,
@@ -71,7 +72,7 @@ export class FinOpsRuntimeBridge {
    * 4. Chamar antes de disparar qualquer mensagem no worker/API de envio
    */
   public async routeAndPersist(
-    input: Omit<FinOpsDispatchContext, 'monthlyFreeServiceQuotaUsed' | 'mirrorVariants'>,
+    input: Omit<FinOpsDispatchContext, 'monthlyFreeServiceQuotaUsed' | 'mirrorVariants'> & { advanced?: AdvancedFinOpsInput },
     now = new Date(),
   ): Promise<FinOpsRoutingDecision> {
     const [monthlyFreeServiceQuotaUsed, mirrorVariants] = await Promise.all([

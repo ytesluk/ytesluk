@@ -12,3 +12,4 @@ export * from './webhook-auto-handler';
 export * from './template-merger';
 export * from './volume-tier-router';
 export * from './flows-orchestrator';
+export * from './advanced-finops-hook';
