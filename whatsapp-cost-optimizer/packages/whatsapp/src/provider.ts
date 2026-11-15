@@ -2,6 +2,10 @@
  * Provider abstraction (spec §43). All Meta HTTP calls live in MetaCloudApiProvider; nothing else in
  * the codebase talks to graph.facebook.com. Multi-BSP is NOT an MVP goal (spec §67): the interface
  * is provider-agnostic, but only the Meta Cloud API and the Mock are implemented.
+ *
+ * WhatsApp messages only ever leave through the official Cloud API. There is deliberately no
+ * "auxiliary gateway" transport here: other channels (e-mail, push, SMS) are reached through the
+ * tenant's own EVENTS webhook, which carries a wa.me link back to the official number (handoff.ts).
  */
 
 export type ProviderKindName = "MOCK" | "META_CLOUD_API";
@@ -26,6 +30,27 @@ export interface SendTextRequest extends CommonSendFields {
   text: string;
   previewUrl?: boolean;
   replyToMessageId?: string;
+}
+
+/** A reply button of an interactive message (Cloud API: up to 3, title up to 20 characters). */
+export interface InteractiveButton {
+  id: string;
+  title: string;
+}
+
+/**
+ * Free-form (non-template) content. It can only be sent while the customer service window is open
+ * and Meta prices it as a SERVICE message.
+ */
+export type FreeFormContent =
+  | { type: "text"; text: string }
+  | { type: "buttons"; header?: string; body: string; footer?: string; buttons: InteractiveButton[] }
+  | { type: "cta_url"; header?: string; body: string; footer?: string; displayText: string; url: string };
+
+export type InteractiveContent = Exclude<FreeFormContent, { type: "text" }>;
+
+export interface SendInteractiveRequest extends CommonSendFields {
+  content: InteractiveContent;
 }
 
 export interface TemplateParameter {
@@ -81,6 +106,21 @@ export interface BusinessAccountInfo {
   currency?: string;
 }
 
+export interface TemplateButton {
+  type: string;
+  text?: string;
+  url?: string;
+  phone_number?: string;
+}
+
+/** One component of a template, as Meta returns it (HEADER / BODY / FOOTER / BUTTONS / ...). */
+export interface TemplateComponent {
+  type: string;
+  format?: string;
+  text?: string;
+  buttons?: TemplateButton[];
+}
+
 /** A message template as returned by GET /<WABA_ID>/message_templates (subset of fields). */
 export interface MetaTemplateInfo {
   id: string;
@@ -89,7 +129,7 @@ export interface MetaTemplateInfo {
   status: string;
   category: string;
   parameterFormat?: string;
-  components: Array<{ type: string; format?: string; text?: string }>;
+  components: TemplateComponent[];
 }
 
 export interface WebhookVerificationInput {
@@ -102,6 +142,8 @@ export interface WhatsAppProvider {
   sendMessage(req: SendTextRequest, creds: ProviderCredentials): Promise<SendResult>;
   sendTemplate(req: SendTemplateRequest, creds: ProviderCredentials): Promise<SendResult>;
   sendMedia(req: SendMediaRequest, creds: ProviderCredentials): Promise<SendResult>;
+  /** Interactive message (reply buttons or one URL button). Free-form: only inside the customer service window. */
+  sendInteractive(req: SendInteractiveRequest, creds: ProviderCredentials): Promise<SendResult>;
   /** Cloud API reports message status via webhooks only; the real provider throws NOT_SUPPORTED. */
   getMessage(providerMessageId: string, creds: ProviderCredentials): Promise<ProviderMessageInfo>;
   /** Subscribes the app to webhooks on a WABA (POST /<WABA_ID>/subscribed_apps). */

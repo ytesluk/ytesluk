@@ -6,7 +6,7 @@ import { getLogger, metrics, type Logger } from "@wco/logging";
 import { DEFAULT_OPTIMIZATION_POLICIES, DEFAULT_RULESET, PolicyEngine, type OptimizationPolicyConfig, type RuleSet } from "@wco/policy";
 import { CostEngine, PolicyRegistry, setUnknownPricingHook } from "@wco/pricing";
 import type { TemplateInfo } from "@wco/optimization";
-import { MetaCloudApiProvider, MockWhatsAppProvider, type WhatsAppProvider } from "@wco/whatsapp";
+import { MetaCloudApiProvider, MockWhatsAppProvider, templateFreeFormShape, type TemplateComponent, type WhatsAppProvider } from "@wco/whatsapp";
 import { createQueues, createRedis, QUEUE, type Queues } from "./queues";
 import { Vault } from "./vault";
 
@@ -55,6 +55,16 @@ function withBuiltInDefaults(rows: OptimizationPolicyConfig[]): OptimizationPoli
 export interface TemplateConfig extends TemplateInfo {
   id: string;
   parameterFormat: "NAMED" | "POSITIONAL";
+  /** Components as Meta returned them (header, body, footer, buttons) — used to render free-form content. */
+  components: TemplateComponent[];
+}
+
+/** A tenant endpoint that receives a copy of its Meta webhooks (MIRROR) or WCO events (EVENTS). Secrets stay in the DB. */
+export interface OutboundWebhookConfig {
+  id: string;
+  kind: "MIRROR" | "EVENTS";
+  url: string;
+  fields: string[];
 }
 
 export interface WabaConfig {
@@ -84,6 +94,12 @@ export interface TenantConfig {
   usesBsp: boolean;
   inboxEnabled: boolean;
   bspFeeModel: Record<string, unknown> | null;
+  /** Fee model of the BSP used before connecting directly (BSP_MARKUP_AVOIDED). */
+  legacyBspFeeModel: Record<string, unknown> | null;
+  /** Enabled MIRROR endpoints: where the tenant's own Meta webhooks are copied to. */
+  mirrorWebhookUrls: OutboundWebhookConfig[];
+  /** Enabled EVENTS endpoints (e.g. INBOUND_WAKEUP_REQUESTED). */
+  eventWebhookUrls: OutboundWebhookConfig[];
   defaultCurrency: string;
   defaultTimezone: string;
   policies: OptimizationPolicyConfig[];
@@ -110,13 +126,14 @@ export class TenantConfigCache {
   async get(tenantId: string): Promise<TenantConfig> {
     const hit = this.cache.get(tenantId);
     if (hit && Date.now() - hit.at < this.ttlMs) return hit.cfg;
-    const [tenant, policies, ruleSet, templates, phones, wabas] = await Promise.all([
+    const [tenant, policies, ruleSet, templates, phones, wabas, hooks] = await Promise.all([
       this.db.tenant.findUniqueOrThrow({ where: { id: tenantId } }),
       this.db.optimizationPolicy.findMany({ where: { tenantId } }),
       this.db.policyRuleSet.findFirst({ where: { tenantId, active: true }, orderBy: { updatedAt: "desc" } }),
       this.db.template.findMany({ where: { tenantId } }),
       this.db.phoneNumber.findMany({ where: { tenantId }, orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] }),
       this.db.waba.findMany({ where: { tenantId } }),
+      this.db.outboundWebhook.findMany({ where: { tenantId, enabled: true }, select: { id: true, kind: true, url: true, fields: true }, orderBy: { createdAt: "asc" } }),
     ]);
     const rs: RuleSet = ruleSet ? PolicyEngine.validate(ruleSet.rules) : DEFAULT_RULESET;
     const cfg: TenantConfig = {
@@ -126,6 +143,9 @@ export class TenantConfigCache {
       usesBsp: tenant.usesBsp,
       inboxEnabled: tenant.inboxEnabled,
       bspFeeModel: (tenant.bspFeeModel as Record<string, unknown> | null) ?? null,
+      legacyBspFeeModel: (tenant.legacyBspFeeModel as Record<string, unknown> | null) ?? null,
+      mirrorWebhookUrls: hooks.filter((h) => h.kind === "MIRROR"),
+      eventWebhookUrls: hooks.filter((h) => h.kind === "EVENTS"),
       defaultCurrency: tenant.defaultCurrency,
       defaultTimezone: tenant.defaultTimezone,
       policies: withBuiltInDefaults(
@@ -145,6 +165,8 @@ export class TenantConfigCache {
             defaultLanguage: p.defaultLanguage,
             category: p.category,
             allowFreeFormInWindow: p.allowFreeFormInWindow,
+            allowMarketingFreeFormInWindow: p.allowMarketingFreeFormInWindow,
+            inboundFirstGraceMinutes: p.inboundFirstGraceMinutes,
             maxConsolidatedItems: p.maxConsolidatedItems,
             enabled: p.enabled,
           })),
@@ -154,6 +176,7 @@ export class TenantConfigCache {
       templates: new Map(
         templates.map((t) => {
           const comps = t.components as Array<{ type?: string; params?: string[]; parameterFormat?: string }>;
+          const components = (Array.isArray(t.components) ? t.components : []) as unknown as TemplateComponent[];
           const body = Array.isArray(comps) ? comps.find((c) => (c.type ?? "").toUpperCase() === "BODY") : undefined;
           const category = (t.metaCategory ?? t.declaredCategory) as unknown as BillingCategory;
           return [
@@ -168,6 +191,8 @@ export class TenantConfigCache {
               maxParamLength: t.maxParamLength,
               bodyParams: body?.params ?? [],
               parameterFormat: body?.parameterFormat === "POSITIONAL" ? "POSITIONAL" : "NAMED",
+              components,
+              freeFormConvertible: templateFreeFormShape(components).ok,
             } satisfies TemplateConfig,
           ];
         }),

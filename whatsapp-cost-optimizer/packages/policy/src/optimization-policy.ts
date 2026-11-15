@@ -20,9 +20,23 @@ export interface OptimizationPolicyConfig {
   defaultLanguage?: string;
   category?: BillingCategory | null;
   allowFreeFormInWindow: boolean;
+  /**
+   * Also send the content of MARKETING templates as a free-form (service) message while the customer
+   * service window is open, when that is cheaper. Marketing consent still applies. Off by default.
+   */
+  allowMarketingFreeFormInWindow?: boolean;
+  /**
+   * Inbound-first: before sending a paid template, wait up to N minutes (never past the deadline) for
+   * the customer to open the conversation; the tenant's other channels are asked to invite them
+   * (INBOUND_WAKEUP_REQUESTED). 0 = off. Never applies to critical/OTP/immediate messages.
+   */
+  inboundFirstGraceMinutes?: number;
   maxConsolidatedItems: number;
   enabled: boolean;
 }
+
+/** Event type of a deferred follow-up (free-form message sent in the window the customer's reply opened). */
+export const FOLLOW_UP_EVENT = "followup.deferred";
 
 export const DEFAULT_POLICY: OptimizationPolicyConfig = {
   eventType: "*",
@@ -35,6 +49,8 @@ export const DEFAULT_POLICY: OptimizationPolicyConfig = {
   priority: Priority.NORMAL,
   requiresImmediateDelivery: false,
   allowFreeFormInWindow: false,
+  allowMarketingFreeFormInWindow: false,
+  inboundFirstGraceMinutes: 0,
   maxConsolidatedItems: 10,
   enabled: true,
   defaultLanguage: "pt_BR",
@@ -140,6 +156,14 @@ export const DEFAULT_OPTIMIZATION_POLICIES: OptimizationPolicyConfig[] = [
     priority: Priority.NORMAL,
     category: BillingCategory.SERVICE,
     allowFreeFormInWindow: true,
+  }),
+  // Follow-up kept out of a template (e.g. an offer): goes only if the customer writes back, as a service message.
+  p({
+    eventType: FOLLOW_UP_EVENT,
+    priority: Priority.NORMAL,
+    category: BillingCategory.SERVICE,
+    allowFreeFormInWindow: true,
+    dedupWindowSeconds: 7 * 86_400,
   }),
   p({
     eventType: "authentication.otp",

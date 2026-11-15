@@ -61,6 +61,11 @@ janela FEP real pelo `conversation.expiration_timestamp` enviado pela Meta nos
 webhooks de status (S4), de modo que, se a Meta estender a janela, o valor
 confirmado prevalece sobre o cálculo local.
 
+**Atualização (15/11/2026):** mais parceiros oficiais (360dialog, respond.io, YCloud, Omnichat) passaram
+a documentar "até 7 dias" a partir de 28/09/2026 para anúncios Click-to-WhatsApp, enquanto outros ainda
+citam 72 h. A documentação oficial não pôde ser reaberta deste ambiente, então a política segue
+`UNVERIFIED` e a estimativa em 72 h (erra para menos); a data real continua vindo do webhook da Meta.
+
 ## C5 — Comportamento sem método de pagamento após 01/10/2026
 
 | Fonte | O que diz |

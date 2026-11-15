@@ -18,6 +18,9 @@ processando dados para enviar mensagens em nome do tenant. A Meta é destinatár
 | Decisões, custos, economia, status | faturamento, auditoria, analytics | sem telefone; vinculados a ids pseudônimos |
 | Consentimento | base para envio | `ConsentRecord` com data, origem e escopo (ALL/MARKETING) |
 | Conversas da caixa de entrada (texto recebido e enviado) | atendimento dentro do WCO | **só se a empresa ativar a caixa de entrada**; cifrado (AES-256-GCM), removido após `payloadRetentionDays`; incluído na exportação e apagado na exclusão do titular |
+| Follow-up adiado (texto da oferta) | enviar a oferta se o cliente responder | cifrado; apagado ao expirar, na retenção de payloads e na exclusão do titular; incluído na exportação |
+| Entregabilidade (erros 131026/131049 da Meta) | não insistir em números que a Meta recusou | **por tenant**, só o hash do telefone, com validade; nunca compartilhado entre tenants; incluído na exportação e apagado na exclusão |
+| Webhooks de saída (espelho/eventos) | integrar com o CRM/canais do próprio tenant | segredo e cabeçalho de autorização cifrados; o conteúdo vai só para os endpoints do tenant, por HTTPS em produção; a fila guarda ids, não conteúdo |
 | Usuários do dashboard | acesso | e-mail, nome, hash de senha |
 
 Logs nunca contêm telefone completo nem conteúdo de mensagem.
@@ -44,6 +47,16 @@ outra relação de tratamento).
 * `requireOptIn` por tenant bloqueia templates sem opt-in registrado (regra `noOptIn → BLOCK`).
 * Opt-out total bloqueia qualquer envio; opt-out de marketing bloqueia apenas Marketing.
 * O bloqueio é reavaliado no momento do envio (uma mensagem no buffer não sai se o cliente pediu para sair).
+
+## Roteamento de custo e consentimento
+
+* Conteúdo promocional enviado como mensagem de atendimento (template → mensagem livre, follow-up
+  adiado) continua seguindo o consentimento de marketing: o WCO guarda a categoria do conteúdo e
+  reavalia opt-in/opt-out no envio.
+* O evento `INBOUND_WAKEUP_REQUESTED` leva o telefone do cliente ao endpoint do próprio tenant (que é
+  o controlador e já tem esse dado), para que ele faça o convite pelos seus canais. O consentimento
+  para e-mail, push ou SMS é responsabilidade do tenant.
+* O espelho de webhooks entrega ao tenant apenas os dados das suas próprias WABAs.
 
 ## Segurança
 

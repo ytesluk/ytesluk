@@ -1,8 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import type { Worker } from "bullmq";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { TEST_APP_SECRET, TEST_VERIFY_TOKEN, migrateTestDatabase, truncateAll, useTestEnv, waitFor } from "@wco/testing";
+import { TEST_APP_SECRET, TEST_VERIFY_TOKEN, migrateTestDatabase, statusWebhook, truncateAll, useTestEnv, waitFor } from "@wco/testing";
 import { computeSignature } from "@wco/whatsapp";
 import { createAppContext, seedAll, type AppContext } from "@wco/services";
 import { buildApp } from "../../apps/api/src/app";
@@ -261,6 +263,123 @@ describe("Meta webhooks (spec §25)", () => {
     const second = await (await post(sig)).json();
     expect(first).toMatchObject({ received: true, duplicate: false });
     expect(second).toMatchObject({ received: true, duplicate: true });
+  });
+});
+
+describe("cost routing over HTTP (workers + mock Cloud API)", () => {
+  let acmeOwner: string;
+  const acmeAudit = (id: string) => audit(id, acmeKey);
+  /** Waits until the simulated customer message was processed (the customer service window is open). */
+  async function customerWrites(customer: string, text: string) {
+    expect((await call("POST", "/api/v1/dev/simulate-inbound", { key: acmeKey, body: { customer, text } })).status).toBe(200);
+    const hash = ctx.vault.hashPhone(customer);
+    await waitFor(async () => (await ctx.db.customerServiceWindow.count({ where: { customerPhoneHash: hash, lastInboundMessageAt: { gt: new Date(Date.now() - 60_000) } } })) > 0, { label: "inbound processed" });
+  }
+  const delivered = (id: string, label: string) =>
+    waitFor(
+      async () => {
+        const a = (await acmeAudit(id)).body;
+        return (a.intent.status === "DELIVERED" || a.intent.status === "READ") && a.intent.realizedConfidence === "REALIZED" ? a : null;
+      },
+      { timeoutMs: 45_000, label },
+    );
+
+  it("documents the new endpoints", async () => {
+    const r = await call("GET", "/api/openapi.json");
+    for (const p of ["/api/v1/webhooks/outbound", "/api/v1/webhooks/outbound/{id}", "/api/v1/routing", "/api/v1/templates/split"]) expect(r.body.paths).toHaveProperty([p]);
+    acmeOwner = (await call("POST", "/api/v1/auth/login", { body: { email: "owner@acme.wco.dev", password } })).body.token;
+    expect(acmeOwner).toBeTruthy();
+  });
+
+  it("module 1 — a marketing template goes as a free-form service message while the customer's window is open", async () => {
+    const policy = { eventType: "marketing.campaign", maxDelaySeconds: 86_400, defaultTemplate: "weekly_offer", category: "MARKETING", priority: "LOW", dedupWindowSeconds: 604_800, allowMarketingFreeFormInWindow: true };
+    expect((await call("POST", "/api/v1/optimization/policies", { token: acmeOwner, body: policy })).status).toBe(200);
+    await customerWrites("+5511960000001", "Tem alguma promoção?");
+    const r = await intent({ customer: "+5511960000001", eventType: "marketing.campaign", data: { offer: "Tênis com 10% off" } }, acmeKey);
+    expect(r.status).toBe(202);
+    const a = await delivered(r.body.intentId, "template to free-form");
+    expect(a.intent).toMatchObject({ messageKind: "NON_TEMPLATE", category: "SERVICE", contentCategory: "MARKETING", templateName: "weekly_offer" });
+    expect(a.intent.decisionReason).toContain("template_to_freeform_csw");
+    expect(a.attempts[0]).toMatchObject({ messageKind: "NON_TEMPLATE", category: "SERVICE" });
+    expect(a.savings).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "META", mechanism: "TEMPLATE_TO_FREEFORM_CSW" })]));
+    expect(Number(a.intent.realizedCost)).toBeLessThan(Number(a.intent.baselineCost));
+    const routing = (await call("GET", "/api/v1/routing", { token: acmeOwner })).body;
+    expect(routing.templateToFreeForm.messages).toBeGreaterThanOrEqual(1);
+    expect(routing.savings.TEMPLATE_TO_FREEFORM_CSW).toMatchObject({ kind: "META", messages: 1 });
+    // Same request with no open window: the paid template, untouched.
+    const cold = await intent({ customer: "+5511960000002", eventType: "marketing.campaign", data: { offer: "Tênis com 10% off" } }, acmeKey);
+    const b = await delivered(cold.body.intentId, "cold template");
+    expect(b.intent).toMatchObject({ messageKind: "TEMPLATE", category: "MARKETING" });
+  });
+
+  it("module 2 — the deferred offer is sent only after the customer replies", async () => {
+    const first = await intent({ customer: "+5511960000003", eventType: "payment.approved", entityId: "PAG-E2E", mustSendImmediately: true, data: { orderId: "E2E", amount: "R$ 50,00" }, followUp: { text: "Use o cupom VOLTA10 na próxima compra." } }, acmeKey);
+    const a = await delivered(first.body.intentId, "transactional template");
+    expect(a.intent).toMatchObject({ messageKind: "TEMPLATE", category: "UTILITY" });
+    expect(a.followUp).toMatchObject({ status: "PENDING" });
+    const list = () => call("GET", "/api/v1/messages?eventType=followup.deferred", { key: acmeKey });
+    expect((await list()).body.items).toHaveLength(0);
+    await customerWrites("+5511960000003", "Obrigado!");
+    const followUpId = await waitFor(async () => (await list()).body.items[0]?.id as string | undefined, { label: "follow-up created" });
+    const f = await delivered(followUpId, "follow-up");
+    expect(f.intent).toMatchObject({ eventType: "followup.deferred", messageKind: "NON_TEMPLATE", category: "SERVICE", contentCategory: "MARKETING" });
+    expect(f.savings).toEqual(expect.arrayContaining([expect.objectContaining({ mechanism: "UTILITY_SPLIT_DEFERRED" })]));
+    const split = await call("POST", "/api/v1/templates/split", { token: acmeOwner, body: { body: "Pagamento do pedido {{1}} confirmado. Aproveite 10% de desconto com o cupom VOLTA10!" } });
+    expect(split.body).toMatchObject({ transactional: "Pagamento do pedido {{1}} confirmado.", looksUtility: true });
+  });
+
+  it("module 4 — the tenant's CRM receives a signed copy of its Meta webhooks", async () => {
+    const got: Array<{ sig: string | undefined; body: string }> = [];
+    const crm = createServer((req, res) => {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        got.push({ sig: req.headers["x-hub-signature-256"] as string | undefined, body });
+        res.writeHead(200).end();
+      });
+    });
+    await new Promise<void>((ok) => crm.listen(0, "127.0.0.1", ok));
+    try {
+      const url = `http://127.0.0.1:${(crm.address() as AddressInfo).port}/meta`;
+      const secret = "crm-secret-0123456789abcdef";
+      const created = await call("POST", "/api/v1/webhooks/outbound", { token: acmeOwner, body: { kind: "MIRROR", url, secret, fields: ["messages"] } });
+      expect(created.status).toBe(201);
+      expect(created.body).toMatchObject({ kind: "MIRROR", hasSecret: true });
+      expect((await call("POST", "/api/v1/webhooks/outbound", { key: acmeKey, body: { kind: "MIRROR", url } })).status).toBe(403); // OPERATOR key
+      await customerWrites("+5511960000004", "Mensagem espelhada");
+      const copy = await waitFor(async () => got.find((g) => g.body.includes("Mensagem espelhada")), { label: "mirrored webhook" });
+      expect(copy.sig).toBe(`sha256=${createHmac("sha256", secret).update(copy.body).digest("hex")}`);
+      expect(JSON.parse(copy.body).entry.map((e: { id: string }) => e.id)).toEqual(["mock-waba-acme"]);
+      const listed = (await call("GET", "/api/v1/webhooks/outbound", { token: acmeOwner })).body;
+      expect(JSON.stringify(listed)).not.toContain(secret);
+      expect(listed.webhooks[0]).toMatchObject({ lastStatus: 200, consecutiveFailures: 0 });
+      expect((await call("DELETE", `/api/v1/webhooks/outbound/${created.body.id}`, { token: acmeOwner })).body).toEqual({ deleted: true });
+    } finally {
+      await new Promise((ok) => crm.close(ok));
+    }
+  });
+
+  it("module 5 — a number Meta reported as undeliverable is not attempted again, except for OTP", async () => {
+    const first = await intent({ customer: "+5511960000005", eventType: "appointment.reminder", mustSendImmediately: true, data: { date: "hoje", time: "10h" } }, acmeKey);
+    const a = await delivered(first.body.intentId, "first reminder");
+    const failed = JSON.stringify(statusWebhook({ wabaId: "mock-waba-acme", phoneNumberId: "mock-pn-acme-1", providerMessageId: a.attempts[0].providerMessageId, recipientWaId: "5511960000005", status: "failed", timestamp: Math.floor(Date.now() / 1000) + 2, errors: [{ code: 131026, title: "Message undeliverable" }] }));
+    const posted = await fetch(`${BASE}/api/v1/webhooks/meta`, { method: "POST", headers: { "content-type": "application/json", "x-hub-signature-256": computeSignature(failed, TEST_APP_SECRET) }, body: failed });
+    expect(posted.status).toBe(200);
+    await waitFor(async () => (await ctx.db.recipientDeliverabilityCache.count({ where: { kind: "UNDELIVERABLE" } })) > 0, { label: "deliverability recorded" });
+    const next = await intent({ customer: "+5511960000005", eventType: "appointment.reminder", data: { date: "amanhã", time: "10h" } }, acmeKey);
+    const blocked = await waitFor(async () => {
+      const x = (await acmeAudit(next.body.intentId)).body;
+      return x.intent.status === "BLOCKED" ? x : null;
+    }, { label: "suppressed" });
+    expect(blocked.intent.decisionReason).toContain("suppressed_invalid_recipient");
+    expect(blocked.attempts).toHaveLength(0);
+    const otp = await intent({ customer: "+5511960000005", eventType: "authentication.otp", data: { code: "998877" } }, acmeKey);
+    const sent = await waitFor(async () => {
+      const x = (await acmeAudit(otp.body.intentId)).body;
+      return FINAL.has(x.intent.status) ? x : null;
+    }, { label: "otp" });
+    expect(sent.intent.status).not.toBe("BLOCKED");
+    expect((await call("GET", "/api/v1/routing", { token: acmeOwner })).body.deliverability).toMatchObject({ suppressedMessages: 1, recipientsUndeliverableNow: 1 });
   });
 });
 

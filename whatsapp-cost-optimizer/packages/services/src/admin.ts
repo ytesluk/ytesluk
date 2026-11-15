@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { AlertSeverity, AlertType, Errors, PRIORITIES, TemplateCategory, money } from "@wco/domain";
 import { loadRateCatalog, saveRateCard, upsertPolicyDefinition } from "@wco/database";
-import { analyzeCategory, analyzeTemplateCost, templateText, FINAL_CATEGORY_DISCLAIMER } from "@wco/optimization";
+import { analyzeCategory, analyzeTemplateCost, HttpPromotionalRewriter, TemplateComplianceSplitter, templateText, FINAL_CATEGORY_DISCLAIMER } from "@wco/optimization";
 import { PolicyEngine, RuleSetSchema } from "@wco/policy";
 import { importRateCard, type PolicyDefinition } from "@wco/pricing";
 import { audit, raiseAlert } from "./audit";
@@ -187,6 +187,38 @@ export async function templateCost(ctx: AppContext, tenantId: string, raw: unkno
   );
 }
 
+export const TemplateSplitSchema = z.object({ templateId: z.string().optional(), body: z.string().min(1).max(4096).optional() }).refine((v) => !!v.templateId || !!v.body, "templateId or body is required");
+
+/**
+ * Template compliance splitter: separates the promotional sentences of a template text from the
+ * transactional ones, so the transactional part can be submitted on its own and the offer sent
+ * separately (as a deferred follow-up or a marketing template). ADVISORY: nothing is changed on
+ * Meta; a new text is a new template that Meta reviews and categorizes. The optional rewriter
+ * (TEMPLATE_REWRITER_URL, only with AI_ASSISTANT_ENABLED) handles sentences that mix both.
+ */
+export async function splitTemplate(ctx: AppContext, tenantId: string, raw: unknown) {
+  const input = TemplateSplitSchema.parse(raw);
+  let text = input.body ?? "";
+  if (input.templateId) {
+    const t = await ctx.db.template.findFirst({ where: { id: input.templateId, tenantId } });
+    if (!t) throw Errors.notFound("Template");
+    const components = (Array.isArray(t.components) ? t.components : []) as Array<{ type?: string; text?: string }>;
+    text = components.find((c) => (c.type ?? "").toUpperCase() === "BODY")?.text ?? templateText(t.components);
+  }
+  const env = ctx.config.env;
+  const rewriter =
+    env.AI_ASSISTANT_ENABLED && env.TEMPLATE_REWRITER_URL
+      ? new HttpPromotionalRewriter({ url: env.TEMPLATE_REWRITER_URL, authorization: env.AI_ASSISTANT_API_KEY ? `Bearer ${env.AI_ASSISTANT_API_KEY}` : undefined, name: env.AI_ASSISTANT_MODEL ?? "http-rewriter" })
+      : null;
+  const split = await new TemplateComplianceSplitter({ rewriter }).splitWithRewriter(text);
+  return {
+    ...split,
+    howToSend: split.promotional
+      ? "Envie a parte promocional separada: como `followUp` da intent (vai só se o cliente responder, como mensagem de atendimento e com o consentimento de marketing) ou como template de marketing."
+      : null,
+  };
+}
+
 /**
  * Optional "Template Classification Assistant" (spec §18). Disabled by default; never called in the
  * message hot path; never decides the billable category; results cached per template content; cost
@@ -230,6 +262,8 @@ export const OptimizationPolicySchema = z.object({
   defaultLanguage: z.string().default("pt_BR"),
   category: z.enum(["MARKETING", "UTILITY", "AUTHENTICATION", "SERVICE"]).nullable().optional(),
   allowFreeFormInWindow: z.boolean().default(false),
+  allowMarketingFreeFormInWindow: z.boolean().default(false).describe("Also send MARKETING template content as a service message while the window is open (marketing consent still applies)"),
+  inboundFirstGraceMinutes: z.number().int().min(0).max(24 * 60).default(0).describe("Inbound-first: minutes to wait for the customer to open the conversation before the paid template (0 = off; needs an EVENTS webhook)"),
   maxConsolidatedItems: z.number().int().min(1).max(50).default(10),
   enabled: z.boolean().default(true),
 });
@@ -271,21 +305,21 @@ export async function upsertRuleSet(ctx: AppContext, actor: Actor, raw: unknown)
 
 // ------------------------------------------------------------------------------------------- tenant
 
+const BspFeeModelSchema = z.object({
+  type: z.enum(["NONE", "PERCENTAGE", "FIXED_PER_MESSAGE", "MONTHLY", "MIXED"]),
+  percentOfMeta: z.string().optional(),
+  perMessage: z.string().optional(),
+  perMessageAppliesTo: z.enum(["ALL_SENT", "BILLABLE_ONLY"]).optional(),
+  monthlyFee: z.string().optional(),
+  label: z.string().optional(),
+});
+
 export const TenantSettingsSchema = z.object({
   name: z.string().min(1).optional(),
   requireOptIn: z.boolean().optional(),
   usesBsp: z.boolean().optional(),
-  bspFeeModel: z
-    .object({
-      type: z.enum(["NONE", "PERCENTAGE", "FIXED_PER_MESSAGE", "MONTHLY", "MIXED"]),
-      percentOfMeta: z.string().optional(),
-      perMessage: z.string().optional(),
-      perMessageAppliesTo: z.enum(["ALL_SENT", "BILLABLE_ONLY"]).optional(),
-      monthlyFee: z.string().optional(),
-      label: z.string().optional(),
-    })
-    .nullable()
-    .optional(),
+  bspFeeModel: BspFeeModelSchema.nullable().optional(),
+  legacyBspFeeModel: BspFeeModelSchema.nullable().optional().describe("Fees of the BSP used BEFORE connecting directly through the WCO: each message then records the fee no longer paid (BSP_MARKUP_AVOIDED, estimated)"),
   defaultTimezone: z.string().optional(),
 });
 
@@ -301,7 +335,14 @@ export async function getTenant(ctx: AppContext, tenantId: string) {
 
 export async function updateTenant(ctx: AppContext, actor: Actor, raw: unknown) {
   const input = TenantSettingsSchema.parse(raw);
-  const row = await ctx.db.tenant.update({ where: { id: actor.tenantId }, data: { ...input, bspFeeModel: input.bspFeeModel === undefined ? undefined : (input.bspFeeModel as never) } });
+  const row = await ctx.db.tenant.update({
+    where: { id: actor.tenantId },
+    data: {
+      ...input,
+      bspFeeModel: input.bspFeeModel === undefined ? undefined : (input.bspFeeModel as never),
+      legacyBspFeeModel: input.legacyBspFeeModel === undefined ? undefined : (input.legacyBspFeeModel as never),
+    },
+  });
   await audit(ctx.db, { tenantId: actor.tenantId, actor, action: "tenant.updated", entityType: "Tenant", entityId: row.id, data: input });
   await publishTenantChanged(ctx, actor.tenantId);
   return row;

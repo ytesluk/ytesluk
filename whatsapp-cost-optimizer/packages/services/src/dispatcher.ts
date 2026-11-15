@@ -8,13 +8,15 @@ import {
 } from "@wco/domain";
 import { metrics, withSpan } from "@wco/logging";
 import { priceAt, sanitizeParam } from "@wco/optimization";
-import { CircuitOpenError, isProviderError, type SendResult, type TemplateParameter } from "@wco/whatsapp";
+import { CircuitOpenError, isProviderError, templateToFreeForm, type FreeFormContent, type SendResult, type TemplateParameter } from "@wco/whatsapp";
 import { audit, event, raiseAlert } from "./audit";
 import type { AppContext } from "./context";
 import { loadConversationContext, markBusinessReply } from "./conversations";
 import { incrementQuota, incrementTier, loadCounters } from "./counters";
+import { recordDeliveryFailure } from "./deliverability";
 import { costRows } from "./optimizer";
 import { toIntentRecord } from "./records";
+import { prioritizeForFreeEntryPoint } from "./routing";
 
 /** Thrown when the job must be re-queued later without counting as a failure (pair rate limit, circuit open). */
 export class RetryLaterError extends Error {
@@ -41,8 +43,10 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
   const waba = phone ? (tenant.wabas.get(phone.wabaId) ?? null) : null;
   if (!phone) throw new Error(`Phone number ${intent.phoneNumberId} not found for tenant`);
 
-  // Consent may have changed while the intent was buffered.
-  const isMarketing = attempt.category === BillingCategory.MARKETING || attempt.category === BillingCategory.MARKETING_LITE;
+  // Consent may have changed while the intent was buffered. Promotional content sent as a service
+  // message (template → free-form, deferred follow-up) still follows the marketing opt-out.
+  const marketing = (c: string | null) => c === BillingCategory.MARKETING || c === BillingCategory.MARKETING_LITE;
+  const isMarketing = marketing(attempt.category) || marketing(intent.contentCategory);
   if (customer.optedOutAt || customer.erasedAt || (isMarketing && customer.marketingOptedOutAt)) {
     await ctx.db.$transaction([
       ctx.db.messageAttempt.update({ where: { id: attempt.id }, data: { status: MessageStatus.CANCELLED, errorCode: "OPTED_OUT" } }),
@@ -68,9 +72,35 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
     const { context, conversationId } = await loadConversationContext(ctx.db, tenant.id, intent.phoneNumberId, intent.customerId);
     const counters = await loadCounters(ctx.db, { tenantId: tenant.id, phoneNumberId: intent.phoneNumberId, businessAccountId: waba?.businessAccountId ?? "-", market: intent.market, timezone, at: now });
     const rec = toIntentRecord(intent, recipient);
-    const kind = attempt.messageKind as MessageKind;
-    const category = (attempt.category ?? intent.category ?? "UTILITY") as BillingCategory;
-    const estimate = priceAt(rec, now, kind, category, context, { engine, counters, timezone, currency, quotaUsed: 0, tierPosition: 0, authInternationalEligible: waba?.authInternationalEligible ?? false }, true);
+    let kind = attempt.messageKind as MessageKind;
+    let category = (attempt.category ?? intent.category ?? "UTILITY") as BillingCategory;
+    let templateName = attempt.templateName;
+    const pricing = { engine, counters, timezone, currency, quotaUsed: 0, tierPosition: 0, authInternationalEligible: waba?.authInternationalEligible ?? false };
+    let estimate = priceAt(rec, now, kind, category, context, pricing, true);
+    const payload = (attempt.payload ?? {}) as { parameters?: TemplateParameter[]; text?: string | null; renderFromTemplate?: string | null };
+    const paramsOf = (t: { bodyParams: string[] } | undefined): TemplateParameter[] =>
+      payload.parameters && payload.parameters.length > 0 ? payload.parameters : (t?.bodyParams ?? []).map((name) => ({ name, value: sanitizeParam(rec.data[name]) }));
+
+    // Template → free-form: the message is the approved template's own content, rendered as text or
+    // an interactive message. If the window closed meanwhile (or the content cannot be rendered any
+    // more), the approved template is sent instead — the message the client asked for in the first place.
+    let freeForm: FreeFormContent | null = null;
+    if (kind === MessageKind.NON_TEMPLATE && payload.renderFromTemplate) {
+      const source = tenant.templates.get(payload.renderFromTemplate);
+      const rendered = source ? templateToFreeForm(source.components, paramsOf(source)) : null;
+      if (estimate.pricingStatus !== PricingStatus.NOT_ELIGIBLE && rendered?.ok) {
+        freeForm = rendered.content;
+      } else if (source?.approved) {
+        kind = MessageKind.TEMPLATE;
+        category = source.category;
+        templateName = source.name;
+        estimate = priceAt(rec, now, kind, category, context, pricing, true);
+        const reason = rendered && !rendered.ok ? `free_form_not_renderable:${rendered.reason}` : "customer_service_window_closed";
+        await ctx.db.messageAttempt.update({ where: { id: attempt.id }, data: { messageKind: kind, category, templateName } });
+        await ctx.db.messageIntent.update({ where: { id: intent.id, tenantId: tenant.id }, data: { messageKind: kind, category, contentCategory: null, decisionReason: `${intent.decisionReason ?? ""},template_fallback` } });
+        await event(ctx.db, { tenantId: tenant.id, type: "DECISION", intentId: intent.id, conversationId, occurredAt: now, data: { action: "TEMPLATE_FALLBACK", reasons: [reason], template: templateName } });
+      }
+    }
     if (estimate.pricingStatus === PricingStatus.NOT_ELIGIBLE) {
       // e.g. a free-form message whose customer service window closed while buffered: never send it.
       await ctx.db.$transaction([
@@ -84,16 +114,16 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
     await ctx.db.messageAttempt.update({ where: { id: attempt.id }, data: { status: MessageStatus.SENDING } });
     await ctx.db.messageIntent.update({ where: { id: intent.id, tenantId: tenant.id }, data: { status: MessageStatus.SENDING } });
 
-    const payload = (attempt.payload ?? {}) as { parameters?: TemplateParameter[]; text?: string | null };
-    const template = attempt.templateName ? tenant.templates.get(attempt.templateName) : undefined;
-    const data = rec.data;
-    const params: TemplateParameter[] =
-      payload.parameters && payload.parameters.length > 0
-        ? payload.parameters
-        : (template?.bodyParams ?? []).map((name) => ({ name, value: sanitizeParam(data[name]) }));
+    const template = templateName ? tenant.templates.get(templateName) : undefined;
+    const params: TemplateParameter[] = paramsOf(template);
     const hint = {
       billable: estimate.pricingStatus === PricingStatus.PAID,
-      type: (estimate.freeReason === "free_entry_point_window" ? "free_entry_point" : estimate.isFree && estimate.freeReason === "customer_service_window" ? "free_customer_service" : "regular") as "regular" | "free_customer_service" | "free_entry_point",
+      // Mock only: free service messages (window or the monthly allowance) are reported as free_customer_service.
+      type: (estimate.freeReason === "free_entry_point_window"
+        ? "free_entry_point"
+        : estimate.isFree && (estimate.freeReason === "customer_service_window" || estimate.freeReason === "free_monthly_quota")
+          ? "free_customer_service"
+          : "regular") as "regular" | "free_customer_service" | "free_entry_point",
       category: category.toLowerCase().replace("authentication_international", "authentication-international"),
     };
     const provider = ctx.provider(waba);
@@ -101,10 +131,13 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
     const base = { phoneNumberId: phone.metaPhoneNumberId, to: recipient, bizOpaqueCallbackData: attempt.id, mockPricingHint: hint };
     let res: SendResult;
     try {
-      res =
-        kind === MessageKind.NON_TEMPLATE
-          ? await provider.sendMessage({ ...base, text: payload.text ?? intent.freeFormText ?? "" }, creds)
-          : await provider.sendTemplate({ ...base, template: { name: attempt.templateName!, language: intent.templateLanguage ?? template?.language ?? "pt_BR", bodyParameters: params, parameterFormat: template?.parameterFormat } }, creds);
+      if (kind === MessageKind.TEMPLATE) {
+        res = await provider.sendTemplate({ ...base, template: { name: templateName!, language: intent.templateLanguage ?? template?.language ?? "pt_BR", bodyParameters: params, parameterFormat: template?.parameterFormat } }, creds);
+      } else if (freeForm && freeForm.type !== "text") {
+        res = await provider.sendInteractive({ ...base, content: freeForm }, creds);
+      } else {
+        res = await provider.sendMessage({ ...base, text: freeForm?.text ?? payload.text ?? intent.freeFormText ?? "" }, creds);
+      }
     } catch (e) {
       if (e instanceof CircuitOpenError) {
         await ctx.db.messageAttempt.update({ where: { id: attempt.id }, data: { status: MessageStatus.QUEUED, errorCode: "CIRCUIT_OPEN" } });
@@ -118,6 +151,7 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
       }
       await failAttempt(ctx, tenant.id, attempt.id, attempt.coveredIntentIds, code, (e as Error).message, retryable);
       if (isProviderError(e)) await handleProviderAction(ctx, tenant.id, intent.customerId, e.action, code);
+      if (isProviderError(e)) await recordDeliveryFailure(ctx, { tenantId: tenant.id, phoneHash: customer.phoneHash, code: e.providerCode, at: now });
       throw e;
     }
 
@@ -152,6 +186,10 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
       }
     });
     metrics.messagesSent.inc({ tenant_id: tenant.id, category });
+    // This reply opened a free entry point window: messages already scheduled for later can use it.
+    if (conversationId && estimate.eligibility.windows.freeEntryPoint.opensOnThisMessage) {
+      await prioritizeForFreeEntryPoint(ctx, { tenantId: tenant.id, phoneNumberId: intent.phoneNumberId, customerId: intent.customerId }).catch((e) => ctx.log.warn({ err: (e as Error).message }, "fep priority failed"));
+    }
     if (estimate.eligibility.freeReason === "free_entry_point_window") metrics.freeEntryPointUsage.inc({ tenant_id: tenant.id });
     if (estimate.pricingStatus === PricingStatus.QUOTA) metrics.freeQuotaUsage.inc({ tenant_id: tenant.id });
     return { status: "sent" };

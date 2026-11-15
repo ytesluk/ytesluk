@@ -45,6 +45,36 @@ export function bspCost(model: BspFeeModel | null | undefined, input: BspCostInp
   return { percentPart, perMessagePart, monthlyPart, total: percentPart.plus(perMessagePart).plus(monthlyPart) };
 }
 
+/**
+ * BSP fee of ONE message: the percentage over the Meta charge plus the fixed per-message part.
+ * Monthly fees are not attributable to a message and are left to `compareDirectVsBsp`.
+ */
+export function bspFeePerMessage(model: BspFeeModel | null | undefined, metaCost: Decimal): Decimal {
+  // decimal.js: isPositive() is true for zero, so compare explicitly — a free message is not billable.
+  const fee = bspCost(model, { metaCost, messagesSent: 1, billableMessages: metaCost.gt(0) ? 1 : 0 });
+  return fee.percentPart.plus(fee.perMessagePart);
+}
+
+export interface BspMarkupAvoided {
+  /** What the legacy BSP would have charged on top of Meta for this message. */
+  legacyFee: Decimal;
+  /** Raw Meta Cloud API cost of the same message (what is paid going direct). */
+  metaCost: Decimal;
+  /** Total through the legacy BSP = Meta + fee. */
+  viaBsp: Decimal;
+  avoided: Decimal;
+}
+
+/**
+ * BSP_MARKUP_AVOIDED: the tenant's LEGACY BSP rate card (the fees it paid before connecting directly)
+ * against the raw Meta tariff of the same message. The Meta charge is identical on both paths, so
+ * the amount avoided is exactly the BSP fee. An estimate — it rests on the fee model the tenant declared.
+ */
+export function bspMarkupAvoided(legacy: BspFeeModel | null | undefined, metaCost: Decimal): BspMarkupAvoided {
+  const legacyFee = bspFeePerMessage(legacy, metaCost);
+  return { legacyFee, metaCost, viaBsp: metaCost.plus(legacyFee), avoided: legacyFee };
+}
+
 export interface BspComparisonInput {
   currency: string;
   metaMonthlyCost: string;

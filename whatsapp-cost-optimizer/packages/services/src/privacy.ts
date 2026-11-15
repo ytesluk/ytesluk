@@ -12,7 +12,7 @@ export async function exportCustomerData(ctx: AppContext, actor: Actor, phone: s
   const hash = ctx.vault.hashPhone(phone);
   const customer = await ctx.db.customer.findFirst({ where: { tenantId: actor.tenantId, phoneHash: hash } });
   if (!customer) throw Errors.notFound("Customer");
-  const [consents, intents, conversations] = await Promise.all([
+  const [consents, intents, conversations, followUps, deliverability] = await Promise.all([
     ctx.db.consentRecord.findMany({ where: { tenantId: actor.tenantId, customerId: customer.id }, orderBy: { occurredAt: "asc" } }),
     ctx.db.messageIntent.findMany({
       where: { tenantId: actor.tenantId, customerId: customer.id },
@@ -20,6 +20,8 @@ export async function exportCustomerData(ctx: AppContext, actor: Actor, phone: s
       orderBy: { requestedAt: "asc" },
     }),
     ctx.db.conversation.findMany({ where: { tenantId: actor.tenantId, customerId: customer.id }, include: { window: true, entryPoints: true, messages: { orderBy: { occurredAt: "asc" } } } }),
+    ctx.db.deferredFollowUp.findMany({ where: { tenantId: actor.tenantId, customerId: customer.id }, orderBy: { createdAt: "asc" } }),
+    ctx.db.recipientDeliverabilityCache.findMany({ where: { tenantId: actor.tenantId, phoneHash: hash } }),
   ]);
   const request = await ctx.db.dataSubjectRequest.create({ data: { tenantId: actor.tenantId, type: "EXPORT", customerHash: hash, status: "COMPLETED", requestedBy: actor.id, completedAt: ctx.now(), result: { intents: intents.length, consents: consents.length } } });
   await audit(ctx.db, { tenantId: actor.tenantId, actor, action: "privacy.export", entityType: "Customer", entityId: customer.id, data: { requestId: request.id } });
@@ -37,6 +39,10 @@ export async function exportCustomerData(ctx: AppContext, actor: Actor, phone: s
       // Inbox transcript (only exists when the tenant enabled the inbox; purged after the payload retention).
       chat: c.messages.map((m) => ({ direction: m.direction, kind: m.kind, occurredAt: m.occurredAt, text: m.bodyEncrypted ? ctx.vault.decryptSecret(m.bodyEncrypted) : null, templateName: m.templateName })),
     })),
+    // Follow-ups waiting for a reply (text kept encrypted until sent, expired or purged).
+    followUps: followUps.map((f) => ({ status: f.status, contentCategory: f.contentCategory, createdAt: f.createdAt, expiresAt: f.expiresAt, triggeredAt: f.triggeredAt, text: f.deferredFreeFormPayload ? ((JSON.parse(ctx.vault.decryptSecret(f.deferredFreeFormPayload)) as { text?: string }).text ?? null) : null })),
+    // What Meta reported to this business about delivering to this number (kept by hash, with expiry).
+    deliverability: deliverability.map((d) => ({ kind: d.kind, errorCode: d.errorCode, occurrences: d.strikes, firstSeenAt: d.firstSeenAt, lastSeenAt: d.lastSeenAt, expiresAt: d.expiresAt })),
     note: "Message contents are stored only in the inbox (when enabled by the business), encrypted and with retention.",
   };
 }
@@ -52,6 +58,8 @@ export async function deleteCustomerData(ctx: AppContext, actor: Actor, phone: s
     const convs = await tx.conversation.findMany({ where: { tenantId: actor.tenantId, customerId: customer.id }, select: { id: true } });
     const events = await tx.conversationEvent.deleteMany({ where: { tenantId: actor.tenantId, conversationId: { in: convs.map((c) => c.id) } } });
     await tx.chatMessage.updateMany({ where: { tenantId: actor.tenantId, conversationId: { in: convs.map((c) => c.id) } }, data: { bodyEncrypted: null, bodyPurgedAt: now } });
+    await tx.deferredFollowUp.updateMany({ where: { tenantId: actor.tenantId, customerId: customer.id }, data: { deferredFreeFormPayload: null, payloadPurgedAt: now, status: "CANCELLED" } });
+    await tx.recipientDeliverabilityCache.deleteMany({ where: { tenantId: actor.tenantId, phoneHash: hash } });
     await tx.customer.update({ where: { id: customer.id }, data: { phoneEncrypted: null, phoneMasked: "[erased]", erasedAt: now, optedOutAt: now } });
     return { intents: intents.count, attempts: attempts.count, events: events.count };
   });

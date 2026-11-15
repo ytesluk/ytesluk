@@ -41,6 +41,9 @@ export const TENANT_SCOPED_MODELS = new Set([
   "Usage",
   "Invoice",
   "Subscription",
+  "DeferredFollowUp",
+  "OutboundWebhook",
+  "RecipientDeliverabilityCache",
 ]);
 
 const WHERE_OPS = new Set([

@@ -41,6 +41,9 @@ function renderParams(template: TemplateInfo | undefined, data: Record<string, u
 function single(intent: IntentRecord, templateFor: FlushOptions["templateFor"]): FlushMessage {
   const isFreeForm = intent.messageKind === MessageKind.NON_TEMPLATE;
   const template = intent.templateName ? templateFor(intent.templateName) : undefined;
+  // Free-form message carrying the content of an approved template (no text of its own): the
+  // dispatcher renders the template's header/body/footer/buttons with these parameters.
+  const fromTemplate = isFreeForm && !intent.freeFormText && !!intent.templateName;
   return {
     primaryIntentId: intent.id,
     coveredIntentIds: [intent.id],
@@ -48,8 +51,9 @@ function single(intent: IntentRecord, templateFor: FlushOptions["templateFor"]):
     templateName: isFreeForm ? null : (intent.templateName ?? null),
     messageKind: intent.messageKind,
     category: intent.category,
-    parameters: isFreeForm ? [] : renderParams(template, intent.data),
-    text: isFreeForm ? (intent.freeFormText ?? summarize(intent)) : null,
+    parameters: isFreeForm && !fromTemplate ? [] : renderParams(template, intent.data),
+    text: isFreeForm ? (intent.freeFormText ?? (fromTemplate ? null : summarize(intent))) : null,
+    renderFromTemplate: fromTemplate ? intent.templateName : null,
     reasons: ["single_message"],
   };
 }

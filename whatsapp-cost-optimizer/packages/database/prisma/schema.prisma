@@ -145,6 +145,32 @@ enum SavingsMechanism {
   BSP_MARKUP
   INFRASTRUCTURE
   NONE
+  /// Approved template content sent as a free-form (service) message inside an open customer service window.
+  TEMPLATE_TO_FREEFORM_CSW
+  /// Promotional follow-up kept out of a transactional template, sent in the window the customer's reply opened.
+  UTILITY_SPLIT_DEFERRED
+  /// Already queued message brought forward into an open free entry point window.
+  FEP_PRIORITY
+  /// Fee of the BSP the tenant used before connecting directly through the WCO (per message, estimated).
+  BSP_MARKUP_AVOIDED
+  /// Provider call avoided: marketing deferred while Meta's per-user frequency cap (131049) cools down.
+  FREQUENCY_CAP_DEFERRED
+  /// Provider call avoided: recipient recently reported undeliverable by Meta (131026).
+  INVALID_RECIPIENT_SUPPRESSED
+}
+
+enum OutboundWebhookKind {
+  /// Copy of the Meta webhooks of the tenant's own WABAs (for its CRM/helpdesk).
+  MIRROR
+  /// WCO events (e.g. INBOUND_WAKEUP_REQUESTED) for the tenant's other channels (e-mail, push, in-app).
+  EVENTS
+}
+
+enum DeliverabilityKind {
+  /// Meta error 131026 (message undeliverable).
+  UNDELIVERABLE
+  /// Meta error 131049 (per-user marketing limit).
+  MARKETING_FREQUENCY_CAP
 }
 
 enum AlertType {
@@ -244,6 +270,9 @@ model Tenant {
   plan             PlanCode @default(FREE)
   /// Inbox: store conversation texts (encrypted) so agents can chat inside the WCO. Off = data minimization.
   inboxEnabled     Boolean  @default(false)
+  /// Fee model of the BSP the tenant used BEFORE connecting directly through the WCO (JSON BspFeeModel).
+  /// When set, each message records the BSP fee no longer paid (kind BSP, ESTIMATED; never mixed with Meta savings).
+  legacyBspFeeModel Json?
   createdAt        DateTime @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime @updatedAt @db.Timestamptz(3)
 
@@ -259,6 +288,7 @@ model Tenant {
   optimizationPolicies  OptimizationPolicy[]
   retentionPolicy       DataRetentionPolicy?
   subscription          Subscription?
+  outboundWebhooks      OutboundWebhook[]
 }
 
 model User {
@@ -585,6 +615,9 @@ model MessageIntent {
   templateId         String?         @db.Uuid
   templateName       String?
   templateLanguage   String?
+  /// Category of the CONTENT when it differs from the billing category (a marketing template sent as a
+  /// free-form service message inside the window): consent rules follow the content, billing follows Meta.
+  contentCategory    BillingCategory?
   /// Business payload (purged by retention; hashes are kept).
   data               Json?
   freeFormText       String?
@@ -619,6 +652,7 @@ model MessageIntent {
   decisions OptimizationDecision[]
   costs     CostDecision[]
   savings   SavingsRecord[]
+  followUp  DeferredFollowUp?
 
   /// Spec §26: the same idempotency key can never produce two messages.
   @@unique([tenantId, idempotencyKey])
@@ -694,6 +728,35 @@ model MessageDelivery {
 
   @@unique([providerMessageId, status])
   @@index([tenantId, occurredAt])
+}
+
+/// A free-form follow-up kept out of a template (e.g. the promotional part of a transactional message).
+/// It is sent as a service message ONLY if the customer writes back (which opens the customer service
+/// window) before it expires, and only with the consent its content requires. Never sent otherwise.
+model DeferredFollowUp {
+  id                      String          @id @default(uuid(7)) @db.Uuid
+  tenantId                String          @db.Uuid
+  /// Outbound intent this follow-up belongs to.
+  intentId                String          @unique @db.Uuid
+  customerId              String          @db.Uuid
+  phoneNumberId           String          @db.Uuid
+  /// AES-256-GCM JSON { text }. Purged with the payload retention and on LGPD erasure.
+  deferredFreeFormPayload String?
+  contentCategory         BillingCategory @default(MARKETING)
+  /// PENDING | SENT | EXPIRED | CANCELLED
+  status                  String          @default("PENDING")
+  expiresAt               DateTime        @db.Timestamptz(3)
+  triggeredAt             DateTime?       @db.Timestamptz(3)
+  /// Intent created for the follow-up message when it was triggered.
+  followUpIntentId        String?         @db.Uuid
+  payloadPurgedAt         DateTime?       @db.Timestamptz(3)
+  createdAt               DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime        @updatedAt @db.Timestamptz(3)
+
+  intent MessageIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId, status])
+  @@index([status, expiresAt])
 }
 
 model Template {
@@ -920,6 +983,12 @@ model OptimizationPolicy {
   category                  BillingCategory?
   /// Allow sending a free-form (service) message instead of a template while a CSW is open.
   allowFreeFormInWindow     Boolean   @default(false)
+  /// Same, for MARKETING templates (the content goes as a service message while the window is open;
+  /// marketing consent still applies). Off by default.
+  allowMarketingFreeFormInWindow Boolean @default(false)
+  /// Inbound-first: wait up to N minutes (never past the intent deadline) for the customer to open the
+  /// conversation after an INBOUND_WAKEUP_REQUESTED event, before sending the paid template. 0 = off.
+  inboundFirstGraceMinutes  Int       @default(0)
   maxConsolidatedItems      Int       @default(10)
   enabled                   Boolean   @default(true)
   createdAt                 DateTime  @default(now()) @db.Timestamptz(3)
@@ -1072,6 +1141,56 @@ model WebhookEvent {
 
   @@index([status, receivedAt])
   @@index([tenantId, receivedAt])
+}
+
+/// Tenant endpoints that receive HTTP POSTs from the WCO: a copy of the Meta webhooks of the tenant's
+/// own WABAs (MIRROR — "mirrorWebhookUrls") or WCO events (EVENTS). Signed with HMAC-SHA256 when a
+/// secret is set; delivered with retry and exponential backoff.
+model OutboundWebhook {
+  id                  String              @id @default(uuid(7)) @db.Uuid
+  tenantId            String              @db.Uuid
+  kind                OutboundWebhookKind
+  url                 String
+  /// AES-256-GCM HMAC signing secret (optional).
+  secretEncrypted     String?
+  /// AES-256-GCM value sent as the Authorization header (optional).
+  authHeaderEncrypted String?
+  /// MIRROR: Meta webhook fields to forward; empty = all supported fields.
+  fields              String[]
+  enabled             Boolean             @default(true)
+  lastStatus          Int?
+  lastDeliveredAt     DateTime?           @db.Timestamptz(3)
+  lastError           String?
+  consecutiveFailures Int                 @default(0)
+  createdAt           DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime            @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, kind, url])
+  @@index([tenantId, kind, enabled])
+}
+
+/// What Meta reported about delivering to a recipient, kept PER TENANT (never shared between tenants)
+/// and only by the pseudonymous customer hash. Entries expire; an inbound message clears UNDELIVERABLE.
+model RecipientDeliverabilityCache {
+  id          String             @id @default(uuid(7)) @db.Uuid
+  tenantId    String             @db.Uuid
+  /// customerHash: HMAC-SHA256(E.164, HASH_PEPPER). Never the phone number.
+  phoneHash   String
+  kind        DeliverabilityKind
+  /// Meta error code that created/renewed the entry (131026 or 131049).
+  errorCode   Int
+  /// Consecutive occurrences; the cooldown grows with it.
+  strikes     Int                @default(1)
+  firstSeenAt DateTime           @db.Timestamptz(3)
+  lastSeenAt  DateTime           @db.Timestamptz(3)
+  expiresAt   DateTime           @db.Timestamptz(3)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime           @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, phoneHash, kind])
+  @@index([expiresAt])
 }
 
 model AuditLog {

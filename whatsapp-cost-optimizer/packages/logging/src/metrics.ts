@@ -102,6 +102,24 @@ export const metrics = {
     labelNames: ["reason"],
     registers: [registry],
   }),
+  deliverabilitySignals: new Counter({
+    name: "wco_deliverability_signals_total",
+    help: "Recipient-level delivery failures reported by Meta (131026 undeliverable, 131049 marketing limit)",
+    labelNames: [...tenant, "kind"],
+    registers: [registry],
+  }),
+  routingDecisions: new Counter({
+    name: "wco_routing_decisions_total",
+    help: "Cost-routing outcomes (template_to_freeform_csw, fep_priority, inbound_first_wait, deferred_frequency_cap, ...)",
+    labelNames: [...tenant, "reason"],
+    registers: [registry],
+  }),
+  outboundWebhooks: new Counter({
+    name: "wco_outbound_webhooks_total",
+    help: "Deliveries to tenant endpoints (mirrored Meta webhooks and WCO events)",
+    labelNames: ["kind", "outcome"],
+    registers: [registry],
+  }),
   webhooksReceived: new Counter({
     name: "wco_webhooks_received_total",
     help: "Webhook deliveries received",

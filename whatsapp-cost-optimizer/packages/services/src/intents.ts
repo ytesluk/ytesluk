@@ -16,6 +16,7 @@ import { consolidationKey, eventHash, groupKey, supersessionKey } from "@wco/opt
 import { resolvePolicy } from "@wco/policy";
 import { audit, event } from "./audit";
 import type { Actor, AppContext } from "./context";
+import { createFollowUp, FollowUpSchema } from "./followups";
 import { QUEUE } from "./queues";
 
 /** Spec §31 request body (extended with optional, documented fields). */
@@ -39,6 +40,9 @@ export const CreateIntentSchema = z.object({
     .object({ allowDeduplication: z.boolean().optional(), allowAggregation: z.boolean().optional(), allowSupersession: z.boolean().optional() })
     .optional(),
   consent: z.object({ optIn: z.boolean(), source: z.string().max(100).optional() }).optional(),
+  followUp: FollowUpSchema.optional().describe(
+    "Free-form follow-up kept out of the template (e.g. an offer). Sent as a service message ONLY if the customer replies before it expires, and only with the consent its content needs.",
+  ),
 });
 export type CreateIntentInput = z.infer<typeof CreateIntentSchema>;
 
@@ -48,7 +52,13 @@ export interface CreateIntentResult {
   idempotent: boolean;
 }
 
-export async function createIntent(ctx: AppContext, actor: Actor, raw: unknown, opts: { requestId?: string } = {}): Promise<CreateIntentResult> {
+export async function createIntent(
+  ctx: AppContext,
+  actor: Actor,
+  raw: unknown,
+  /** `contentCategory` is internal (deferred follow-ups): what the content is when it goes as a service message. */
+  opts: { requestId?: string; contentCategory?: BillingCategory } = {},
+): Promise<CreateIntentResult> {
   const input = CreateIntentSchema.parse(raw);
   return withSpan("intent.create", async (span) => {
     const tenant = await ctx.tenants.get(actor.tenantId);
@@ -86,6 +96,7 @@ export async function createIntent(ctx: AppContext, actor: Actor, raw: unknown, 
     if (messageKind === MessageKind.TEMPLATE && !templateName) {
       throw Errors.validation(`No template given and no default template configured for event type "${input.eventType}"`);
     }
+    if (input.followUp && messageKind !== MessageKind.TEMPLATE) throw Errors.validation("followUp only applies to template messages (it is what was kept out of the template)");
     const allowDedup = input.optimization?.allowDeduplication ?? policy.allowDeduplication;
     const allowAgg = input.optimization?.allowAggregation ?? policy.allowAggregation;
     const allowSup = input.optimization?.allowSupersession ?? policy.allowSupersession;
@@ -127,6 +138,7 @@ export async function createIntent(ctx: AppContext, actor: Actor, raw: unknown, 
           templateId: template?.id ?? null,
           templateName,
           templateLanguage: input.template?.language ?? template?.language ?? policy.defaultLanguage ?? "pt_BR",
+          contentCategory: messageKind === MessageKind.NON_TEMPLATE ? ((opts.contentCategory ?? null) as never) : null,
           data: input.data as never,
           freeFormText: input.text ?? null,
           groupKey: g,
@@ -136,6 +148,9 @@ export async function createIntent(ctx: AppContext, actor: Actor, raw: unknown, 
           currency: waba?.currency ?? tenant.defaultCurrency,
         },
       });
+      if (input.followUp) {
+        await createFollowUp(ctx.db, ctx, { tenantId: tenant.id, intentId: intent.id, customerId: customer.id, phoneNumberId: phone.id, followUp: input.followUp, now });
+      }
       await Promise.all([
         event(ctx.db, { tenantId: tenant.id, type: "INTENT_CREATED", intentId: intent.id, occurredAt: now, data: { eventType: input.eventType, priority: intent.priority, maxDelaySeconds: maxDelay } }),
         event(ctx.db, { tenantId: tenant.id, type: "STATE_TRANSITION", intentId: intent.id, occurredAt: now, data: { from: "CREATED", to: "PENDING_OPTIMIZATION", reason: "accepted" } }),
@@ -216,6 +231,7 @@ export async function getIntentAudit(ctx: AppContext, tenantId: string, intentId
       costs: { orderBy: { createdAt: "asc" } },
       savings: true,
       attempts: { include: { deliveries: { orderBy: { occurredAt: "asc" } } }, orderBy: { attemptNumber: "asc" } },
+      followUp: { select: { id: true, status: true, contentCategory: true, expiresAt: true, triggeredAt: true, followUpIntentId: true } },
     },
   });
   if (!intent) throw Errors.notFound("Message");
@@ -241,9 +257,12 @@ export async function getIntentAudit(ctx: AppContext, tenantId: string, intentId
             : null,
     whyFree: (realized ?? optimized)?.isFree ? ((realized ?? optimized)!.evidence as string[]) : null,
     whyCharged: (realized ?? optimized) && !(realized ?? optimized)!.isFree && (realized ?? optimized)!.pricingStatus === "PAID" ? ((realized ?? optimized)!.evidence as string[]) : null,
-    whyCategory: intent.templateName
-      ? [`template ${intent.templateName}: categoria ${intent.category} atribuída pela Meta (ou a declarada, enquanto a Meta não informar)`]
-      : [`mensagem livre dentro da janela de atendimento → ${intent.category}`],
+    whyCategory:
+      intent.messageKind === "TEMPLATE" && intent.templateName
+        ? [`template ${intent.templateName}: categoria ${intent.category} atribuída pela Meta (ou a declarada, enquanto a Meta não informar)`]
+        : intent.templateName
+          ? [`conteúdo do template ${intent.templateName} (${intent.contentCategory ?? "?"}) enviado como mensagem livre dentro da janela de atendimento → ${intent.category}`]
+          : [`mensagem livre dentro da janela de atendimento → ${intent.category}`],
     pricingPolicy: (realized ?? optimized)?.policyVersion ?? null,
     rateCard: (realized ?? optimized)?.rateCardId ?? null,
     tier: (realized ?? optimized)?.tier ?? null,
@@ -259,6 +278,7 @@ export async function getIntentAudit(ctx: AppContext, tenantId: string, intentId
       costs: undefined,
       savings: undefined,
       attempts: undefined,
+      followUp: undefined,
       freeFormText: intent.freeFormText ? "[stored]" : null,
     },
     decisions: intent.decisions.map((d) => ({ ...d, estimatedSavings: d.estimatedSavings.toString() })),
@@ -268,6 +288,7 @@ export async function getIntentAudit(ctx: AppContext, tenantId: string, intentId
     savings: intent.savings.map((s) => ({ ...s, baselineCost: s.baselineCost.toString(), optimizedCost: s.optimizedCost.toString(), savings: s.savings.toString() })),
     events,
     policies,
+    followUp: intent.followUp,
     why,
   };
 }

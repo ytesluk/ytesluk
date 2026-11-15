@@ -24,6 +24,11 @@
 * Atrasos de 30–120 s (debounce) são o preço da supersession/consolidação; cada tenant deve calibrar.
 * Mensagens de mídia, interativas e listas: o provedor suporta envio, mas o otimizador trata principalmente
   templates e texto.
+* Roteamento de custo ([COST-ROUTING.md](COST-ROUTING.md)): os formatos de mensagem interativa não foram
+  reconferidos na documentação da Meta nesta data (S14) e ainda não foram testados com um número real;
+  não há tela própria (as opções ficam em Plataforma › Políticas e na API); o simulador não modela o
+  follow-up adiado nem o espelho de webhooks; não há endpoint compatível com a Graph API para apontar
+  integrações antigas direto no WCO (elas precisam chamar `POST /messages/intents`).
 * Faturamento do próprio SaaS: uso mensal medido, alertas de volume do plano e faturas em rascunho
   (DRAFT) geradas no fechamento do mês; **sem gateway de pagamento** (cobrança, boleto/Pix/cartão, nota
   fiscal) e sem troca de plano pelo próprio cliente — o operador muda o plano em

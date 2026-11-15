@@ -7,10 +7,11 @@ import {
   OpportunityType,
   PricingStatus,
   Priority,
+  RoutingReason,
   maxDate,
   type Decimal,
 } from "@wco/domain";
-import { isNeverDelayEvent, type PolicyEngineResult } from "@wco/policy";
+import { FOLLOW_UP_EVENT, isNeverDelayEvent, type PolicyEngineResult } from "@wco/policy";
 import type { CostDecision } from "@wco/pricing";
 import { detectDuplicate } from "./dedup";
 import { priceAt, schedule } from "./scheduler";
@@ -36,6 +37,12 @@ const NEXT_STATUS: Record<DecisionAction, MessageStatus> = {
  *  7 criticality · 8–11 context, service window, free entry point, free quota · 12 category ·
  *  13 aggregation · 14 cost · 15 alternative cost · 16 choose action (PolicyEngine) ·
  *  17 explanation · 18 enqueue (caller).
+ *
+ * Cost routing (see scheduler.ts) adds: template → free-form inside the window, free entry point
+ * priority, inbound-first grace, and what Meta reported about the recipient — a number Meta just
+ * reported as undeliverable (131026) is not attempted again for a while, and a marketing template
+ * waits out the per-user limit (131049) when its deadline allows. Critical, authentication and
+ * immediate messages are never suppressed, deferred or held by any of these.
  */
 export function decide(input: DecisionInput): OptimizationDecision {
   const { intent, policy, now, related, consent, conversation, pricing, rules } = input;
@@ -65,6 +72,16 @@ export function decide(input: DecisionInput): OptimizationDecision {
   const buffering = features.debounce && !bypassBuffer && effectiveDeadline > now;
   const canAggregate = buffering && features.aggregation && !!intent.consolidationKey;
 
+  // Content vs billing category: promotional content that goes as a service message keeps its
+  // consent rules, and its baseline is the template it would otherwise have been.
+  const isMarketingCategory = (c: BillingCategory | null | undefined) => c === BillingCategory.MARKETING || c === BillingCategory.MARKETING_LITE;
+  const contentIsTemplate = intent.messageKind === MessageKind.NON_TEMPLATE && !!intent.contentCategory;
+  const marketingContent = isMarketingCategory(intent.category) || isMarketingCategory(intent.contentCategory);
+
+  // What Meta reported about this recipient (per tenant). Never applied to critical/immediate messages.
+  const limits = input.deliverability;
+  const marketingCapUntil = !bypassBuffer && intent.messageKind === MessageKind.TEMPLATE && isMarketingCategory(intent.category) && limits?.marketingCapUntil && limits.marketingCapUntil > now ? limits.marketingCapUntil : null;
+
   // 8–15. windows, quota, category, cost and alternative cost (smart scheduler)
   const sched = schedule({
     intent,
@@ -77,11 +94,26 @@ export function decide(input: DecisionInput): OptimizationDecision {
     bypassBuffer,
     safetyMarginSeconds: margin,
     wantsBuffer: buffering && (policy.debounceSeconds > 0 || canAggregate),
+    notBefore: marketingCapUntil,
+    allowInboundFirst: buffering,
     explain,
   });
   const probe = sched.cost.eligibility.windows;
   const baselineAt = maxDate(now, intent.preferredSendAt)!;
-  const baselineCost = priceAt(intent, baselineAt, intent.messageKind, intent.category, conversation, pricing, explain, "BASELINE");
+  const baselineCost = priceAt(
+    intent,
+    baselineAt,
+    contentIsTemplate ? MessageKind.TEMPLATE : intent.messageKind,
+    contentIsTemplate ? intent.contentCategory! : intent.category,
+    conversation,
+    pricing,
+    explain,
+    "BASELINE",
+  );
+  // A customer who just wrote is reachable, whatever an older failure said.
+  const recipientUndeliverable = !bypassBuffer && !probe.customerServiceWindow.open && !!limits?.undeliverableUntil && limits.undeliverableUntil > now;
+  const deferredByCap = sched.reasons.includes(RoutingReason.DEFERRED_FREQUENCY_CAP);
+  const inboundFirstWait = sched.reasons.includes(RoutingReason.INBOUND_FIRST_WAIT);
   const alternativeCost: CostDecision | null =
     sched.messageKind !== intent.messageKind || sched.sendAt.getTime() !== baselineAt.getTime() ? baselineCost : null;
 
@@ -89,10 +121,10 @@ export function decide(input: DecisionInput): OptimizationDecision {
   const canDelay = buffering && sched.sendAt > now;
 
   const facts = {
-    noOptIn: consent.requireOptIn && !consent.optedIn && intent.messageKind === MessageKind.TEMPLATE,
+    noOptIn: consent.requireOptIn && !consent.optedIn && (intent.messageKind === MessageKind.TEMPLATE || isMarketingCategory(intent.contentCategory)),
     optedOut: consent.optedOut,
     marketingOptedOut: consent.marketingOptedOut,
-    isMarketing: intent.category === BillingCategory.MARKETING || intent.category === BillingCategory.MARKETING_LITE,
+    isMarketing: marketingContent,
     nonTemplateOutsideWindow,
     alreadySent: dup.alreadySent,
     duplicate: dup.duplicate,
@@ -117,6 +149,9 @@ export function decide(input: DecisionInput): OptimizationDecision {
     maxDelaySeconds: intent.maxDelaySeconds,
     category: intent.category,
     eventType: intent.eventType,
+    recipientUndeliverable,
+    marketingFrequencyCapped: !!marketingCapUntil,
+    inboundFirstWait,
   };
 
   // 16. choose action
@@ -124,6 +159,10 @@ export function decide(input: DecisionInput): OptimizationDecision {
   // Non-template outside the window with no other blocking fact: the decision engine must not send it.
   if (sched.mode === "CANCEL" && (rule.action === DecisionAction.SEND_NOW || rule.action === DecisionAction.DELAY || rule.action === DecisionAction.CONSOLIDATE)) {
     rule = { ...rule, action: DecisionAction.BLOCK, reason: "not_sendable_under_policy", invariantApplied: "pricing_not_eligible" };
+  }
+  // Meta reported this number as undeliverable a short while ago: do not call the API again yet.
+  if (recipientUndeliverable && (rule.action === DecisionAction.SEND_NOW || rule.action === DecisionAction.DELAY || rule.action === DecisionAction.CONSOLIDATE)) {
+    rule = { ...rule, action: DecisionAction.BLOCK, reason: RoutingReason.SUPPRESSED_INVALID_RECIPIENT, invariantApplied: "recipient_recently_undeliverable" };
   }
   const action = rule.action;
   const reasons: string[] = [rule.reason];
@@ -153,6 +192,7 @@ export function decide(input: DecisionInput): OptimizationDecision {
         if (neverDelay) reasons.push("never_delay_event_type");
       }
       if (maxDelayExceeded) reasons.push("maxDelayExceeded");
+      if (intent.eventType === FOLLOW_UP_EVENT) reasons.push(RoutingReason.UTILITY_SPLIT_DEFERRED);
       break;
     }
     case DecisionAction.DELAY:
@@ -161,6 +201,7 @@ export function decide(input: DecisionInput): OptimizationDecision {
       cost = sched.cost;
       estimatedSavings = baselineValue.minus(cost.estimatedCost);
       reasons.push(...sched.reasons);
+      if (intent.eventType === FOLLOW_UP_EVENT) reasons.push(RoutingReason.UTILITY_SPLIT_DEFERRED);
       if (action === DecisionAction.CONSOLIDATE) reasons.push("same_customer", intent.businessEntityId ? "same_entity" : "same_group", "not_critical", "awaiting_compatible_updates");
       break;
     case DecisionAction.SUPPRESS_DUPLICATE:
@@ -196,6 +237,20 @@ export function decide(input: DecisionInput): OptimizationDecision {
   if (explain && sup.supersedes.length) explanation.push(`Replaces ${sup.supersedes.length} older pending update(s); deadline kept at ${effectiveDeadline.toISOString()}.`);
   if (explain && sendAt) explanation.push(`Send at ${sendAt.toISOString()} as ${sched.messageKind === MessageKind.TEMPLATE ? "template" : "free-form service message"} (${sched.category}).`);
   if (explain && cost) explanation.push(...cost.evidence.map((e) => `Pricing: ${e}`));
+  const sending = action === DecisionAction.SEND_NOW || action === DecisionAction.DELAY || action === DecisionAction.CONSOLIDATE;
+  const switchedToFreeForm = sending && sched.messageKind !== intent.messageKind;
+  if (explain && action === DecisionAction.BLOCK && recipientUndeliverable) {
+    explanation.push(`Meta reported this number as undeliverable (131026) recently; not attempted again before ${limits!.undeliverableUntil!.toISOString()}. A message from the customer lifts this.`);
+  }
+  if (explain && sending && deferredByCap) {
+    explanation.push(`Meta's per-user marketing limit (131049) was hit for this recipient; waiting until ${sendAt?.toISOString()} (cooldown ends ${marketingCapUntil?.toISOString()}, never past the deadline).`);
+  }
+  if (explain && sending && inboundFirstWait) {
+    explanation.push(`Inbound-first: held until ${sendAt?.toISOString()} so the customer can open the conversation; if they do, the same content goes as a service message, otherwise the template is sent then.`);
+  }
+  if (explain && switchedToFreeForm && !intent.freeFormText) {
+    explanation.push(`The customer service window is open: the content of template ${intent.templateName} goes as a free-form service message (same wording), which is cheaper than the ${intent.category} template.`);
+  }
 
   return {
     intentId: intent.id,
@@ -211,6 +266,8 @@ export function decide(input: DecisionInput): OptimizationDecision {
     effectiveDeadline,
     messageKind: sched.messageKind,
     category: sched.category,
+    contentCategory: switchedToFreeForm ? intent.category : (intent.contentCategory ?? null),
+    wakeUp: action === DecisionAction.DELAY && inboundFirstWait,
     cost,
     baselineCost,
     alternativeCost,

@@ -8,18 +8,22 @@ import {
   CreateUserSchema,
   ListIntentsQuery,
   LoginSchema,
+  OutboundWebhookSchema,
   SignupSchema,
   createApiKey,
   createIntent,
   createUser,
+  deleteOutboundWebhook,
   getIntentAudit,
   ingestWebhook,
   listApiKeys,
   listIntents,
+  listOutboundWebhooks,
   listUsers,
   login,
   signup,
   revokeApiKey,
+  upsertOutboundWebhook,
   type AppContext,
 } from "@wco/services";
 import { verifyChallenge } from "@wco/whatsapp";
@@ -99,4 +103,17 @@ export async function coreRoutes(app: FastifyInstance, ctx: AppContext) {
     if (r.status !== 200) return reply.status(r.status).send({ error: { code: r.status === 401 ? "INVALID_SIGNATURE" : "INVALID_PAYLOAD", message: "rejected" } });
     return reply.status(200).send({ received: true, duplicate: !!r.duplicate });
   });
+
+  // ---------------------------------------------------------------- outbound webhooks (tenant endpoints)
+  // MIRROR ("mirrorWebhookUrls"): a copy of the Meta webhooks of the tenant's own WABAs, for its CRM/helpdesk.
+  // EVENTS: WCO events such as INBOUND_WAKEUP_REQUESTED. Signed (HMAC-SHA256), retried with backoff.
+  app.get("/api/v1/webhooks/outbound", { schema: { tags: ["webhooks"], summary: "Tenant endpoints that receive mirrored Meta webhooks and WCO events (secrets are never returned)" }, preHandler: guard(ctx, Permission.PROVIDERS_MANAGE) }, async (req) =>
+    listOutboundWebhooks(ctx, actorOf(req).tenantId),
+  );
+  app.post("/api/v1/webhooks/outbound", { schema: { tags: ["webhooks"], summary: "Create or update a mirror/events endpoint", body: doc(OutboundWebhookSchema) }, preHandler: guard(ctx, Permission.PROVIDERS_MANAGE) }, async (req, reply) =>
+    reply.status(201).send(await upsertOutboundWebhook(ctx, actorOf(req), req.body)),
+  );
+  app.delete("/api/v1/webhooks/outbound/:id", { schema: { tags: ["webhooks"] }, preHandler: guard(ctx, Permission.PROVIDERS_MANAGE) }, async (req) =>
+    deleteOutboundWebhook(ctx, actorOf(req), z.string().uuid().parse((req.params as { id: string }).id)),
+  );
 }

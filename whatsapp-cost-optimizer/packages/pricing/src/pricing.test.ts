@@ -19,6 +19,11 @@ import {
   importJson,
   simulateRateCard,
   compareDirectVsBsp,
+  bspFeePerMessage,
+  bspMarkupAvoided,
+  customerServiceWindowAt,
+  evaluateWindows,
+  windowTimeLeft,
   type PricingContext,
 } from "./index";
 
@@ -338,5 +343,64 @@ describe("Simulators", () => {
   it("BSP comparison handles 'no markup' honestly", () => {
     const r = compareDirectVsBsp({ currency: "BRL", metaMonthlyCost: "1000", monthlyMessages: 10_000, bsp: { type: "NONE" } });
     expect(r.difference.cheaper).toBe("EQUAL");
+  });
+});
+
+describe("Cost routing — windows and substitution prices", () => {
+  const OCT = new Date("2026-10-05T12:00:00Z");
+  const policy = new PolicyRegistry(BUILTIN_POLICIES).forDate("2026-10-05")!.definition;
+  const hours = (h: number) => new Date(OCT.getTime() + h * 3_600_000);
+  const inWindow: ConversationContext = { customerServiceWindow: { lastInboundAt: OCT }, freeEntryPoint: null };
+
+  it("tells whether free-form content can be sent now and for how long (with a delivery safety margin)", () => {
+    expect(customerServiceWindowAt(policy, noWindows, OCT)).toEqual({ open: false, expiresAt: null, remainingMs: 0 });
+    const open = customerServiceWindowAt(policy, inWindow, hours(23));
+    expect(open).toMatchObject({ open: true, remainingMs: 3_600_000 });
+    expect(open.expiresAt!.toISOString()).toBe(hours(24).toISOString());
+    // 30 s left with a 120 s margin: treated as closed (Meta bills on delivery time).
+    expect(customerServiceWindowAt(policy, inWindow, new Date(hours(24).getTime() - 30_000), 120).open).toBe(false);
+    expect(customerServiceWindowAt(policy, inWindow, hours(25)).open).toBe(false);
+  });
+
+  it("reports the time left in an open free entry point window", () => {
+    const fep: ConversationContext = {
+      customerServiceWindow: { lastInboundAt: OCT },
+      freeEntryPoint: { type: EntryPointType.CLICK_TO_WHATSAPP_AD, userMessageAt: OCT, firstBusinessReplyAt: hours(1), windowStartedAt: hours(1), confirmedExpiresAt: null, verification: VerificationStatus.ESTIMATED },
+    };
+    const left = windowTimeLeft(evaluateWindows(policy, fep, hours(2)), hours(2));
+    expect(left).toMatchObject({ customerServiceWindowOpen: true, freeEntryPointOpen: true, freeEntryPointMs: 71 * 3_600_000 });
+    expect(windowTimeLeft(evaluateWindows(policy, fep, hours(80)), hours(80))).toMatchObject({ customerServiceWindowOpen: false, freeEntryPointOpen: false, freeEntryPointMs: 0 });
+  });
+
+  it("a MARKETING template stays paid inside the window, while the same content as a service message is not marketing-priced", () => {
+    const template = engine.decide(ctx({ at: hours(1), conversation: inWindow }));
+    expect(template.pricingStatus).toBe(PricingStatus.PAID);
+    const service = engine.decide(ctx({ at: hours(1), conversation: inWindow, category: BillingCategory.SERVICE, messageKind: MessageKind.NON_TEMPLATE, quotaUsed: 0 }));
+    expect(service.pricingStatus).toBe(PricingStatus.QUOTA); // inside the 1,000 free service messages of the month
+    // Past the monthly allowance the service message is charged — at the service rate, below the marketing rate.
+    const paidService = engine.decide(ctx({ at: hours(1), conversation: inWindow, category: BillingCategory.SERVICE, messageKind: MessageKind.NON_TEMPLATE, quotaUsed: 1000 }));
+    expect(paidService.pricingStatus).toBe(PricingStatus.PAID);
+    expect(paidService.estimatedCost.lt(template.estimatedCost)).toBe(true);
+    // Outside the window free-form content cannot be sent at all.
+    expect(engine.decide(ctx({ at: hours(30), conversation: inWindow, category: BillingCategory.SERVICE, messageKind: MessageKind.NON_TEMPLATE })).pricingStatus).toBe(PricingStatus.NOT_ELIGIBLE);
+  });
+});
+
+describe("BSP_MARKUP_AVOIDED — legacy BSP rate card vs raw Meta tariff", () => {
+  it("is exactly the BSP's per-message fee (percentage over Meta plus the fixed part)", () => {
+    const meta = new Money("0.0625");
+    expect(bspFeePerMessage({ type: "PERCENTAGE", percentOfMeta: "20" }, meta).toString()).toBe("0.0125");
+    expect(bspFeePerMessage({ type: "FIXED_PER_MESSAGE", perMessage: "0.02" }, meta).toString()).toBe("0.02");
+    const r = bspMarkupAvoided({ type: "MIXED", percentOfMeta: "20", perMessage: "0.02", monthlyFee: "500" }, meta);
+    expect({ fee: r.legacyFee.toString(), viaBsp: r.viaBsp.toString(), avoided: r.avoided.toString(), meta: r.metaCost.toString() }).toEqual({ fee: "0.0325", viaBsp: "0.095", avoided: "0.0325", meta: "0.0625" });
+  });
+
+  it("claims nothing without a fee model, for monthly-only models, or for free messages under BILLABLE_ONLY", () => {
+    const meta = new Money("0.0625");
+    expect(bspMarkupAvoided(null, meta).avoided.isZero()).toBe(true);
+    expect(bspMarkupAvoided({ type: "NONE" }, meta).avoided.isZero()).toBe(true);
+    expect(bspMarkupAvoided({ type: "MONTHLY", monthlyFee: "500" }, meta).avoided.isZero()).toBe(true);
+    expect(bspFeePerMessage({ type: "FIXED_PER_MESSAGE", perMessage: "0.02", perMessageAppliesTo: "BILLABLE_ONLY" }, new Money(0)).isZero()).toBe(true);
+    expect(bspFeePerMessage({ type: "FIXED_PER_MESSAGE", perMessage: "0.02", perMessageAppliesTo: "ALL_SENT" }, new Money(0)).toString()).toBe("0.02");
   });
 });

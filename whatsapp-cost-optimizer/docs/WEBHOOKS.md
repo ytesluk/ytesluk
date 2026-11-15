@@ -47,6 +47,24 @@ Campos desconhecidos são persistidos (payload bruto) sem efeitos colaterais; ev
 `wco-mock-emit` com latência configurável (`MOCK_MAX_LATENCY_MS`, `MOCK_DELIVERY_RATE`, `MOCK_READ_RATE`).
 `POST /api/v1/dev/simulate-inbound` simula a mensagem de um cliente (orgânica ou via anúncio).
 
+## Webhooks de saída (para os sistemas do tenant)
+
+`GET/POST /api/v1/webhooks/outbound`, `DELETE /api/v1/webhooks/outbound/{id}` (permissão `providers:manage`).
+
+| Tipo | O que envia |
+|---|---|
+| `MIRROR` | cópia dos webhooks da Meta das WABAs do tenant, no formato original (`object` + `entry`), só com as entradas dele e, se pedido, só os `fields` escolhidos |
+| `EVENTS` | eventos do WCO: `{ id, type, occurredAt, tenantId, data }` — hoje `INBOUND_WAKEUP_REQUESTED` (`data.link`, `data.prefilledText`, `data.ref`, `data.customer`, `data.intentId`, `data.fallbackAt`) |
+
+* **Assinatura:** com `secret`, `X-WCO-Signature-256: sha256=<HMAC-SHA256(corpo, secret)>`; no `MIRROR` o
+  mesmo valor vai também em `X-Hub-Signature-256`, para receptores que já validam a assinatura da Meta.
+  O corpo é reserializado (só as entradas do tenant), então a assinatura original da Meta não se aplica.
+* **Entrega:** fila `wco-outbound-webhook`, 7 tentativas com espera exponencial (5 s, 10 s, 20 s…),
+  depois dead-letter e alerta `WEBHOOK_FAILURE`. Redirecionamentos não são seguidos. Sucesso = 2xx em 10 s.
+* **Segurança:** em produção só HTTPS, sem credenciais na URL e sem endereços privados/locais (checado
+  também no DNS na hora da entrega). `secret` e `authHeader` ficam cifrados e nunca voltam pela API.
+* O espelho é enfileirado antes do processamento interno; um mesmo webhook não é copiado duas vezes.
+
 ## Retenção
 
 Payloads brutos são removidos após `rawWebhookRetentionDays` (padrão 30) pelo job de retenção;

@@ -22,3 +22,7 @@ export * from "./template-sync";
 export * from "./inbox";
 export * from "./simulation";
 export * from "./seed";
+export * from "./deliverability";
+export * from "./followups";
+export * from "./outbound-webhooks";
+export * from "./routing";

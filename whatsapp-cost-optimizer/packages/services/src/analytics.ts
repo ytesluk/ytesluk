@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Money, money, percentage, type Decimal } from "@wco/domain";
+import { FollowUpStatus, Money, RoutingReason, WcoEventType, money, percentage, type Decimal } from "@wco/domain";
 import { Prisma } from "@wco/database";
 import { detectCostAnomaly, opportunities, recommend, type EventTypeStats } from "@wco/optimization";
 import { bspCost, type BspFeeModel } from "@wco/pricing";
@@ -16,6 +16,16 @@ function range(q: z.infer<typeof RangeQuery>, now: Date): { from: Date; to: Date
   const from = q.from ?? new Date(to.getTime() - 30 * 86_400_000);
   return { from, to };
 }
+
+/** The savings categories added by cost routing, and the kind each one belongs to. */
+const ROUTING_MECHANISMS = [
+  { mechanism: "TEMPLATE_TO_FREEFORM_CSW", kind: "META" },
+  { mechanism: "UTILITY_SPLIT_DEFERRED", kind: "META" },
+  { mechanism: "FEP_PRIORITY", kind: "META" },
+  { mechanism: "BSP_MARKUP_AVOIDED", kind: "BSP" },
+  { mechanism: "FREQUENCY_CAP_DEFERRED", kind: "INFRASTRUCTURE" },
+  { mechanism: "INVALID_RECIPIENT_SUPPRESSED", kind: "INFRASTRUCTURE" },
+] as const;
 
 const D = (v: unknown): Decimal => money(v === null || v === undefined ? 0 : String(v));
 const f2 = (d: Decimal) => d.toDecimalPlaces(2).toFixed(2);
@@ -112,6 +122,14 @@ export async function summary(ctx: AppContext, tenantId: string, q: z.infer<type
         acc[r.mechanism] = f2(D(acc[r.mechanism]).plus(D(r._sum.savings)));
         return acc;
       }, {}),
+      // Cost-routing categories, each with its own kind (META, BSP and INFRASTRUCTURE are never added together).
+      routing: Object.fromEntries(
+        ROUTING_MECHANISMS.map((m) => {
+          const rows = savingsRows.filter((r) => r.mechanism === m.mechanism && r.kind === m.kind);
+          const amount = rows.reduce((a, r) => a.plus(D(r._sum.savings)), new Money(0) as Decimal);
+          return [m.mechanism, { kind: m.kind, amount: m.kind === "INFRASTRUCTURE" ? f4(amount) : f2(amount), messages: rows.reduce((a, r) => a + r._count._all, 0) }];
+        }),
+      ),
       note: "Estimada: a linha de base é um contrafactual (custo sem o WCO). Realizada: o lado otimizado foi confirmado pelos webhooks de entrega da Meta.",
     },
     free: {
@@ -121,6 +139,45 @@ export async function summary(ctx: AppContext, tenantId: string, q: z.infer<type
       other: free.not_billable ?? 0,
       paid: free.paid ?? 0,
     },
+  };
+}
+
+/** Operational view of the cost-routing features: what is waiting, what was converted, what was held back. */
+export async function routingSummary(ctx: AppContext, tenantId: string, q: z.infer<typeof RangeQuery>) {
+  const { from, to } = range(q, ctx.now());
+  const now = ctx.now();
+  const tenant = await ctx.tenants.get(tenantId);
+  const reason = (r: string) => ctx.db.messageIntent.count({ where: { tenantId, requestedAt: { gte: from, lte: to }, decisionReason: { contains: r } } });
+  const [followUps, freeForm, fep, wakeUps, converted, suppressed, capped, deliverability] = await Promise.all([
+    ctx.db.deferredFollowUp.groupBy({ by: ["status"], where: { tenantId, createdAt: { gte: from, lte: to } }, _count: { _all: true } }),
+    reason(RoutingReason.TEMPLATE_TO_FREEFORM_CSW),
+    reason(RoutingReason.FEP_PRIORITY),
+    ctx.db.conversationEvent.count({ where: { tenantId, type: WcoEventType.INBOUND_WAKEUP_REQUESTED, occurredAt: { gte: from, lte: to } } }),
+    reason(RoutingReason.INBOUND_FIRST_CONVERTED),
+    reason(RoutingReason.SUPPRESSED_INVALID_RECIPIENT),
+    reason(RoutingReason.DEFERRED_FREQUENCY_CAP),
+    ctx.db.recipientDeliverabilityCache.groupBy({ by: ["kind"], where: { tenantId, expiresAt: { gt: now } }, _count: { _all: true } }),
+  ]);
+  const fu = Object.fromEntries(followUps.map((r) => [r.status, r._count._all])) as Record<string, number>;
+  const dl = Object.fromEntries(deliverability.map((r) => [r.kind, r._count._all])) as Record<string, number>;
+  return {
+    range: { from, to },
+    templateToFreeForm: { messages: freeForm },
+    freeEntryPointPriority: { messages: fep },
+    inboundFirst: { wakeUpsRequested: wakeUps, convertedToFreeForm: converted, eventEndpoints: tenant.eventWebhookUrls.length },
+    followUps: { pending: fu[FollowUpStatus.PENDING] ?? 0, sent: fu[FollowUpStatus.SENT] ?? 0, expired: fu[FollowUpStatus.EXPIRED] ?? 0, cancelled: fu[FollowUpStatus.CANCELLED] ?? 0 },
+    deliverability: {
+      suppressedMessages: suppressed,
+      deferredMarketing: capped,
+      recipientsUndeliverableNow: dl.UNDELIVERABLE ?? 0,
+      recipientsInMarketingCooldownNow: dl.MARKETING_FREQUENCY_CAP ?? 0,
+    },
+    mirrorWebhooks: tenant.mirrorWebhookUrls.length,
+    legacyBspConfigured: !!tenant.legacyBspFeeModel && !tenant.usesBsp,
+    notes: [
+      "Mensagens não tentadas por entregabilidade (131026/131049) só economizam chamadas à API: a Meta não cobra mensagens não entregues.",
+      "BSP_MARKUP_AVOIDED usa o modelo de taxas do BSP anterior informado pelo tenant (estimativa).",
+    ],
   };
 }
 

@@ -5,12 +5,14 @@ import {
   RetryLaterError,
   applyRetention,
   closeBillingPeriod,
+  deliverOutboundWebhook,
   dispatchAttempt,
   evaluateAlerts,
   flushGroup,
   optimizeIntent,
   processWebhook,
   rollupDailyMetrics,
+  routingHousekeeping,
   type AppContext,
   type DeadLetterJob,
   type DispatchJob,
@@ -18,6 +20,7 @@ import {
   type MaintenanceJob,
   type MockEmitJob,
   type OptimizeJob,
+  type OutboundWebhookJob,
   type WebhookJob,
 } from "@wco/services";
 import { computeSignature } from "@wco/whatsapp";
@@ -100,6 +103,8 @@ export function startWorkers(ctx: AppContext): Worker[] {
           return applyRetention(ctx);
         case "billing":
           return closeBillingPeriod(ctx);
+        case "routing":
+          return routingHousekeeping(ctx);
         default:
           return null;
       }
@@ -107,7 +112,11 @@ export function startWorkers(ctx: AppContext): Worker[] {
     { concurrency: 1 },
   );
 
-  return [optimize, flush, dispatch, webhook, mockEmit, maintenance];
+  // Deliveries to tenant endpoints: mirrored Meta webhooks and WCO events. Failures retry with
+  // exponential backoff (queue options) and end in the dead-letter queue plus a tenant alert.
+  const outbound = make<OutboundWebhookJob>(QUEUE.OUTBOUND_WEBHOOK, async (job) => deliverOutboundWebhook(ctx, job.data, { finalAttempt: isFinal(job) }), { concurrency: 20 });
+
+  return [optimize, flush, dispatch, webhook, mockEmit, maintenance, outbound];
 }
 
 /** Repeatable maintenance jobs (internal batch work — no polling of WhatsApp). */
@@ -118,6 +127,8 @@ export async function scheduleMaintenance(ctx: AppContext): Promise<void> {
   await q.upsertJobScheduler("retention", { pattern: "30 6 * * *" }, { name: "retention", data: { task: "retention" } });
   // Daily and idempotent: drafts last month's invoice once each tenant's month has closed (any timezone).
   await q.upsertJobScheduler("billing", { pattern: "15 7 * * *" }, { name: "billing", data: { task: "billing" } });
+  // Drops follow-ups nobody answered in time and old deliverability entries. Sends nothing.
+  await q.upsertJobScheduler("routing", { every: 15 * 60_000 }, { name: "routing", data: { task: "routing" } });
 }
 
 export async function updateQueueMetrics(ctx: AppContext): Promise<void> {

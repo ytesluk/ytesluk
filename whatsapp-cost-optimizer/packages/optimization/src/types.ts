@@ -2,6 +2,7 @@ import type {
   BillingCategory,
   ConversationContext,
   DecisionAction,
+  DeliverabilityState,
   Decimal,
   MessageKind,
   MessageStatus,
@@ -48,6 +49,16 @@ export interface IntentRecord {
   templateLanguage?: string | null;
   /** Optional free-form body: enables the "service message inside CSW" alternative when the policy allows it. */
   freeFormText?: string | null;
+  /**
+   * The template's own content can be shown as a free-form message (text header/body/footer and
+   * simple buttons) — the other way to get the "service message inside CSW" alternative.
+   */
+  templateConvertible?: boolean;
+  /**
+   * Category of the CONTENT when it differs from the billing category (promotional content sent as
+   * a service message): consent follows the content, and the baseline is that template's price.
+   */
+  contentCategory?: BillingCategory | null;
   data: Record<string, unknown>;
   groupKey: string;
   supersessionKey: string | null;
@@ -118,6 +129,8 @@ export interface DecisionInput {
   pricing: PricingInputs;
   rules: PolicyEngine;
   features?: OptimizationFeatures;
+  /** What Meta reported to this tenant about delivering to the recipient (131026 / 131049 cooldowns). */
+  deliverability?: DeliverabilityState;
   /** Safety margin before a window closes, since Meta bills on delivery time. */
   windowSafetyMarginSeconds?: number;
   /** Build human-readable explanations (default true; disabled in bulk simulations). */
@@ -162,6 +175,10 @@ export interface OptimizationDecision {
   effectiveDeadline: Date;
   messageKind: MessageKind;
   category: BillingCategory;
+  /** Category of the content when it is sent as a different billing category (template → free-form). */
+  contentCategory: BillingCategory | null;
+  /** Inbound-first: the template is held; ask the tenant's other channels to invite the customer. */
+  wakeUp: boolean;
   cost: CostDecision | null;
   baselineCost: CostDecision | null;
   alternativeCost: CostDecision | null;
@@ -181,6 +198,8 @@ export interface FlushMessage {
   /** Template body parameters (ordered) or free-form text. */
   parameters: Array<{ name: string; value: string }>;
   text: string | null;
+  /** Free-form message whose content is this approved template (header, body, footer, buttons). */
+  renderFromTemplate?: string | null;
   reasons: string[];
 }
 
@@ -199,4 +218,6 @@ export interface TemplateInfo {
   maxParamLength: number;
   /** Ordered body parameter names. */
   bodyParams: string[];
+  /** The template's content can be sent as a free-form message (see templateFreeFormShape). */
+  freeFormConvertible?: boolean;
 }

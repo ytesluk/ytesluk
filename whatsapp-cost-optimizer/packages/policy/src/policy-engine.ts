@@ -96,6 +96,9 @@ export const KNOWN_FACTS = [
   "maxDelaySeconds",
   "category",
   "eventType",
+  "recipientUndeliverable",
+  "marketingFrequencyCapped",
+  "inboundFirstWait",
 ] as const;
 
 export function evaluateCondition(c: Condition, facts: Facts): boolean {

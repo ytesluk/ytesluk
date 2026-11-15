@@ -41,3 +41,16 @@ export interface Explanation {
   /** Human readable sentences, in English, safe to show in UI and audit. */
   notes?: string[];
 }
+
+/**
+ * Deliverability facts about one recipient, as reported by Meta to THIS tenant (never shared between
+ * tenants). A date in the past (or null) means "no restriction".
+ */
+export interface DeliverabilityState {
+  /** Meta answered 131026 (undeliverable) recently: non-critical messages are not attempted until then. */
+  undeliverableUntil: Date | null;
+  /** Meta answered 131049 (per-user marketing limit): marketing templates wait until then, when the deadline allows. */
+  marketingCapUntil: Date | null;
+}
+
+export const NO_DELIVERABILITY_LIMITS: DeliverabilityState = { undeliverableUntil: null, marketingCapUntil: null };

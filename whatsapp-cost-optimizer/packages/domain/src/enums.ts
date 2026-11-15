@@ -162,6 +162,75 @@ export const SavingsKind = {
 } as const;
 export type SavingsKind = (typeof SavingsKind)[keyof typeof SavingsKind];
 
+/**
+ * What produced a savings line (SavingsRecord.mechanism). META, BSP and INFRASTRUCTURE savings are
+ * separate kinds and never merged; the mechanism says WHY the cost was lower.
+ */
+export const SavingsMechanism = {
+  DEDUPLICATION: "DEDUPLICATION",
+  SUPERSESSION: "SUPERSESSION",
+  CONSOLIDATION: "CONSOLIDATION",
+  FREE_WINDOW: "FREE_WINDOW",
+  FREE_QUOTA: "FREE_QUOTA",
+  VOLUME_TIER: "VOLUME_TIER",
+  CATEGORY: "CATEGORY",
+  DIRECT_API: "DIRECT_API",
+  BSP_MARKUP: "BSP_MARKUP",
+  INFRASTRUCTURE: "INFRASTRUCTURE",
+  NONE: "NONE",
+  /** Approved template content sent as a free-form (service) message inside an open customer service window. */
+  TEMPLATE_TO_FREEFORM_CSW: "TEMPLATE_TO_FREEFORM_CSW",
+  /** Promotional follow-up kept out of a transactional template, sent in the window the customer's reply opened. */
+  UTILITY_SPLIT_DEFERRED: "UTILITY_SPLIT_DEFERRED",
+  /** Already queued message brought forward into an open free entry point window. */
+  FEP_PRIORITY: "FEP_PRIORITY",
+  /** Fee of the BSP the tenant used before connecting directly (estimated, kind BSP). */
+  BSP_MARKUP_AVOIDED: "BSP_MARKUP_AVOIDED",
+  /** Provider call avoided while Meta's per-user marketing limit (131049) cools down (kind INFRASTRUCTURE). */
+  FREQUENCY_CAP_DEFERRED: "FREQUENCY_CAP_DEFERRED",
+  /** Provider call avoided for a recipient Meta recently reported as undeliverable (kind INFRASTRUCTURE). */
+  INVALID_RECIPIENT_SUPPRESSED: "INVALID_RECIPIENT_SUPPRESSED",
+} as const;
+export type SavingsMechanism = (typeof SavingsMechanism)[keyof typeof SavingsMechanism];
+export const SAVINGS_MECHANISMS = values(SavingsMechanism);
+
+/**
+ * Reason codes added by the cost-routing features (OptimizationDecision.reasons / MessageIntent.decisionReason).
+ * Lower-case like every other reason code.
+ */
+export const RoutingReason = {
+  TEMPLATE_TO_FREEFORM_CSW: "template_to_freeform_csw",
+  UTILITY_SPLIT_DEFERRED: "utility_split_deferred",
+  FEP_PRIORITY: "fep_priority",
+  INBOUND_FIRST_WAIT: "inbound_first_wait",
+  INBOUND_FIRST_CONVERTED: "inbound_first_converted",
+  SUPPRESSED_INVALID_RECIPIENT: "suppressed_invalid_recipient",
+  DEFERRED_FREQUENCY_CAP: "deferred_frequency_cap",
+} as const;
+export type RoutingReason = (typeof RoutingReason)[keyof typeof RoutingReason];
+
+/** What Meta reported about delivering to a recipient (kept per tenant, by customer hash, with expiry). */
+export const DeliverabilityKind = {
+  /** Error 131026 — message undeliverable. */
+  UNDELIVERABLE: "UNDELIVERABLE",
+  /** Error 131049 — per-user marketing message limit. */
+  MARKETING_FREQUENCY_CAP: "MARKETING_FREQUENCY_CAP",
+} as const;
+export type DeliverabilityKind = (typeof DeliverabilityKind)[keyof typeof DeliverabilityKind];
+
+export const OutboundWebhookKind = { MIRROR: "MIRROR", EVENTS: "EVENTS" } as const;
+export type OutboundWebhookKind = (typeof OutboundWebhookKind)[keyof typeof OutboundWebhookKind];
+
+/** Events the WCO sends to a tenant's EVENTS endpoints. */
+export const WcoEventType = {
+  /** Ask the customer, through another channel, to open the WhatsApp conversation (carries a wa.me link). */
+  INBOUND_WAKEUP_REQUESTED: "INBOUND_WAKEUP_REQUESTED",
+} as const;
+export type WcoEventType = (typeof WcoEventType)[keyof typeof WcoEventType];
+
+export const FollowUpStatus = { PENDING: "PENDING", SENT: "SENT", EXPIRED: "EXPIRED", CANCELLED: "CANCELLED" } as const;
+export type FollowUpStatus = (typeof FollowUpStatus)[keyof typeof FollowUpStatus];
+
 export const AlertType = {
   POLICY_CHANGED: "POLICY_CHANGED",
   PRICE_CHANGED: "PRICE_CHANGED",

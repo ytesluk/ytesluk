@@ -3,7 +3,7 @@ import type { BillingCategory, MessageKind, MessageStatus, Priority } from "@wco
 import type { IntentRecord } from "@wco/optimization";
 
 /** DB row → engine snapshot. The recipient is passed separately (decrypted only when needed). */
-export function toIntentRecord(row: MessageIntentModel, recipient?: string): IntentRecord {
+export function toIntentRecord(row: MessageIntentModel, recipient?: string, opts: { templateConvertible?: boolean } = {}): IntentRecord {
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -33,6 +33,8 @@ export function toIntentRecord(row: MessageIntentModel, recipient?: string): Int
     templateName: row.templateName,
     templateLanguage: row.templateLanguage,
     freeFormText: row.freeFormText,
+    templateConvertible: opts.templateConvertible ?? false,
+    contentCategory: (row.contentCategory as BillingCategory | null) ?? null,
     data: (row.data as Record<string, unknown> | null) ?? {},
     groupKey: row.groupKey,
     supersessionKey: row.supersessionKey,

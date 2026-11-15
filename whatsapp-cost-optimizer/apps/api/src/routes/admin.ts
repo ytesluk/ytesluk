@@ -15,6 +15,7 @@ import {
   SimulateInboundSchema,
   TemplateCostSchema,
   TemplateSchema,
+  TemplateSplitSchema,
   TenantSettingsSchema,
   ConsentSchema,
   bspComparison,
@@ -42,6 +43,7 @@ import {
   setRateCardStatus,
   setRetention,
   simulateInbound,
+  splitTemplate,
   templateCost,
   updateTenant,
   upsertOptimizationPolicy,
@@ -71,6 +73,11 @@ export async function adminRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/api/v1/templates/sync", { schema: { tags: ["templates"], summary: "Import the WABA's templates from Meta (status and category as Meta reports them)" }, preHandler: guard(ctx, Permission.TEMPLATES_WRITE) }, async (req) => syncTemplates(ctx, actorOf(req)));
   app.post("/api/v1/templates/cost-analysis", { schema: { tags: ["templates"], summary: "Template Cost Analyzer (final category is determined by Meta)", body: doc(TemplateCostSchema) }, preHandler: guard(ctx, Permission.TEMPLATES_READ) }, async (req) =>
     templateCost(ctx, t(req), req.body),
+  );
+  app.post(
+    "/api/v1/templates/split",
+    { schema: { tags: ["templates"], summary: "Compliance splitter: separates promotional sentences from a transactional template text (advisory; Meta decides the category)", body: doc(TemplateSplitSchema) }, preHandler: guard(ctx, Permission.TEMPLATES_READ) },
+    async (req) => splitTemplate(ctx, t(req), req.body),
   );
   app.post("/api/v1/templates/:id/assistant", { schema: { tags: ["templates"], summary: "Optional AI classification assistant (disabled by default)" }, preHandler: guard(ctx, Permission.TEMPLATES_WRITE) }, async (req) =>
     classificationAssistant(ctx, actorOf(req), (req.params as { id: string }).id),

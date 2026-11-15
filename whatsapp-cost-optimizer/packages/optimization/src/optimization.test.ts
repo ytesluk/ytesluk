@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { BillingCategory, EntryPointType, MessageKind, MessageStatus, Money, Priority } from "@wco/domain";
+import { BillingCategory, DecisionAction, EntryPointType, MessageKind, MessageStatus, Money, Priority, RoutingReason } from "@wco/domain";
 import { BUILTIN_POLICIES, CostEngine, PolicyRegistry, demoRateCatalog } from "@wco/pricing";
 import { DEFAULT_OPTIMIZATION_POLICIES, DEFAULT_RULESET, PolicyEngine, type OptimizationPolicyConfig } from "@wco/policy";
 import {
   ALL_FEATURES,
   DEMO_TEMPLATE_INFOS,
+  HttpPromotionalRewriter,
   InMemoryPipeline,
   NO_FEATURES,
+  TemplateComplianceSplitter,
   analyzeCategory,
   attributeSavings,
   detectCostAnomaly,
+  dispatchRank,
+  mechanismFromReasons,
   planFlush,
   consolidationKey,
   type IntentSubmission,
@@ -347,5 +351,307 @@ describe("Savings attribution and anomalies", () => {
     const r = detectCostAnomaly(Array.from({ length: 10 }, () => new Money(500)), new Money(1400));
     expect(r.anomalous).toBe(true);
     expect(r.message).toBe("Custo 180% acima da média.");
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+// Cost routing: template → free-form, FEP priority, inbound-first, deliverability, savings, splitter
+
+const HOUR = 3600;
+/** Templates whose own content can be shown as a free-form message. */
+const CONVERTIBLE = DEMO_TEMPLATE_INFOS.map((t) => (["weekly_offer", "order_status_update", "otp_code"].includes(t.name) ? { ...t, freeFormConvertible: true } : t));
+const policiesWith = (eventType: string, over: Partial<OptimizationPolicyConfig>): OptimizationPolicyConfig[] => DEFAULT_OPTIMIZATION_POLICIES.map((p) => (p.eventType === eventType ? { ...p, ...over } : p));
+
+function routing(policies: OptimizationPolicyConfig[]) {
+  return new InMemoryPipeline({ tenantId: "t1", timezone: "America/Sao_Paulo", currency: "BRL", engine, rules: new PolicyEngine(DEFAULT_RULESET), policies, templates: CONVERTIBLE, features: ALL_FEATURES, recordDecisions: true, explain: true });
+}
+const campaign = (over: Partial<IntentSubmission> = {}): IntentSubmission => base({ eventType: "marketing.campaign", businessEntityId: null, data: { offer: "10% off" }, ...over });
+
+describe("Module 1 — template content as a free-form message inside the customer service window", () => {
+  const optIn = policiesWith("marketing.campaign", { allowMarketingFreeFormInWindow: true });
+
+  it("sends a MARKETING template's content as a service message while the window is open (opt-in policy)", () => {
+    const p = routing(optIn);
+    p.inbound("cust-1", "pn-1", at(0));
+    const rec = p.submit(campaign(), at(60));
+    const d = p.decisions[0]!;
+    expect(d.action).toBe(DecisionAction.SEND_NOW);
+    expect(d.messageKind).toBe(MessageKind.NON_TEMPLATE);
+    expect(d.category).toBe(BillingCategory.SERVICE);
+    expect(d.contentCategory).toBe(BillingCategory.MARKETING);
+    expect(d.reasons).toEqual(expect.arrayContaining([RoutingReason.TEMPLATE_TO_FREEFORM_CSW, "free_form_service_message_cheaper_inside_window"]));
+    // Exactly the template price is avoided: the service message is inside the free monthly allowance.
+    expect(d.baselineCost!.category).toBe(BillingCategory.MARKETING);
+    expect(d.estimatedSavings.toString()).toBe(d.baselineCost!.estimatedCost.toString());
+    expect(d.estimatedSavings.isPositive()).toBe(true);
+    expect(mechanismFromReasons(d.reasons)).toBe("TEMPLATE_TO_FREEFORM_CSW");
+    // The template name is kept: the dispatcher renders the free-form message from it.
+    expect(rec.templateName).toBe("weekly_offer");
+    p.drain();
+    expect(p.report.byCategory.SERVICE?.dispatched).toBe(1);
+    expect(p.report.byCategory.MARKETING).toBeUndefined();
+  });
+
+  it("keeps the paid template when the policy did not opt in, the window is closed or the template is not convertible", () => {
+    const off = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    off.inbound("cust-1", "pn-1", at(0));
+    off.submit(campaign(), at(60));
+    expect(off.decisions[0]!.messageKind).toBe(MessageKind.TEMPLATE);
+
+    const closed = routing(optIn);
+    closed.submit(campaign(), at(60));
+    expect(closed.decisions[0]!.messageKind).toBe(MessageKind.TEMPLATE);
+
+    const notConvertible = new InMemoryPipeline({ tenantId: "t1", timezone: "America/Sao_Paulo", currency: "BRL", engine, rules: new PolicyEngine(DEFAULT_RULESET), policies: optIn, templates: DEMO_TEMPLATE_INFOS, features: ALL_FEATURES, recordDecisions: true });
+    notConvertible.inbound("cust-1", "pn-1", at(0));
+    notConvertible.submit(campaign(), at(60));
+    expect(notConvertible.decisions[0]!.messageKind).toBe(MessageKind.TEMPLATE);
+  });
+
+  it("never converts authentication, and marketing consent still decides", () => {
+    const p = routing([...policiesWith("authentication.otp", { allowFreeFormInWindow: true, allowMarketingFreeFormInWindow: true })]);
+    p.inbound("cust-1", "pn-1", at(0));
+    p.submit(base({ eventType: "authentication.otp", businessEntityId: null, data: { code: "123456" } }), at(60));
+    expect(p.decisions[0]!.messageKind).toBe(MessageKind.TEMPLATE);
+
+    const optedOut = routing(optIn);
+    optedOut.setConsent("cust-1", { marketingOptedOut: true });
+    optedOut.inbound("cust-1", "pn-1", at(0));
+    const blocked = optedOut.submit(campaign(), at(60));
+    expect(blocked.status).toBe(MessageStatus.BLOCKED);
+    expect(optedOut.decisions[0]!.rule.reason).toBe("marketing_opt_out");
+  });
+
+  it("flushing a buffered free-form message asks the dispatcher to render it from the template", () => {
+    const p = routing(optIn);
+    p.inbound("cust-1", "pn-1", at(0));
+    const rec = p.submit(campaign(), at(60));
+    const plan = planFlush([{ ...rec, status: MessageStatus.DELAYED }], { policyFor: () => optIn[0]!, templateFor: (n) => CONVERTIBLE.find((t) => t.name === n), features: ALL_FEATURES });
+    expect(plan.messages[0]).toMatchObject({ messageKind: MessageKind.NON_TEMPLATE, templateName: null, text: null, renderFromTemplate: "weekly_offer", parameters: [{ name: "offer", value: "10% off" }] });
+  });
+});
+
+describe("Module 3 — free entry point priority and inbound-first", () => {
+  it("brings a later marketing message forward into the open free entry point window", () => {
+    const p = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    p.inbound("cust-1", "pn-1", at(0), EntryPointType.CLICK_TO_WHATSAPP_AD);
+    p.submit(base({ eventType: "support.reply", category: BillingCategory.SERVICE, freeFormText: "Oi!", businessEntityId: "chat" }), at(60)); // opens the 72 h window
+    p.advance(at(120));
+    // The campaign would go in 80 h (after the window closes) and be paid.
+    p.submit(campaign({ preferredSendAt: at(80 * HOUR), maxDelaySeconds: 24 * HOUR }), at(180));
+    const d = p.decisions[p.decisions.length - 1]!;
+    expect(d.reasons).toEqual(expect.arrayContaining([RoutingReason.FEP_PRIORITY, "before_free_entry_point_window_closes"]));
+    expect(d.cost!.isFree).toBe(true);
+    expect(d.cost!.freeReason).toBe("free_entry_point_window");
+    expect(d.sendAt!.getTime()).toBe(at(60 + 72 * HOUR - 120).getTime()); // window end minus the delivery safety margin
+    expect(d.baselineCost!.isFree).toBe(false);
+    expect(mechanismFromReasons(d.reasons)).toBe("FEP_PRIORITY");
+    p.drain();
+    expect(p.report.free.entryPoint).toBeGreaterThanOrEqual(2);
+  });
+
+  it("orders the dispatch queue: critical, high, free-entry-point window, then the rest", () => {
+    expect(dispatchRank({ bypassBuffer: true, priority: Priority.LOW, freeEntryPointOpen: false })).toBe(0);
+    expect(dispatchRank({ bypassBuffer: false, priority: Priority.HIGH, freeEntryPointOpen: false })).toBe(1);
+    expect(dispatchRank({ bypassBuffer: false, priority: Priority.LOW, freeEntryPointOpen: true })).toBe(2);
+    expect(dispatchRank({ bypassBuffer: false, priority: Priority.NORMAL, freeEntryPointOpen: false })).toBe(3);
+    expect(dispatchRank({ bypassBuffer: false, priority: Priority.LOW, freeEntryPointOpen: false })).toBe(4);
+  });
+
+  const inboundFirst = policiesWith("marketing.campaign", { allowMarketingFreeFormInWindow: true, inboundFirstGraceMinutes: 30 });
+
+  it("holds a paid template for the grace; if the customer writes, the same content goes as a service message", () => {
+    const p = routing(inboundFirst);
+    const rec = p.submit(campaign(), at(0));
+    const d = p.decisions[0]!;
+    expect(d.action).toBe(DecisionAction.DELAY);
+    expect(d.wakeUp).toBe(true);
+    expect(d.reasons).toContain(RoutingReason.INBOUND_FIRST_WAIT);
+    expect(d.sendAt!.getTime()).toBe(at(30 * 60).getTime());
+    expect(d.messageKind).toBe(MessageKind.TEMPLATE); // what goes out if nobody writes
+    expect(p.report.inboundWakeUps).toBe(1);
+    p.inbound("cust-1", "pn-1", at(10 * 60));
+    p.advance(at(11 * 60));
+    expect(rec.status).toBe(MessageStatus.DELIVERED);
+    expect(rec.sentAt!.getTime()).toBe(at(10 * 60).getTime());
+    expect(rec.messageKind).toBe(MessageKind.NON_TEMPLATE);
+    expect(rec.contentCategory).toBe(BillingCategory.MARKETING);
+    expect(p.report.inboundFirstConverted).toBe(1);
+    p.drain();
+    expect(p.report.byCategory.SERVICE?.dispatched).toBe(1);
+    expect(p.report.byCategory.MARKETING).toBeUndefined();
+  });
+
+  it("sends the template at the end of the grace when nobody writes, and never waits past the deadline", () => {
+    const p = routing(inboundFirst);
+    const rec = p.submit(campaign(), at(0));
+    p.advance(at(29 * 60));
+    expect(rec.status).toBe(MessageStatus.DELAYED);
+    p.drain();
+    expect(rec.messageKind).toBe(MessageKind.TEMPLATE);
+    expect(p.report.byCategory.MARKETING?.dispatched).toBe(1);
+
+    const short = routing(inboundFirst);
+    short.submit(campaign({ maxDelaySeconds: 5 * 60 }), at(0));
+    expect(short.decisions[0]!.sendAt!.getTime()).toBe(at(5 * 60).getTime());
+    const none = routing(inboundFirst);
+    none.submit(campaign({ maxDelaySeconds: 0 }), at(0));
+    expect(none.decisions[0]!.action).toBe(DecisionAction.SEND_NOW);
+    expect(none.decisions[0]!.wakeUp).toBe(false);
+  });
+
+  it("never holds critical or immediate messages, nor templates with no free-form alternative", () => {
+    const p = routing(policiesWith("critical.security", { allowFreeFormInWindow: true, inboundFirstGraceMinutes: 30 }));
+    p.submit(base({ eventType: "critical.security", businessEntityId: null, data: { event: "login" } }), at(0));
+    expect(p.decisions[0]!.action).toBe(DecisionAction.SEND_NOW);
+    const immediate = routing(inboundFirst);
+    immediate.submit(campaign({ mustSendImmediately: true }), at(0));
+    expect(immediate.decisions[0]).toMatchObject({ action: DecisionAction.SEND_NOW, wakeUp: false });
+    const noAlternative = routing(policiesWith("marketing.campaign", { inboundFirstGraceMinutes: 30 }));
+    noAlternative.submit(campaign(), at(0));
+    expect(noAlternative.decisions[0]).toMatchObject({ action: DecisionAction.SEND_NOW, wakeUp: false });
+  });
+});
+
+describe("Module 5 — what Meta reported about the recipient (131026 / 131049)", () => {
+  it("does not call the API again for a number Meta just reported as undeliverable", () => {
+    const p = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    p.setDeliverability("cust-1", { undeliverableUntil: at(24 * HOUR) });
+    const rec = p.submit(campaign(), at(0));
+    expect(rec.status).toBe(MessageStatus.BLOCKED);
+    expect(p.decisions[0]!.rule).toMatchObject({ action: DecisionAction.BLOCK, reason: RoutingReason.SUPPRESSED_INVALID_RECIPIENT });
+    expect(p.decisions[0]!.explanation.join(" ")).toContain("131026");
+    p.drain();
+    expect(p.report.messagesDispatched).toBe(0);
+  });
+
+  it("still attempts OTP and critical messages, and anything once the entry expired or the customer wrote", () => {
+    const p = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    p.setDeliverability("cust-1", { undeliverableUntil: at(24 * HOUR) });
+    const otp = p.submit(base({ eventType: "authentication.otp", businessEntityId: null, data: { code: "1" } }), at(0));
+    const alert = p.submit(base({ eventType: "fraud.alert", businessEntityId: null, data: { amount: "R$ 1", merchant: "x" } }), at(1));
+    expect([otp.status, alert.status]).not.toContain(MessageStatus.BLOCKED);
+    const later = p.submit(campaign({ data: { offer: "depois" } }), at(25 * HOUR));
+    expect(later.status).not.toBe(MessageStatus.BLOCKED);
+
+    const wrote = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    wrote.setDeliverability("cust-1", { undeliverableUntil: at(24 * HOUR) });
+    wrote.inbound("cust-1", "pn-1", at(10));
+    expect(wrote.submit(campaign(), at(20)).status).not.toBe(MessageStatus.BLOCKED);
+  });
+
+  it("defers a marketing template until the per-user limit cooldown ends, never past its deadline", () => {
+    const p = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    p.setDeliverability("cust-1", { marketingCapUntil: at(12 * HOUR) });
+    const rec = p.submit(campaign(), at(0)); // marketing.campaign may wait up to 24 h
+    const d = p.decisions[0]!;
+    expect(d.action).toBe(DecisionAction.DELAY);
+    expect(d.reasons).toContain(RoutingReason.DEFERRED_FREQUENCY_CAP);
+    expect(d.sendAt!.getTime()).toBe(at(12 * HOUR).getTime());
+    expect(d.facts.marketingFrequencyCapped).toBe(true);
+    p.advance(at(11 * HOUR));
+    expect(rec.status).toBe(MessageStatus.DELAYED);
+    p.drain();
+    expect(rec.sentAt!.getTime()).toBe(at(12 * HOUR).getTime());
+
+    const beyond = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    beyond.setDeliverability("cust-1", { marketingCapUntil: at(48 * HOUR) });
+    beyond.submit(campaign(), at(0));
+    expect(beyond.decisions[0]!.sendAt!.getTime()).toBe(at(24 * HOUR).getTime()); // the deadline wins
+  });
+
+  it("lets utility and authentication through during a marketing cooldown", () => {
+    const p = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    p.setDeliverability("cust-1", { marketingCapUntil: at(12 * HOUR) });
+    p.submit(base({ eventType: "appointment.reminder", businessEntityId: null, data: { date: "amanhã", time: "10h" } }), at(0));
+    p.submit(base({ eventType: "authentication.otp", businessEntityId: null, data: { code: "1" } }), at(1));
+    expect(p.decisions.map((d) => d.action)).toEqual([DecisionAction.SEND_NOW, DecisionAction.SEND_NOW]);
+    expect(p.decisions.every((d) => !d.reasons.includes(RoutingReason.DEFERRED_FREQUENCY_CAP))).toBe(true);
+  });
+});
+
+describe("Savings attribution for the cost-routing features", () => {
+  const cents = (v: string) => new Money(v);
+  const common = { usesBsp: false, infraCostPerProviderCall: cents("0.0001"), optimizedConfidence: "ESTIMATED" as const };
+
+  it("names the mechanism from the decision reasons", () => {
+    expect(mechanismFromReasons("no_optimization_applicable,utility_split_deferred")).toBe("UTILITY_SPLIT_DEFERRED");
+    expect(mechanismFromReasons([RoutingReason.INBOUND_FIRST_WAIT, RoutingReason.INBOUND_FIRST_CONVERTED])).toBe("TEMPLATE_TO_FREEFORM_CSW");
+    expect(mechanismFromReasons("free_form_service_message_cheaper_inside_window")).toBe("CATEGORY");
+    expect(mechanismFromReasons("send_now")).toBeNull();
+    const line = attributeSavings({ ...common, status: MessageStatus.DELIVERED, baselineCost: cents("0.059"), optimizedCost: cents("0"), freeReason: "free_monthly_quota", mechanismHint: "TEMPLATE_TO_FREEFORM_CSW" });
+    expect(line).toEqual([expect.objectContaining({ kind: "META", mechanism: "TEMPLATE_TO_FREEFORM_CSW", savings: cents("0.059") })]);
+  });
+
+  it("credits FEP priority only when the message really went free inside the entry point window", () => {
+    const free = attributeSavings({ ...common, status: MessageStatus.DELIVERED, baselineCost: cents("0.059"), optimizedCost: cents("0"), freeReason: "free_entry_point_window", mechanismHint: "FEP_PRIORITY" });
+    expect(free[0]!.mechanism).toBe("FEP_PRIORITY");
+    const paid = attributeSavings({ ...common, status: MessageStatus.DELIVERED, baselineCost: cents("0.059"), optimizedCost: cents("0.05"), freeReason: null, mechanismHint: "FEP_PRIORITY" });
+    expect(paid[0]!.mechanism).toBe("NONE");
+  });
+
+  it("BSP_MARKUP_AVOIDED: the legacy BSP's fee per message, kept apart from Meta savings", () => {
+    const legacyBspModel = { type: "MIXED" as const, percentOfMeta: "10", perMessage: "0.01" };
+    const sent = attributeSavings({ ...common, legacyBspModel, status: MessageStatus.DELIVERED, baselineCost: cents("0.05"), optimizedCost: cents("0.05") });
+    expect(sent).toEqual([expect.objectContaining({ kind: "BSP", mechanism: "BSP_MARKUP_AVOIDED", savings: cents("0.015"), confidence: "ESTIMATED" })]);
+    const avoided = attributeSavings({ ...common, legacyBspModel, status: MessageStatus.DEDUPLICATED, baselineCost: cents("0.05"), optimizedCost: null });
+    expect(avoided.map((l) => `${l.kind}:${l.mechanism}`)).toEqual(["META:DEDUPLICATION", "BSP:BSP_MARKUP_AVOIDED", "INFRASTRUCTURE:INFRASTRUCTURE"]);
+    // A tenant that still sends through a BSP does not avoid its fee on sent messages.
+    expect(attributeSavings({ ...common, usesBsp: true, bspModel: legacyBspModel, legacyBspModel, status: MessageStatus.DELIVERED, baselineCost: cents("0.05"), optimizedCost: cents("0.05") })).toEqual([]);
+  });
+
+  it("recipient-level suppression and deferral only ever save a provider call, never Meta cost", () => {
+    const suppressed = attributeSavings({ ...common, status: MessageStatus.BLOCKED, baselineCost: cents("0.059"), optimizedCost: null, suppressedInvalidRecipient: true });
+    expect(suppressed).toEqual([expect.objectContaining({ kind: "INFRASTRUCTURE", mechanism: "INVALID_RECIPIENT_SUPPRESSED", savings: cents("0.0001") })]);
+    const deferred = attributeSavings({ ...common, status: MessageStatus.DELAYED, baselineCost: null, optimizedCost: null, deferredFrequencyCap: true });
+    expect(deferred).toEqual([expect.objectContaining({ kind: "INFRASTRUCTURE", mechanism: "FREQUENCY_CAP_DEFERRED" })]);
+  });
+});
+
+describe("Module 2 — template compliance splitter (advisory)", () => {
+  const splitter = new TemplateComplianceSplitter();
+
+  it("takes whole promotional sentences out of a transactional text, without rewording anything", () => {
+    const r = splitter.split("Seu pedido {{1}} foi enviado. Rastreio: {{2}}.\nAproveite 10% de desconto na próxima compra com o cupom VOLTA10!");
+    expect(r.transactional).toBe("Seu pedido {{1}} foi enviado. Rastreio: {{2}}.");
+    expect(r.promotional).toBe("Aproveite 10% de desconto na próxima compra com o cupom VOLTA10!");
+    expect(r.removed[0]!.signals).toEqual(expect.arrayContaining(["desconto", "cupom"]));
+    expect(r).toMatchObject({ changed: true, looksUtility: true, rewriter: "rules", mixed: [], disclaimer: "Final category is determined by Meta." });
+    expect(r.analysis.category).toBe("UTILITY");
+  });
+
+  it("leaves clean transactional texts alone and never passes a promotion off as utility", () => {
+    const clean = splitter.split("Seu pagamento do pedido {{1}} foi confirmado.");
+    expect(clean).toMatchObject({ changed: false, promotional: null, looksUtility: true });
+    const promo = splitter.split("Oferta da semana: {{1}}. Aproveite!");
+    expect(promo.transactional).toBe("");
+    expect(promo.looksUtility).toBe(false);
+    expect(promo.notes.join(" ")).toContain("marketing template");
+  });
+
+  it("flags sentences that mix both and only accepts a rewriter's text that passes the same rules", async () => {
+    const mixedText = "Seu pedido {{1}} foi enviado e você ganhou um cupom de 10% de desconto.";
+    const rules = splitter.split(mixedText);
+    expect(rules.mixed).toHaveLength(1);
+    expect(rules).toMatchObject({ changed: false, looksUtility: false });
+
+    const good = new TemplateComplianceSplitter({ rewriter: { name: "fake-llm", rewrite: async () => ({ transactional: "Seu pedido {{1}} foi enviado.", promotional: "Você ganhou um cupom de 10% de desconto." }) } });
+    expect(await good.splitWithRewriter(mixedText)).toMatchObject({ transactional: "Seu pedido {{1}} foi enviado.", promotional: "Você ganhou um cupom de 10% de desconto.", looksUtility: true, rewriter: "fake-llm" });
+
+    const bad = new TemplateComplianceSplitter({ rewriter: { name: "sloppy", rewrite: async () => ({ transactional: "Pedido enviado — aproveite a oferta!", promotional: null }) } });
+    const kept = await bad.splitWithRewriter(mixedText);
+    expect(kept.rewriter).toBe("rules");
+    expect(kept.notes.join(" ")).toContain("discarded");
+  });
+
+  it("HttpPromotionalRewriter posts the texts to the configured endpoint", async () => {
+    let seen: { url: string; auth: string | null; body: unknown } | null = null;
+    const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+      seen = { url: String(url), auth: new Headers(init?.headers).get("authorization"), body: JSON.parse(String(init?.body)) };
+      return new Response(JSON.stringify({ transactional: "Pedido enviado.", promotional: "Cupom!" }), { status: 200 });
+    }) as typeof fetch;
+    const rw = new HttpPromotionalRewriter({ url: "https://rewriter.example/split", authorization: "Bearer k", fetchImpl });
+    expect(await rw.rewrite({ original: "o", transactional: "t", promotional: null })).toEqual({ transactional: "Pedido enviado.", promotional: "Cupom!" });
+    expect(seen).toEqual({ url: "https://rewriter.example/split", auth: "Bearer k", body: { original: "o", transactional: "t", promotional: null } });
   });
 });

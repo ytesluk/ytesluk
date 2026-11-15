@@ -23,8 +23,14 @@ classificação da Meta — e prova a economia com evidência auditável.
 | Cloud API direta vs BSP | separa custo Meta, taxa de BSP e infraestrutura | braço F do experimento |
 
 Nunca atrasa OTP/autenticação, fraude, segurança, mensagens críticas/urgentes/legais ou
-`mustSendImmediately`. Nunca converte Marketing em Utility nem sugere alterar texto para mudar categoria
-("Final category is determined by Meta").
+`mustSendImmediately`. Nunca faz conteúdo promocional passar por Utility: a categoria de um template é
+sempre a que a Meta definiu ("Final category is determined by Meta").
+
+**Roteamento de custo** (opcional, por política — [docs/COST-ROUTING.md](docs/COST-ROUTING.md)): com a janela
+de 24 h aberta, o conteúdo de um template pode ir como mensagem de atendimento; a oferta separada de um aviso
+transacional só vai se o cliente responder; mensagens já agendadas são antecipadas para a janela grátis de um
+anúncio; o cliente pode ser convidado a escrever primeiro; números que a Meta acabou de recusar não são
+tentados de novo; e os webhooks da Meta são copiados para o CRM do cliente. Tudo pela Cloud API oficial.
 
 **Caixa de entrada:** os atendentes conversam com os clientes dentro do WCO (**Caixa de entrada**). Mensagens
 digitadas em sequência viram **uma** mensagem paga, o painel mostra quando a janela de 24 h fecha e quanto

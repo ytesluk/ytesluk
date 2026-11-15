@@ -33,6 +33,17 @@ Campos opcionais: `priority` (LOW/NORMAL/HIGH/CRITICAL), `maxDelaySeconds`, `cat
 
 `POST /messages/send` é igual, com `mustSendImmediately: true` (nunca entra no buffer).
 
+### Follow-up adiado
+
+```json
+{ "customer": "+5511999990000", "eventType": "payment.approved", "entityId": "PED-1",
+  "data": { "orderId": "PED-1", "amount": "R$ 120,00" },
+  "followUp": { "text": "Use o cupom VOLTA10 na próxima compra.", "validHours": 72, "category": "MARKETING" } }
+```
+
+O template vai normalmente. O `followUp` só é enviado (como mensagem de atendimento) se o cliente
+responder antes do prazo e tiver o consentimento que o conteúdo exige. Ver [COST-ROUTING.md](COST-ROUTING.md).
+
 ## Endpoints
 
 | Método | Caminho | Permissão | Descrição |
@@ -47,6 +58,9 @@ Campos opcionais: `priority` (LOW/NORMAL/HIGH/CRITICAL), `maxDelaySeconds`, `cat
 | GET | `/messages`, `/messages/{id}` | messages:read | lista (filtros, cursor) e **auditoria** (decisões, custos, tentativas, webhooks, economia, "por quê") |
 | GET/POST | `/webhooks/meta` | assinatura Meta | verificação e recebimento |
 | GET | `/webhooks/events` | webhooks:read | eventos recebidos/DLQ |
+| GET · POST · DELETE | `/webhooks/outbound`, `/webhooks/outbound/{id}` | providers:manage | endpoints do tenant: espelho dos webhooks da Meta (`MIRROR`) e eventos do WCO (`EVENTS`) |
+| GET | `/routing` | analytics:read | roteamento de custo: contadores e economia por categoria |
+| POST | `/templates/split` | templates:read | separa frases promocionais de um texto transacional (consultivo) |
 | GET | `/conversations`, `/conversations/{id}` | conversations:read | janelas CSW/FEP |
 | GET · POST | `/inbox`, `/inbox/{id}`, `/inbox/{id}/reply`, `/inbox/settings` | conversations:read · messages:write · tenant:manage | caixa de entrada: conversas, transcrição, resposta (texto na janela, juntado com as próximas; ou template) e ativação |
 | GET | `/cost/estimate`, `/cost/actual` | cost:read | estimado vs realizado |

@@ -68,6 +68,8 @@ export const EnvSchema = z.object({
   AI_ASSISTANT_API_KEY: optionalString,
   AI_ASSISTANT_MODEL: optionalString,
   AI_ASSISTANT_COST_PER_CALL: z.string().default("0"),
+  /** Optional endpoint that rewords template sentences mixing transactional and promotional content (used only when AI_ASSISTANT_ENABLED). */
+  TEMPLATE_REWRITER_URL: optionalString,
 
   MOCK_DELIVERY_RATE: z.coerce.number().min(0).max(1).default(0.97),
   MOCK_READ_RATE: z.coerce.number().min(0).max(1).default(0.6),

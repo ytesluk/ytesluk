@@ -1,5 +1,5 @@
 import { Confidence, money, type Decimal, type MessageStatus } from "@wco/domain";
-import { attributeSavings, type SavingsLine } from "@wco/optimization";
+import { attributeSavings, type SavingsLine, type SavingsMechanismName } from "@wco/optimization";
 import type { BspFeeModel } from "@wco/pricing";
 import type { AppContext, TenantConfig } from "./context";
 
@@ -23,6 +23,9 @@ export async function recordSavings(
     optimizedConfidence: Confidence;
     freeReason?: string | null;
     switchedToFreeForm?: boolean;
+    mechanismHint?: SavingsMechanismName | null;
+    suppressedInvalidRecipient?: boolean;
+    deferredFrequencyCap?: boolean;
     category?: string | null;
     eventType?: string | null;
     policyVersion?: string | null;
@@ -35,8 +38,12 @@ export async function recordSavings(
     optimizedConfidence: input.optimizedConfidence,
     freeReason: input.freeReason,
     switchedToFreeForm: input.switchedToFreeForm,
+    mechanismHint: input.mechanismHint,
+    suppressedInvalidRecipient: input.suppressedInvalidRecipient,
+    deferredFrequencyCap: input.deferredFrequencyCap,
     usesBsp: tenant.usesBsp,
     bspModel: (tenant.bspFeeModel as BspFeeModel | null) ?? null,
+    legacyBspModel: (tenant.legacyBspFeeModel as BspFeeModel | null) ?? null,
     infraCostPerProviderCall: money(ctx.config.env.INFRA_COST_PER_PROVIDER_CALL),
   });
   const day = new Date(`${input.day.toISOString().slice(0, 10)}T00:00:00.000Z`);

@@ -59,3 +59,30 @@ export function evaluateWindows(policy: PolicyDefinition, ctx: ConversationConte
     },
   };
 }
+
+export interface WindowTimeLeft {
+  /** Free-form (non-template) content can be sent now. */
+  customerServiceWindowOpen: boolean;
+  customerServiceWindowMs: number;
+  freeEntryPointOpen: boolean;
+  freeEntryPointMs: number;
+}
+
+/**
+ * Time left in each window at `at`, minus a safety margin (Meta bills on DELIVERY time, so a message
+ * sent in the last seconds of a window may be delivered after it closed). A window with less than
+ * the margin left counts as closed.
+ */
+export function windowTimeLeft(w: WindowEvaluation, at: Date, safetyMarginSeconds = 0): WindowTimeLeft {
+  const left = (open: boolean, expiresAt: Date | null) => (open && expiresAt ? Math.max(0, expiresAt.getTime() - at.getTime() - safetyMarginSeconds * 1000) : 0);
+  const csw = left(w.customerServiceWindow.open, w.customerServiceWindow.expiresAt);
+  const fep = left(w.freeEntryPoint.open, w.freeEntryPoint.expiresAt);
+  return { customerServiceWindowOpen: csw > 0, customerServiceWindowMs: csw, freeEntryPointOpen: fep > 0, freeEntryPointMs: fep };
+}
+
+/** Whether the customer service window of (business number, customer) is open at `at` under `policy`. */
+export function customerServiceWindowAt(policy: PolicyDefinition, ctx: ConversationContext, at: Date, safetyMarginSeconds = 0): { open: boolean; expiresAt: Date | null; remainingMs: number } {
+  const w = evaluateWindows(policy, ctx, at);
+  const t = windowTimeLeft(w, at, safetyMarginSeconds);
+  return { open: t.customerServiceWindowOpen, expiresAt: w.customerServiceWindow.expiresAt, remainingMs: t.customerServiceWindowMs };
+}

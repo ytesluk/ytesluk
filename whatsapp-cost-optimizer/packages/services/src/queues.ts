@@ -10,6 +10,7 @@ import { Redis } from "ioredis";
  *   webhook    → process a persisted raw webhook event
  *   mock-emit  → (MOCK mode) deliver simulated Meta status webhooks to our own endpoint
  *   maintenance→ repeatable rollups, anomaly detection, retention
+ *   outbound-webhook → POSTs to tenant endpoints: mirrored Meta webhooks and WCO events (retried with backoff)
  *   dead-letter→ jobs that exhausted their retries (inspected in Admin > Webhooks / Queues)
  */
 export const QUEUE = {
@@ -19,6 +20,7 @@ export const QUEUE = {
   WEBHOOK: "wco-webhook",
   MOCK_EMIT: "wco-mock-emit",
   MAINTENANCE: "wco-maintenance",
+  OUTBOUND_WEBHOOK: "wco-outbound-webhook",
   DEAD_LETTER: "wco-dead-letter",
 } as const;
 export type QueueName = (typeof QUEUE)[keyof typeof QUEUE];
@@ -42,7 +44,19 @@ export interface MockEmitJob {
   payload: Record<string, unknown>;
 }
 export interface MaintenanceJob {
-  task: "rollup" | "anomalies" | "retention" | "alerts" | "billing";
+  task: "rollup" | "anomalies" | "retention" | "alerts" | "billing" | "routing";
+}
+/**
+ * One delivery to one tenant endpoint. The job never carries message contents: a mirrored Meta
+ * webhook is read from the stored raw event at delivery time, and a WCO event from `event`.
+ */
+export interface OutboundWebhookJob {
+  tenantId: string;
+  endpointId: string;
+  /** MIRROR: the persisted WebhookEvent to forward. */
+  webhookEventId?: string;
+  /** EVENTS: the event envelope (ids, links — no message text). */
+  event?: { id: string; type: string; occurredAt: string; data: Record<string, unknown> };
 }
 export interface DeadLetterJob {
   queue: string;
@@ -61,6 +75,8 @@ export const DEFAULT_JOB_OPTIONS: Record<QueueName, JobsOptions> = {
   [QUEUE.WEBHOOK]: { attempts: 6, backoff: { type: "exponential", delay: 1000 }, removeOnComplete: { count: 2000 }, removeOnFail: { count: 5000 } },
   [QUEUE.MOCK_EMIT]: { attempts: 3, backoff: { type: "fixed", delay: 1000 }, removeOnComplete: true, removeOnFail: { count: 500 } },
   [QUEUE.MAINTENANCE]: { attempts: 2, removeOnComplete: { count: 100 }, removeOnFail: { count: 100 } },
+  // ~5s, 10s, 20s, 40s, 80s, 160s between tries, then dead-letter (and an alert to the tenant).
+  [QUEUE.OUTBOUND_WEBHOOK]: { attempts: 7, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: { count: 2000 }, removeOnFail: { count: 5000 } },
   [QUEUE.DEAD_LETTER]: { removeOnComplete: false, removeOnFail: false },
 };
 

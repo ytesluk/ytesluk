@@ -21,6 +21,8 @@ interface Policy {
   defaultLanguage: string;
   category: string | null;
   allowFreeFormInWindow: boolean;
+  allowMarketingFreeFormInWindow: boolean;
+  inboundFirstGraceMinutes: number;
   maxConsolidatedItems: number;
   enabled: boolean;
 }
@@ -84,7 +86,9 @@ function Editor({ initial, onSaved, onCancel }: { initial: Policy; onSaved: () =
             ))}
           </Select>
         </Field>
-        <Field label="Mensagem livre na janela" hint="Só Utility; nunca converte Marketing"><Select value={String(p.allowFreeFormInWindow)} onChange={b("allowFreeFormInWindow")}><option value="true">sim</option><option value="false">não</option></Select></Field>
+        <Field label="Mensagem livre na janela" hint="Templates Utility: o conteúdo vai como mensagem de atendimento quando a janela de 24 h está aberta e sai mais barato"><Select value={String(p.allowFreeFormInWindow)} onChange={b("allowFreeFormInWindow")}><option value="true">sim</option><option value="false">não</option></Select></Field>
+        <Field label="Idem para Marketing" hint="Opcional. O consentimento de marketing continua valendo; fora da janela vai o template pago"><Select value={String(p.allowMarketingFreeFormInWindow ?? false)} onChange={b("allowMarketingFreeFormInWindow")}><option value="true">sim</option><option value="false">não</option></Select></Field>
+        <Field label="Cliente escreve primeiro (min)" hint="Espera o cliente abrir a conversa antes do template pago; 0 = desligado. Exige um webhook de eventos"><Input value={p.inboundFirstGraceMinutes ?? 0} onChange={n("inboundFirstGraceMinutes")} inputMode="numeric" /></Field>
         <Field label="Máx. itens consolidados"><Input value={p.maxConsolidatedItems} onChange={n("maxConsolidatedItems")} inputMode="numeric" /></Field>
         <Field label="Ativa"><Select value={String(p.enabled)} onChange={b("enabled")}><option value="true">sim</option><option value="false">não</option></Select></Field>
       </div>
@@ -131,7 +135,7 @@ function RuleSetEditor({ initial, onSaved }: { initial: unknown; onSaved: () => 
 export default function PoliciesPage() {
   const { data, error, loading, reload } = useApi<Data>("optimization/policies");
   const [editing, setEditing] = useState<Policy | null>(null);
-  const blank: Policy = { id: "", eventType: "", maxDelaySeconds: 60, debounceSeconds: 30, allowAggregation: false, allowSupersession: false, allowDeduplication: true, dedupWindowSeconds: 86400, priority: "NORMAL", requiresImmediateDelivery: false, supersessionGroup: null, consolidationTemplate: null, defaultTemplate: null, defaultLanguage: "pt_BR", category: null, allowFreeFormInWindow: false, maxConsolidatedItems: 10, enabled: true };
+  const blank: Policy = { id: "", eventType: "", maxDelaySeconds: 60, debounceSeconds: 30, allowAggregation: false, allowSupersession: false, allowDeduplication: true, dedupWindowSeconds: 86400, priority: "NORMAL", requiresImmediateDelivery: false, supersessionGroup: null, consolidationTemplate: null, defaultTemplate: null, defaultLanguage: "pt_BR", category: null, allowFreeFormInWindow: false, allowMarketingFreeFormInWindow: false, inboundFirstGraceMinutes: 0, maxConsolidatedItems: 10, enabled: true };
   return (
     <>
       <PageHeader title="Políticas de otimização" description="Quanto cada tipo de evento pode esperar e quais técnicas podem ser aplicadas. Toda alteração é registrada na auditoria." actions={<Button onClick={() => setEditing(blank)}>Nova política</Button>} />

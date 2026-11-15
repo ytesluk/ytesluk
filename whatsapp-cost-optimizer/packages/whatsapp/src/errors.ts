@@ -78,6 +78,41 @@ export function classifyMetaError(code: number | undefined, httpStatus?: number)
   return { retryable: true, action: "UNKNOWN" };
 }
 
+/**
+ * Delivery failures that say something about the RECIPIENT rather than about the request:
+ *  - 131026 "Message undeliverable": Meta could not deliver to this number (several possible causes:
+ *    not a WhatsApp number, old app version, terms not accepted...). Not billed.
+ *  - 131049: Meta did not deliver a marketing template to keep a healthy number of marketing
+ *    messages per user. Meta's guidance (docs/META-SOURCES.md S8): wait at least 24 hours before
+ *    sending that user another marketing template.
+ */
+export type DeliverabilitySignal = "UNDELIVERABLE" | "MARKETING_FREQUENCY_CAP";
+
+export function deliverabilitySignal(code: number | string | null | undefined): DeliverabilitySignal | null {
+  const n = typeof code === "string" ? Number(code) : code;
+  if (n === 131026) return "UNDELIVERABLE";
+  if (n === 131049) return "MARKETING_FREQUENCY_CAP";
+  return null;
+}
+
+/**
+ * How long the WCO waits before trying that recipient again, by consecutive occurrence.
+ *  - 131049 → 24 h (the minimum Meta asks for), then 48 h, then 72 h. The longer steps are WCO policy.
+ *  - 131026 → 1 day, 7 days, then 30 days (WCO policy: Meta publishes no number, and the cause can
+ *    be temporary — an outdated app, terms not accepted yet).
+ * A customer message clears 131026; a delivered marketing template clears 131049.
+ */
+export const DELIVERABILITY_COOLDOWN_HOURS: Record<DeliverabilitySignal, readonly number[]> = {
+  UNDELIVERABLE: [24, 7 * 24, 30 * 24],
+  MARKETING_FREQUENCY_CAP: [24, 48, 72],
+};
+
+export function deliverabilityCooldownMs(signal: DeliverabilitySignal, strikes: number): number {
+  const steps = DELIVERABILITY_COOLDOWN_HOURS[signal];
+  const hours = steps[Math.min(Math.max(1, Math.floor(strikes)), steps.length) - 1]!;
+  return hours * 3_600_000;
+}
+
 export class ProviderError extends AppError {
   readonly action: ErrorAction;
   readonly retryAfterMs?: number;

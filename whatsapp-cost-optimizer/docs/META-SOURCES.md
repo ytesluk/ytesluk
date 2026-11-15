@@ -217,9 +217,9 @@ Classificação usada em `packages/whatsapp/src/errors.ts`:
 | 131056 | Pair rate limit (mesmo destinatário) | retryable + backoff |
 | 131000, 131016, 131057 | Erro desconhecido / serviço indisponível / manutenção | retryable |
 | 131047 | Mais de 24h desde a última mensagem do usuário | non-retryable (exige template) |
-| 131049 | Não entregue para manter engajamento saudável | non-retryable ("wait at least 24 hours") |
+| 131049 | Não entregue para manter engajamento saudável | non-retryable ("wait at least 24 hours"); templates de Marketing para o mesmo destinatário esperam 24 h / 48 h / 72 h (cache por tenant) |
 | 131050 | Usuário parou de receber marketing | non-retryable + opt-out de marketing |
-| 131026 | Não entregável | non-retryable |
+| 131026 | Não entregável (várias causas possíveis: número sem WhatsApp, app desatualizado, termos não aceitos) | non-retryable; mensagens comuns ao mesmo destinatário esperam 1 / 7 / 30 dias (política do WCO; a Meta não publica um prazo) |
 | 131042 | Problema de método de pagamento | non-retryable + alerta |
 | 132000–132016 | Problemas de template | non-retryable |
 | 0, 3, 10, 190, 200 | Autorização | non-retryable + alerta |
@@ -299,6 +299,21 @@ Classificação usada em `packages/whatsapp/src/errors.ts`:
   → `setWebhookOverride` (`POST /api/v1/onboarding/webhook-override`), usado por `scripts/configurar-teste.mjs`.
 
 ---
+
+## S14 — Mensagens interativas e link "click to chat" (não reverificado)
+
+Usados pelo roteamento de custo ([COST-ROUTING.md](COST-ROUTING.md)). **Atenção:** em 15/11/2026 o
+ambiente de desenvolvimento não tinha acesso a `developers.facebook.com`; os formatos abaixo são os da
+documentação da Cloud API conhecidos pelo autor e **devem ser conferidos** na documentação atual antes
+do uso em produção.
+
+- `POST /<PHONE_NUMBER_ID>/messages` com `type: "interactive"`:
+  - `interactive.type: "button"` — `header` (texto), `body.text`, `footer.text`,
+    `action.buttons[] = { type: "reply", reply: { id, title } }` (até 3; título até 20 caracteres);
+  - `interactive.type: "cta_url"` — `action = { name: "cta_url", parameters: { display_text, url } }`.
+- Mensagens livres (texto e interativas) só podem ser enviadas com a janela de atendimento aberta (S3)
+  e são cobradas como Service (S1).
+- Link `https://wa.me/<número>?text=<texto codificado>` abre uma conversa com o número e pré-preenche o texto.
 
 ## Política → fonte (rastreabilidade)
 

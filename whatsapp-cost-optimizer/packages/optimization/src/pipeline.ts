@@ -5,6 +5,7 @@ import {
   MessageKind,
   MessageStatus,
   Money,
+  NO_DELIVERABILITY_LIMITS,
   PricingStatus,
   Priority,
   VerificationStatus,
@@ -15,6 +16,7 @@ import {
   resolveMarket,
   type ConversationContext,
   type Decimal,
+  type DeliverabilityState,
 } from "@wco/domain";
 import type { CostDecision, CostEngine } from "@wco/pricing";
 import { resolvePolicy, type OptimizationPolicyConfig, type PolicyEngine } from "@wco/policy";
@@ -102,6 +104,10 @@ export interface PipelineReport {
   consolidatedIntents: number;
   blocked: number;
   cancelled: number;
+  /** Inbound-first: templates held while the tenant's other channels invite the customer. */
+  inboundWakeUps: number;
+  /** ...of which the customer wrote in time and the content went as a free-form message. */
+  inboundFirstConverted: number;
   estimatedCost: Decimal;
   realizedCost: Decimal;
   avoidedBaselineEstimate: Decimal;
@@ -143,6 +149,9 @@ export class InMemoryPipeline {
   private readonly byId = new Map<string, IntentRecord>();
   private readonly conversations = new Map<string, ConversationContext>();
   private readonly consents = new Map<string, Partial<ConsentState>>();
+  private readonly deliverability = new Map<string, DeliverabilityState>();
+  /** Intents held by inbound-first, by conversation (business number | customer). */
+  private readonly awaitingInbound = new Map<string, Set<string>>();
   private readonly estQuota = new Map<string, number>();
   private readonly estTier = new Map<string, number>();
   private readonly realQuota = new Map<string, number>();
@@ -177,6 +186,8 @@ export class InMemoryPipeline {
       consolidatedIntents: 0,
       blocked: 0,
       cancelled: 0,
+      inboundWakeUps: 0,
+      inboundFirstConverted: 0,
       estimatedCost: ZERO(),
       realizedCost: ZERO(),
       avoidedBaselineEstimate: ZERO(),
@@ -205,11 +216,33 @@ export class InMemoryPipeline {
     this.consents.set(customerKey, { ...(this.consents.get(customerKey) ?? {}), ...consent });
   }
 
+  /** What Meta reported about delivering to this customer (131026 / 131049 cooldowns). */
+  setDeliverability(customerKey: string, state: Partial<DeliverabilityState>): void {
+    this.deliverability.set(customerKey, { ...NO_DELIVERABILITY_LIMITS, ...(this.deliverability.get(customerKey) ?? {}), ...state });
+  }
+
   /** A user message/call (opens or resets the customer service window; may be a free entry point). */
   inbound(customerKey: string, phoneNumberId: string, at: Date, entryPoint?: EntryPointType): void {
     this.advance(at);
     const conv = this.conversation(phoneNumberId, customerKey);
     conv.customerServiceWindow = { lastInboundAt: at };
+    // The customer wrote: they are reachable, and templates held by inbound-first can go now as
+    // free-form messages (same content) inside the window that just opened.
+    const limits = this.deliverability.get(customerKey);
+    if (limits) limits.undeliverableUntil = null;
+    const key = `${phoneNumberId}|${customerKey}`;
+    for (const id of this.awaitingInbound.get(key) ?? []) {
+      const rec = this.byId.get(id);
+      const entry = rec ? this.buffer.get(rec.groupKey)?.find((e) => e.intent.id === id) : undefined;
+      if (!rec || !entry || rec.status !== MessageStatus.DELAYED) continue;
+      rec.contentCategory = rec.category;
+      rec.messageKind = MessageKind.NON_TEMPLATE;
+      rec.category = BillingCategory.SERVICE;
+      entry.flushAt = at;
+      this.report.inboundFirstConverted++;
+      this.push({ kind: "FLUSH", at: at.getTime(), group: rec.groupKey });
+    }
+    this.awaitingInbound.delete(key);
     if (entryPoint && entryPoint !== EntryPointType.OTHER) {
       const fep = conv.freeEntryPoint;
       const open = fep?.windowStartedAt && at < addSeconds(fep.windowStartedAt, 72 * 3600);
@@ -278,6 +311,7 @@ export class InMemoryPipeline {
       templateName,
       templateLanguage: policy.defaultLanguage ?? "pt_BR",
       freeFormText: sub.freeFormText ?? null,
+      templateConvertible: templateName ? this.templates.get(templateName)?.freeFormConvertible === true : false,
       data,
       groupKey: g,
       supersessionKey: supersessionKey(g, sub.eventType, policy, allowSup, sub.businessEntityId ?? null),
@@ -308,9 +342,15 @@ export class InMemoryPipeline {
       pricing: this.pricingInputs(),
       rules: this.cfg.rules,
       features: this.cfg.features,
+      deliverability: this.deliverability.get(sub.customerKey),
       explain: this.cfg.explain,
     };
     const decision = decide(decisionInput);
+    if (decision.wakeUp) {
+      const key = `${sub.phoneNumberId}|${sub.customerKey}`;
+      this.awaitingInbound.set(key, (this.awaitingInbound.get(key) ?? new Set()).add(rec.id));
+      this.report.inboundWakeUps++;
+    }
     if (this.cfg.recordDecisions) this.decisions.push(decision);
     this.cfg.hooks?.onDecision?.(rec, decision, at);
     this.apply(rec, decision, at);
@@ -394,7 +434,9 @@ export class InMemoryPipeline {
   private apply(rec: IntentRecord, d: OptimizationDecision, at: Date): void {
     rec.messageKind = d.messageKind;
     rec.category = d.category;
-    if (d.messageKind === MessageKind.NON_TEMPLATE) rec.templateName = null;
+    rec.contentCategory = d.contentCategory;
+    // A free-form message that carries the template's own content keeps the template name (it is rendered from it).
+    if (d.messageKind === MessageKind.NON_TEMPLATE && rec.freeFormText) rec.templateName = null;
     for (const id of d.supersedes) {
       const old = this.byId.get(id);
       if (!old) continue;

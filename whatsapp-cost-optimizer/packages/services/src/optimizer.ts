@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   BUFFERED_STATUSES,
   Confidence,
@@ -6,13 +5,16 @@ import {
   MessageKind,
   MessageStatus,
   PricingStatus,
+  RoutingReason,
   money,
   type Decimal,
+  type Priority,
 } from "@wco/domain";
 import { metrics, withSpan } from "@wco/logging";
 import {
   ALL_FEATURES,
   decide,
+  dispatchRank,
   extendDebounce,
   nextFlushTime,
   planFlush,
@@ -27,13 +29,13 @@ import { audit, event } from "./audit";
 import type { AppContext, TenantConfig } from "./context";
 import { loadConversationContext } from "./conversations";
 import { loadCounters } from "./counters";
+import { loadDeliverability } from "./deliverability";
 import { QUEUE } from "./queues";
 import { toIntentRecord } from "./records";
+import { enqueueFlush, requestInboundWakeUp } from "./routing";
 import { recordSavings } from "./savings-store";
 
 type Tx = Parameters<Parameters<AppContext["db"]["$transaction"]>[0]>[0];
-
-const groupHash = (g: string) => createHash("sha1").update(g).digest("hex").slice(0, 20);
 
 export function costRows(tenantId: string, intentId: string, decisions: Array<CostDecision | null | undefined>, at: Date) {
   return decisions
@@ -68,11 +70,14 @@ const known = (c: CostDecision | null | undefined): Decimal | null =>
 type After = Array<() => Promise<unknown>>;
 
 async function scheduleFlush(ctx: AppContext, after: After, tenantId: string, group: string, at: Date): Promise<void> {
-  const delay = Math.max(0, at.getTime() - ctx.now().getTime());
-  after.push(() => ctx.queues[QUEUE.FLUSH].add("flush", { tenantId, groupKey: group }, { jobId: `flush-${groupHash(group)}-${at.getTime()}`, delay }));
+  after.push(() => enqueueFlush(ctx, tenantId, group, at));
 }
 
-async function createAttempt(ctx: AppContext, tx: Tx, after: After, tenantId: string, m: FlushMessage, sendAt: Date): Promise<string> {
+/**
+ * `rank` orders the dispatch queue (see dispatchRank): 0 = critical/immediate, then high priority,
+ * then messages inside a free entry point window, then the rest. BullMQ: no priority = first.
+ */
+async function createAttempt(ctx: AppContext, tx: Tx, after: After, tenantId: string, m: FlushMessage, sendAt: Date, rank = 3): Promise<string> {
   const count = await tx.messageAttempt.count({ where: { tenantId, intentId: m.primaryIntentId } });
   const attempt = await tx.messageAttempt.create({
     data: {
@@ -85,13 +90,13 @@ async function createAttempt(ctx: AppContext, tx: Tx, after: After, tenantId: st
       messageKind: m.messageKind,
       templateName: m.templateName,
       category: m.category,
-      payload: { parameters: m.parameters, text: m.text, consolidated: m.consolidated, reasons: m.reasons },
+      payload: { parameters: m.parameters, text: m.text, consolidated: m.consolidated, reasons: m.reasons, ...(m.renderFromTemplate ? { renderFromTemplate: m.renderFromTemplate } : {}) },
     },
   });
   await tx.messageIntent.update({ where: { id: m.primaryIntentId, tenantId }, data: { status: MessageStatus.QUEUED, scheduledFor: sendAt, dispatchedAt: ctx.now() } });
   await event(tx, { tenantId, type: "STATE_TRANSITION", intentId: m.primaryIntentId, data: { from: "READY_TO_SEND", to: "QUEUED", attemptId: attempt.id, consolidated: m.consolidated, covered: m.coveredIntentIds.length } });
   const delay = Math.max(0, sendAt.getTime() - ctx.now().getTime());
-  after.push(() => ctx.queues[QUEUE.DISPATCH].add("dispatch", { tenantId, attemptId: attempt.id }, { jobId: `dispatch-${attempt.id}`, delay }));
+  after.push(() => ctx.queues[QUEUE.DISPATCH].add("dispatch", { tenantId, attemptId: attempt.id }, { jobId: `dispatch-${attempt.id}`, delay, ...(rank > 0 ? { priority: rank } : {}) }));
   return attempt.id;
 }
 
@@ -153,10 +158,14 @@ export async function optimizeIntent(ctx: AppContext, job: { tenantId: string; i
         const currency = waba?.currency ?? tenant.defaultCurrency;
         const { context, conversationId } = await loadConversationContext(tx, tenant.id, row.phoneNumberId, row.customerId);
         const counters = await loadCounters(tx, { tenantId: tenant.id, phoneNumberId: row.phoneNumberId, businessAccountId: waba?.businessAccountId ?? "-", market: row.market, timezone, at: now });
-        const intent = toIntentRecord(row);
+        const template = row.templateName ? tenant.templates.get(row.templateName) : undefined;
+        const intent = toIntentRecord(row, undefined, { templateConvertible: !!template?.approved && template.freeFormConvertible === true });
+        const deliverability = await loadDeliverability(tx, tenant.id, row.customerPhoneHash, now);
         const d = decide({
           intent,
-          policy,
+          // Inbound-first needs somewhere to send the invitation: without an EVENTS endpoint it is off.
+          policy: tenant.eventWebhookUrls.length > 0 ? policy : { ...policy, inboundFirstGraceMinutes: 0 },
+          deliverability,
           now,
           related: related.map((r) => toIntentRecord(r)),
           consent: { requireOptIn: tenant.requireOptIn, optedIn: !!customer.optedInAt, optedOut: !!customer.optedOutAt, marketingOptedOut: !!customer.marketingOptedOutAt },
@@ -177,7 +186,9 @@ export async function optimizeIntent(ctx: AppContext, job: { tenantId: string; i
             decisionReason: d.reasons.join(","),
             category: d.category,
             messageKind: d.messageKind,
-            templateName: d.messageKind === MessageKind.NON_TEMPLATE ? null : row.templateName,
+            // A free-form message carrying the template's own content keeps the template name (rendered from it).
+            templateName: d.messageKind === MessageKind.NON_TEMPLATE && row.freeFormText ? null : row.templateName,
+            contentCategory: d.contentCategory,
             estimatedCost: d.cost ? d.cost.estimatedCost.toFixed(8) : null,
             baselineCost: baseline ? baseline.toFixed(8) : null,
             currency,
@@ -207,6 +218,32 @@ export async function optimizeIntent(ctx: AppContext, job: { tenantId: string; i
         await event(tx, { tenantId: tenant.id, type: "STATE_TRANSITION", intentId: row.id, occurredAt: now, data: { from: "PENDING_OPTIMIZATION", to: d.nextStatus, reason: d.rule.reason } });
         await audit(tx, { tenantId: tenant.id, action: "intent.optimized", entityType: "MessageIntent", entityId: row.id, data: { action: d.action, reasons: d.reasons } });
         metrics.decisions.inc({ tenant_id: tenant.id, action: d.action });
+        for (const r of [RoutingReason.TEMPLATE_TO_FREEFORM_CSW, RoutingReason.FEP_PRIORITY, RoutingReason.DEFERRED_FREQUENCY_CAP, RoutingReason.UTILITY_SPLIT_DEFERRED]) {
+          if (d.reasons.includes(r)) metrics.routingDecisions.inc({ tenant_id: tenant.id, reason: r });
+        }
+        // Recipient-level outcomes: a provider call that would have failed is avoided (never a Meta saving).
+        const suppressed = d.action === DecisionAction.BLOCK && d.rule.reason === RoutingReason.SUPPRESSED_INVALID_RECIPIENT;
+        if (suppressed || d.reasons.includes(RoutingReason.DEFERRED_FREQUENCY_CAP)) {
+          if (suppressed) metrics.routingDecisions.inc({ tenant_id: tenant.id, reason: RoutingReason.SUPPRESSED_INVALID_RECIPIENT });
+          await recordSavings(tx, ctx, tenant, {
+            intentId: row.id,
+            status: d.nextStatus,
+            day: now,
+            currency,
+            baselineCost: null,
+            optimizedCost: null,
+            optimizedConfidence: Confidence.ESTIMATED,
+            suppressedInvalidRecipient: suppressed,
+            deferredFrequencyCap: !suppressed,
+            category: d.category,
+            eventType: row.eventType,
+            policyVersion: d.baselineCost?.policyVersion ?? null,
+          });
+        }
+        if (d.wakeUp && d.sendAt) {
+          const fallbackAt = d.sendAt;
+          after.push(() => requestInboundWakeUp(ctx, tenant, row, fallbackAt));
+        }
         if (d.cost && d.cost.pricingStatus !== PricingStatus.UNKNOWN) metrics.estimatedCost.inc({ tenant_id: tenant.id, currency }, d.cost.estimatedCost.toNumber());
 
         // Older pending updates replaced by this one.
@@ -235,18 +272,22 @@ export async function optimizeIntent(ctx: AppContext, job: { tenantId: string; i
             metrics.messagesAvoided.inc({ tenant_id: tenant.id, reason: d.nextStatus });
             break;
           case DecisionAction.SEND_NOW: {
+            const freeForm = d.messageKind === MessageKind.NON_TEMPLATE;
             const m: FlushMessage = {
               primaryIntentId: row.id,
               coveredIntentIds: [row.id],
               consolidated: false,
-              templateName: d.messageKind === MessageKind.NON_TEMPLATE ? null : row.templateName,
+              templateName: freeForm ? null : row.templateName,
               messageKind: d.messageKind,
               category: d.category,
               parameters: [],
               text: row.freeFormText,
+              // Template → free-form: the dispatcher renders the message from the approved template.
+              renderFromTemplate: freeForm && !row.freeFormText ? row.templateName : null,
               reasons: d.reasons,
             };
-            await createAttempt(ctx, tx, after, tenant.id, m, d.sendAt ?? now);
+            const rank = dispatchRank({ bypassBuffer: d.facts.bypassBuffer === true, priority: row.priority as Priority, freeEntryPointOpen: d.cost?.freeReason === "free_entry_point_window" });
+            await createAttempt(ctx, tx, after, tenant.id, m, d.sendAt ?? now, rank);
             break;
           }
           case DecisionAction.DELAY:
@@ -308,7 +349,8 @@ export async function flushGroup(ctx: AppContext, job: { tenantId: string; group
         for (const m of plan.messages) {
           await tx.messageIntent.update({ where: { id: m.primaryIntentId, tenantId: tenant.id }, data: { status: MessageStatus.READY_TO_SEND } });
           await event(tx, { tenantId: tenant.id, type: "STATE_TRANSITION", intentId: m.primaryIntentId, occurredAt: now, data: { from: "DELAYED", to: "READY_TO_SEND", reasons: m.reasons, covered: m.coveredIntentIds } });
-          await createAttempt(ctx, tx, after, tenant.id, m, now);
+          const primary = rows.find((x) => x.id === m.primaryIntentId);
+          await createAttempt(ctx, tx, after, tenant.id, m, now, dispatchRank({ bypassBuffer: false, priority: (primary?.priority ?? "NORMAL") as Priority, freeEntryPointOpen: false }));
           out.messages++;
         }
         if (plan.notes.length) await audit(tx, { tenantId: tenant.id, action: "buffer.flush.notes", entityType: "Group", entityId: null, data: { notes: plan.notes } });

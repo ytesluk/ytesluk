@@ -3,6 +3,7 @@ import {
   AlertType,
   BillingCategory,
   Confidence,
+  DeliverabilityKind,
   MessageStatus,
   Money,
   billingMonth,
@@ -14,6 +15,7 @@ import {
   type Decimal,
 } from "@wco/domain";
 import { metrics } from "@wco/logging";
+import { mechanismFromReasons } from "@wco/optimization";
 import { normalizeMarket } from "@wco/pricing";
 import {
   billingCategoryFromWebhook,
@@ -33,12 +35,21 @@ import { audit, event, raiseAlert } from "./audit";
 import type { AppContext, TenantConfig } from "./context";
 import { recordInbound } from "./conversations";
 import { incrementQuota, incrementTier } from "./counters";
+import { clearDeliverability, recordDeliveryFailure } from "./deliverability";
+import { triggerFollowUp } from "./followups";
+import { createIntent } from "./intents";
+import { fanOutMetaWebhook } from "./outbound-webhooks";
 import { QUEUE } from "./queues";
+import { convertHeldForInbound, prioritizeForFreeEntryPoint } from "./routing";
 import { recordSavings } from "./savings-store";
 
 /**
  * Webhook pipeline (spec §25):  Validate → Persist raw event → ACK 200 → Queue → Processor.
  * Never processed synchronously. Identical redeliveries (same raw body) are stored once (spec §41 case 10).
+ *
+ * The processor also: copies the tenant's own webhooks to its mirror endpoints (CRM/helpdesk); keeps
+ * the per-tenant deliverability cache from failed statuses (131026 / 131049); and, when a customer
+ * writes, sends what was waiting for that — templates held by inbound-first and deferred follow-ups.
  */
 export async function ingestWebhook(
   ctx: AppContext,
@@ -94,8 +105,15 @@ export async function processWebhook(ctx: AppContext, job: { webhookEventId: str
   const events = parseWebhook(row.rawPayload);
   let tenantId: string | null = row.tenantId;
   try {
-    for (const ev of events) {
-      const t = await resolveTenant(ctx, ev);
+    // Mirror first, so the tenant's own systems get their copy even if our processing has to retry.
+    const resolved: Array<{ tenantId: string; phoneId: string | null } | null> = [];
+    for (const ev of events) resolved.push(await resolveTenant(ctx, ev));
+    for (const id of new Set(resolved.filter((r): r is NonNullable<typeof r> => !!r).map((r) => r.tenantId))) {
+      const tenant = await ctx.tenants.get(id);
+      if (tenant.mirrorWebhookUrls.length > 0) await fanOutMetaWebhook(ctx, tenant, row.id);
+    }
+    for (const [i, ev] of events.entries()) {
+      const t = resolved[i];
       if (!t) continue;
       tenantId = t.tenantId;
       const tenant = await ctx.tenants.get(t.tenantId);
@@ -207,10 +225,17 @@ async function handleStatus(ctx: AppContext, tenant: TenantConfig, ev: StatusEve
       await ctx.db.consentRecord.create({ data: { tenantId: tenant.id, customerId: intent.customerId, type: "OPT_OUT", scope: "MARKETING", source: "WEBHOOK_ERROR_131050", occurredAt: now } });
       await ctx.db.customer.update({ where: { id: intent.customerId }, data: { marketingOptedOutAt: now } });
     }
+    // 131026 / 131049: remember, for this tenant only and by customer hash, not to insist for a while.
+    await recordDeliveryFailure(ctx, { tenantId: tenant.id, phoneHash: intent.customerPhoneHash, code: ev.errors[0].code, at: ev.timestamp });
+  }
+  // A marketing template got through: the per-user limit is no longer in the way.
+  if (status === MessageStatus.DELIVERED && attempt.messageKind === "TEMPLATE" && (attempt.category === BillingCategory.MARKETING || attempt.category === BillingCategory.MARKETING_LITE)) {
+    await clearDeliverability(ctx.db, tenant.id, intent.customerPhoneHash, DeliverabilityKind.MARKETING_FREQUENCY_CAP);
   }
   // FEP confirmation as soon as Meta reports the window (sent status carries conversation.expiration_timestamp).
   if (ev.conversation?.expiresAt && (ev.conversation.originType === "referral_conversion" || ev.pricing?.type === "free_entry_point")) {
     await confirmFep(ctx, tenant.id, intent.phoneNumberId, intent.customerId, ev.conversation.id ?? null, ev.conversation.expiresAt);
+    await prioritizeForFreeEntryPoint(ctx, { tenantId: tenant.id, phoneNumberId: intent.phoneNumberId, customerId: intent.customerId }).catch((e) => ctx.log.warn({ err: (e as Error).message }, "fep priority failed"));
   }
   if (merged === MessageStatus.DELIVERED || merged === MessageStatus.READ) await realize(ctx, tenant, attempt.id);
 }
@@ -336,7 +361,7 @@ async function realize(ctx: AppContext, tenant: TenantConfig, attemptId: string)
       optimizedCost: cost,
       optimizedConfidence: confidence,
       freeReason,
-      switchedToFreeForm: (intent.decisionReason ?? "").includes("free_form_service_message_cheaper_inside_window"),
+      mechanismHint: mechanismFromReasons(intent.decisionReason),
       category,
       eventType: intent.eventType,
       policyVersion: policy?.id ?? null,
@@ -379,11 +404,17 @@ async function handleInbound(ctx: AppContext, tenant: TenantConfig, phoneId: str
     });
   }
   await event(ctx.db, { tenantId: tenant.id, type: "INBOUND_MESSAGE", conversationId, occurredAt: ev.timestamp, data: { messageType: ev.messageType, referral: ev.referral ? { sourceType: ev.referral.sourceType, sourceId: ev.referral.sourceId } : null, entryPointId } });
+  // The customer wrote: the number is reachable, whatever an older 131026 said.
+  await clearDeliverability(ctx.db, tenant.id, vp.hash, DeliverabilityKind.UNDELIVERABLE);
   if (isOptOutKeyword(ev.textForKeywordDetection)) {
     await ctx.db.consentRecord.create({ data: { tenantId: tenant.id, customerId: customer.id, type: "OPT_OUT", scope: "ALL", source: "INBOUND_KEYWORD", occurredAt: ev.timestamp } });
     await ctx.db.customer.update({ where: { id: customer.id }, data: { optedOutAt: ev.timestamp } });
     await audit(ctx.db, { tenantId: tenant.id, action: "consent.opt_out", entityType: "Customer", entityId: customer.id, data: { source: "keyword" } });
+    return; // an opt-out reply never triggers anything that was waiting for a reply
   }
+  // The window is open now: what was waiting for the customer can go as free-form service messages.
+  await convertHeldForInbound(ctx, tenant, { customerId: customer.id, phoneNumberId: phone.id, at: ev.timestamp });
+  await triggerFollowUp(ctx, tenant, { customerId: customer.id, phoneNumberId: phone.id, conversationId, at: ev.timestamp }, (actor, raw, opts) => createIntent(ctx, actor, raw, opts));
 }
 
 async function findTemplate(ctx: AppContext, tenantId: string, ev: { templateId?: string; templateName?: string; language?: string }) {

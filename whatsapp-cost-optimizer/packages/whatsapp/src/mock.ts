@@ -6,6 +6,7 @@ import type {
   MetaTemplateInfo,
   PhoneNumberInfo,
   ProviderMessageInfo,
+  SendInteractiveRequest,
   SendMediaRequest,
   SendResult,
   SendTemplateRequest,
@@ -145,6 +146,10 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
 
   sendMedia(req: SendMediaRequest): Promise<SendResult> {
     return this.accept(req.mediaType, req, { media: req.mediaType });
+  }
+
+  sendInteractive(req: SendInteractiveRequest): Promise<SendResult> {
+    return this.accept("interactive", req, { interactive: req.content.type, body: req.content.body.length, buttons: req.content.type === "buttons" ? req.content.buttons.length : 1 });
   }
 
   async getMessage(providerMessageId: string): Promise<ProviderMessageInfo> {

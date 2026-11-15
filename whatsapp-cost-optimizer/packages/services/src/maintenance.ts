@@ -5,6 +5,8 @@ import { daily } from "./analytics";
 import { audit, raiseAlert } from "./audit";
 import { planUsageAlerts } from "./billing";
 import type { AppContext } from "./context";
+import { purgeDeliverability } from "./deliverability";
+import { expireFollowUps } from "./followups";
 
 /** DailyMetric rollup (cheap dashboards over long ranges). Idempotent: recomputes the last N days. */
 export async function rollupDailyMetrics(ctx: AppContext, days = 2): Promise<number> {
@@ -91,6 +93,8 @@ export async function applyRetention(ctx: AppContext): Promise<Record<string, nu
     out.payloads! += (await ctx.db.messageIntent.updateMany({ where: { tenantId: t.id, requestedAt: { lt: c.payloads }, payloadPurgedAt: null }, data: { data: {}, freeFormText: null, payloadPurgedAt: now } })).count;
     // Inbox transcript bodies follow the same (short) payload retention; the timeline metadata stays.
     out.payloads! += (await ctx.db.chatMessage.updateMany({ where: { tenantId: t.id, occurredAt: { lt: c.payloads }, bodyPurgedAt: null }, data: { bodyEncrypted: null, bodyPurgedAt: now } })).count;
+    // Follow-up texts already sent/dropped follow the payload retention too.
+    out.payloads! += (await ctx.db.deferredFollowUp.updateMany({ where: { tenantId: t.id, createdAt: { lt: c.payloads }, deferredFreeFormPayload: { not: null } }, data: { deferredFreeFormPayload: null, payloadPurgedAt: now } })).count;
     out.attempts! += (await ctx.db.messageAttempt.updateMany({ where: { tenantId: t.id, requestedAt: { lt: c.payloads }, payload: { not: null as never } }, data: { payload: null as never } })).count;
     out.events! += (await ctx.db.conversationEvent.deleteMany({ where: { tenantId: t.id, occurredAt: { lt: c.messages } } })).count;
     // Savings rows survive (intentId set null) so aggregated analytics remain; message rows are deleted.
@@ -102,4 +106,13 @@ export async function applyRetention(ctx: AppContext): Promise<Record<string, nu
   out.webhooks! += (await ctx.db.webhookEvent.updateMany({ where: { tenantId: null, receivedAt: { lt: new Date(now.getTime() - DEFAULT_RETENTION.rawWebhookRetentionDays * 86_400_000) }, rawPurgedAt: null }, data: { rawPayload: null as never, rawPurgedAt: now } })).count;
   await audit(ctx.db, { tenantId: null, action: "retention.applied", entityType: "System", data: out });
   return out;
+}
+
+/**
+ * Housekeeping of the cost-routing features (every few minutes): follow-ups nobody answered in time
+ * are dropped (and their text erased) and long-expired deliverability entries are deleted.
+ * It never sends anything — in particular there is no "keep-alive" message to hold a window open.
+ */
+export async function routingHousekeeping(ctx: AppContext): Promise<{ followUpsExpired: number; deliverabilityPurged: number }> {
+  return { followUpsExpired: await expireFollowUps(ctx), deliverabilityPurged: await purgeDeliverability(ctx) };
 }

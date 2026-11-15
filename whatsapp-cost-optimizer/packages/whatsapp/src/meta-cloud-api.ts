@@ -1,13 +1,14 @@
 import { metrics, getLogger } from "@wco/logging";
 import { CircuitBreaker, CircuitOpenError } from "./circuit-breaker";
 import { classifyMetaError, isProviderError, ProviderError } from "./errors";
-import { mediaBody, templateBody, textBody } from "./payloads";
+import { interactiveBody, mediaBody, templateBody, textBody } from "./payloads";
 import type {
   BusinessAccountInfo,
   MetaTemplateInfo,
   PhoneNumberInfo,
   ProviderCredentials,
   ProviderMessageInfo,
+  SendInteractiveRequest,
   SendMediaRequest,
   SendResult,
   SendTemplateRequest,
@@ -127,6 +128,10 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
 
   sendMedia(req: SendMediaRequest, creds: ProviderCredentials): Promise<SendResult> {
     return this.send("sendMedia", req.phoneNumberId, mediaBody(req), creds);
+  }
+
+  sendInteractive(req: SendInteractiveRequest, creds: ProviderCredentials): Promise<SendResult> {
+    return this.send("sendInteractive", req.phoneNumberId, interactiveBody(req), creds);
   }
 
   async getMessage(providerMessageId: string): Promise<ProviderMessageInfo> {

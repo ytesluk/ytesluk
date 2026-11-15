@@ -3,5 +3,6 @@ export * from "./errors";
 export * from "./circuit-breaker";
 export * from "./webhook";
 export * from "./payloads";
+export * from "./handoff";
 export * from "./meta-cloud-api";
 export * from "./mock";

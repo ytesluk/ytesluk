@@ -88,6 +88,8 @@ export function statusWebhook(input: {
   status: "sent" | "delivered" | "read" | "failed";
   timestamp?: number;
   pricing?: { billable: boolean; pricing_model: string; category: string; type?: string };
+  /** Failure details, as Meta sends them with status "failed" (e.g. code 131026 or 131049). */
+  errors?: Array<{ code: number; title?: string }>;
 }): Record<string, unknown> {
   const ts = String(input.timestamp ?? Math.floor(Date.now() / 1000));
   return {
@@ -108,6 +110,7 @@ export function statusWebhook(input: {
                   timestamp: ts,
                   recipient_id: input.recipientWaId,
                   ...(input.pricing ? { pricing: input.pricing } : {}),
+                  ...(input.errors ? { errors: input.errors.map((e) => ({ code: e.code, title: e.title ?? "error", message: e.title ?? "error", error_data: { details: e.title ?? "error" } })) } : {}),
                 },
               ],
             },

@@ -15,6 +15,7 @@ import {
   operations,
   optimizationBreakdown,
   platformTenants,
+  routingSummary,
   InboxReplySchema,
   getInboxConversation,
   listInbox,
@@ -58,9 +59,17 @@ export async function insightRoutes(app: FastifyInstance, ctx: AppContext) {
   });
 
   app.get("/api/v1/analytics", { schema: { tags: ["analytics"], querystring: doc(RangeQuery) }, preHandler: guard(ctx, Permission.ANALYTICS_READ) }, async (req) => {
-    const [s, d, b, i] = await Promise.all([summary(ctx, t(req), q(req)), daily(ctx, t(req), q(req)), optimizationBreakdown(ctx, t(req), q(req)), insights(ctx, t(req), q(req))]);
-    return { summary: s, daily: d, breakdown: b, insights: i };
+    const [s, d, b, i, r] = await Promise.all([summary(ctx, t(req), q(req)), daily(ctx, t(req), q(req)), optimizationBreakdown(ctx, t(req), q(req)), insights(ctx, t(req), q(req)), routingSummary(ctx, t(req), q(req))]);
+    return { summary: s, daily: d, breakdown: b, insights: i, routing: r };
   });
+  app.get(
+    "/api/v1/routing",
+    { schema: { tags: ["analytics"], summary: "Cost routing: template→free-form, FEP priority, inbound-first, follow-ups, deliverability, mirror webhooks", querystring: doc(RangeQuery) }, preHandler: guard(ctx, Permission.ANALYTICS_READ) },
+    async (req) => {
+      const s = await summary(ctx, t(req), q(req));
+      return { ...(await routingSummary(ctx, t(req), q(req))), currency: s.currency, isDemoRates: s.isDemoRates, savings: s.savings.routing };
+    },
+  );
 
   app.get("/api/v1/observability", { schema: { tags: ["system"], summary: "Queue depth, throughput, error rate, Meta API latency" }, preHandler: guard(ctx, Permission.OBSERVABILITY_READ) }, async (req) => operations(ctx, t(req)));
 

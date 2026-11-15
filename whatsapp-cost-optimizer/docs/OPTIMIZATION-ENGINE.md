@@ -45,8 +45,9 @@ Todas usam identificadores pseudônimos (hash do cliente), nunca o telefone.
 * Candidatos: agora/`earliestSendAt`, fim do debounce, `preferredSendAt` e "pouco antes de cada janela
   gratuita **já aberta** fechar" (margem de 120 s, pois a Meta cobra na **entrega**).
 * Cada candidato é precificado pelo mesmo `CostEngine` da cobrança; escolhe o mais barato dentro do prazo.
-* Alternativa "mensagem livre dentro da janela" só para Utility com `allowFreeFormInWindow` — Marketing
-  nunca é convertido.
+* Alternativa "mensagem livre dentro da janela": Utility com `allowFreeFormInWindow`; Marketing só com
+  `allowMarketingFreeFormInWindow` (desligado por padrão); Autenticação nunca. O corpo é o `text` do
+  cliente ou o próprio conteúdo do template aprovado — ver [COST-ROUTING.md](COST-ROUTING.md).
 * Envios agendados pelo cliente (`earliestSendAt`/`preferredSendAt` futuros) são respeitados em todos
   os braços (job de envio atrasado).
 
@@ -74,7 +75,10 @@ canAggregate → CONSOLIDATE · canDelay → DELAY · (default) → SEND_NOW
   Um conjunto de regras do tenant não consegue atrasá-los (testado).
 * Opt-out sempre bloqueia; opt-out de marketing bloqueia Marketing.
 * Mensagem livre só com janela de atendimento aberta (checada de novo no envio).
-* Nada de mensagens extras para alcançar tiers; nada de alterar conteúdo para mudar categoria.
+* Nada de mensagens extras para alcançar tiers nem para manter uma janela aberta; nada de fazer conteúdo
+  promocional passar por Utility — a categoria de um template é a que a Meta definiu.
+* Roteamento de custo ([COST-ROUTING.md](COST-ROUTING.md)) nunca segura, adia ou suprime mensagens
+  críticas, de autenticação ou imediatas.
 
 ## Políticas padrão por evento
 
