@@ -5,3 +5,5 @@ export * from './bsp-bypass-mirror';
 export * from './global-deliverability-cache';
 export * from './external-http-bridge';
 export * from './finops-orchestrator';
+export * from './prisma-adapter';
+export * from './runtime-bridge';
