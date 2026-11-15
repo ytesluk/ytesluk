@@ -13,3 +13,4 @@ export * from "./category-analyzer";
 export * from "./template-cost-analyzer";
 export * from "./insights";
 export * from "./demo-templates";
+export * from './finops';
