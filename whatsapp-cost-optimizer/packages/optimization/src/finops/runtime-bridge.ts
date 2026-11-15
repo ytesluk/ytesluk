@@ -75,7 +75,7 @@ export class FinOpsRuntimeBridge {
     now = new Date(),
   ): Promise<FinOpsRoutingDecision> {
     const [monthlyFreeServiceQuotaUsed, mirrorVariants] = await Promise.all([
-      this.repo.getMonthlyFreeServiceQuotaUsed(input.directRouteConfig.phoneNumberId, now),
+      this.repo.getMonthlyFreeServiceQuotaUsed((input.directRouteConfig?.phoneNumberId ?? "default"), now),
       input.templateGroupKey
         ? this.repo.listMirrorVariants(input.tenantId, input.templateGroupKey)
         : Promise.resolve([]),
