@@ -1,30 +1,139 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { BarCard, LineCard } from "@/components/charts";
 import { OptimizationDetails } from "@/components/optimization-details";
 import { RangePicker, useRange } from "@/components/range";
-import { Badge, Card, DemoBadge, ErrorBox, Kpi, Loading, Notice, PageHeader } from "@/components/ui";
+import { useCountUp } from "@/components/shell";
+import { Badge, Card, ConfidenceBadge, DemoBadge, ErrorBox, Loading, Notice, PageHeader, ReceiptLine } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { day, int, money, pct } from "@/lib/format";
-import type { Analytics } from "@/lib/types";
+import type { Analytics, Summary } from "@/lib/types";
 
+/** Plain-language names of what avoided a cost (the codes stay in the API and in the audit). */
 const MECHANISM: Record<string, string> = {
-  DEDUPLICATION: "Deduplicação",
-  SUPERSESSION: "Supersession (estado mais recente)",
-  CONSOLIDATION: "Consolidação",
-  FREE_WINDOW: "Janela gratuita (FEP/CSW)",
-  FREE_QUOTA: "Cota gratuita",
-  CATEGORY: "Mensagem livre na janela",
-  TEMPLATE_TO_FREEFORM_CSW: "Template enviado como mensagem livre (janela aberta)",
-  UTILITY_SPLIT_DEFERRED: "Oferta enviada após a resposta do cliente",
-  FEP_PRIORITY: "Antecipada para a janela grátis do anúncio",
-  VOLUME_TIER: "Tier de volume",
+  DEDUPLICATION: "Duplicadas barradas",
+  SUPERSESSION: "Substituídas pela mais recente",
+  CONSOLIDATION: "Juntadas em uma só mensagem",
+  FREE_WINDOW: "Enviadas em janela grátis",
+  FREE_QUOTA: "Cota grátis do mês",
+  CATEGORY: "Mensagem livre na janela aberta",
+  TEMPLATE_TO_FREEFORM_CSW: "Template enviado como mensagem livre",
+  UTILITY_SPLIT_DEFERRED: "Oferta enviada só após a resposta",
+  FEP_PRIORITY: "Antecipadas para a janela do anúncio",
+  FREQUENCY_CAP_DEFERRED: "Adiadas pelo limite de marketing",
+  INVALID_RECIPIENT_SUPPRESSED: "Números recusados não tentados de novo",
+  VOLUME_TIER: "Faixa de volume",
   DIRECT_API: "Cloud API direta",
   BSP_MARKUP: "Taxa de BSP",
+  BSP_MARKUP_AVOIDED: "Taxa de BSP",
   INFRASTRUCTURE: "Infraestrutura",
-  NONE: "Sem mecanismo (ajustes)",
+  NONE: "Ajustes",
 };
+
+const shortDate = (v: string) => new Date(v).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
+/**
+ * The statement ("extrato"): every line is money that was not spent, by what avoided it. It uses one
+ * ledger only (the savings records), so the lines add up to the highlighted total; the estimate and
+ * what Meta confirmed are shown side by side and never added together.
+ */
+function Statement({ s }: { s: Summary }) {
+  const c = s.currency;
+  const lines = Object.entries(s.savings.byMechanism)
+    .map(([k, v]) => ({ k, v: Number(v) }))
+    .filter((l) => l.v !== 0)
+    .sort((a, b) => b.v - a.v);
+  const bsp = Number(s.savings.estimated.bsp);
+  const infra = Number(s.savings.estimated.infrastructure);
+  return (
+    <div className="receipt-slot mx-auto w-full max-w-[400px]">
+      <section className="receipt receipt-print px-5 pt-5" aria-label="Extrato do que deixou de ser pago">
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-muted">
+            Extrato · {shortDate(s.range.from)} a {shortDate(s.range.to)}
+          </p>
+          {s.isDemoRates ? <DemoBadge /> : null}
+        </div>
+        <h2 className="perf-b pb-3 pt-1 font-display text-xl font-semibold tracking-tight text-ink">O que o WCO evitou</h2>
+
+        <div className="perf-b py-2.5">
+          <p className="pb-1 font-mono text-[10px] uppercase tracking-widest text-muted">Cobrança da Meta</p>
+          {lines.length ? lines.map((l) => <ReceiptLine key={l.k} label={MECHANISM[l.k] ?? l.k} value={money(l.v, c)} />) : <p className="py-1 text-[12.5px] text-muted">Nada evitado neste período ainda.</p>}
+          <ReceiptLine strong label="Subtotal Meta" value={money(s.savings.estimated.meta, c)} />
+        </div>
+
+        {bsp !== 0 || infra !== 0 ? (
+          <div className="perf-b py-2.5">
+            <p className="pb-1 font-mono text-[10px] uppercase tracking-widest text-muted">Fora da Meta</p>
+            {bsp !== 0 ? <ReceiptLine label="Taxas do BSP" value={money(bsp, c)} /> : null}
+            {infra !== 0 ? <ReceiptLine label="Infraestrutura" value={money(infra, c, 4)} note={infra < 0 ? "Negativo: o WCO tem um custo próprio por evento processado." : undefined} /> : null}
+          </div>
+        ) : null}
+
+        <div className="pt-3">
+          <ReceiptLine strong highlight label={<span className="inline-flex flex-wrap items-center gap-1.5">Você deixou de pagar <ConfidenceBadge value="ESTIMATED" /></span>} value={money(s.savings.estimated.total, c)} />
+          <ReceiptLine label={<span className="inline-flex flex-wrap items-center gap-1.5">Já confirmado pela Meta <ConfidenceBadge value="REALIZED" /></span>} value={money(s.savings.realized.meta, c)} />
+        </div>
+        <p className="mt-2 text-[11px] leading-snug text-muted">Estimado é a conta do WCO; confirmado é o que a Meta informou na entrega. Os dois nunca são somados.</p>
+      </section>
+    </div>
+  );
+}
+
+/** Where the received events went, as one proportional bar with the numbers written out. */
+function EventFlow({ s }: { s: Summary }) {
+  const m = s.messages;
+  const other = Math.max(0, m.processed - m.sent - m.avoided);
+  const total = Math.max(1, m.processed);
+  const parts = [
+    { key: "sent", label: "viraram mensagem", n: m.sent, cls: "bg-ink" },
+    { key: "avoided", label: "evitadas", n: m.avoided, cls: "bg-marker ring-1 ring-inset ring-[var(--rule)]" },
+    { key: "other", label: "bloqueadas, canceladas ou aguardando", n: other, cls: "bg-surface-2 ring-1 ring-inset ring-[var(--rule)]" },
+  ].filter((p) => p.n > 0);
+  return (
+    <figure aria-label="Destino dos eventos recebidos">
+      <figcaption className="text-sm text-ink-2">
+        De cada <strong className="text-ink">100</strong> eventos que seus sistemas enviaram, <strong className="text-ink">{Math.round((m.sent / total) * 100)}</strong> viraram mensagem no WhatsApp.
+      </figcaption>
+      <div className="mt-3 flex h-3.5 gap-[2px]" role="img" aria-label={parts.map((p) => `${int(p.n)} ${p.label}`).join(", ")}>
+        {parts.map((p, i) => (
+          <span key={p.key} title={`${int(p.n)} ${p.label}`} className={`${p.cls} ${i === 0 ? "rounded-l-[4px]" : ""} ${i === parts.length - 1 ? "rounded-r-[4px]" : ""}`} style={{ width: `${(p.n / total) * 100}%`, minWidth: 6 }} />
+        ))}
+      </div>
+      <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-ink-2">
+        {parts.map((p) => (
+          <li key={p.key} className="flex items-center gap-2">
+            <span className={`inline-block size-2.5 rounded-[3px] ${p.cls}`} aria-hidden />
+            <span className="figure text-ink">{int(p.n)}</span> {p.label}
+          </li>
+        ))}
+      </ul>
+    </figure>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-1.5">
+      <dt className="text-[13px] text-ink-2">
+        {label}
+        {hint ? <span className="block text-[11px] text-muted">{hint}</span> : null}
+      </dt>
+      <dd className="figure text-[15px] font-medium text-ink">{value}</dd>
+    </div>
+  );
+}
+
+function StatGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="px-5 py-4">
+      <p className="pb-1.5 font-mono text-[10px] font-medium uppercase tracking-widest text-muted">{title}</p>
+      <dl>{children}</dl>
+    </div>
+  );
+}
 
 export default function OverviewPage() {
   const [range, setRange, query] = useRange("30");
@@ -33,12 +142,13 @@ export default function OverviewPage() {
   const s = data?.summary;
   const c = s?.currency ?? "BRL";
   const m = (v: number) => money(v, c);
+  const headline = useCountUp(s ? Number(s.savings.estimated.total) : null);
 
   return (
     <>
       <PageHeader
         title="Visão geral"
-        description="Custo de WhatsApp com e sem o WCO. Meta, BSP e infraestrutura aparecem separados; valores estimados e realizados nunca se misturam."
+        description="Quanto o WhatsApp custaria sem o WCO, quanto custou com ele e de onde veio a diferença."
         actions={
           <>
             {s?.isDemoRates ? <DemoBadge /> : null}
@@ -49,7 +159,7 @@ export default function OverviewPage() {
       {error ? <ErrorBox error={error} /> : null}
       {loading && !data ? <Loading /> : null}
       {s && data ? (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {s.isDemoRates ? (
             <Notice tone="warning">
               Os custos usam o <strong>rate card DEMO</strong> (valores fictícios).{" "}
@@ -63,26 +173,81 @@ export default function OverviewPage() {
             </Notice>
           ) : null}
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Kpi label="Custo sem WCO (estimado)" value={money(s.costs.totalWithoutWco, c)} hint={`Meta ${money(s.costs.metaWithoutWco, c)} · BSP ${money(s.costs.bspWithoutWco, c)}`} />
-            <Kpi label="Custo com WCO" value={money(s.costs.totalWithWco, c)} hint={`Meta ${money(s.costs.metaWithWco, c)} · BSP ${money(s.costs.bsp, c)} · infra ${money(s.costs.infrastructure, c, 4)}`} />
-            <Kpi label="Economia estimada" tone="good" value={money(s.savings.estimated.total, c)} hint={`${pct(s.costs.savingsPercent)} do custo total · Meta ${money(s.savings.estimated.meta, c)}`} badge={<Badge tone="info">ESTIMADO</Badge>} />
-            <Kpi label="Economia realizada (Meta)" value={money(s.savings.realized.meta, c)} hint="Confirmada pelo objeto pricing dos webhooks da Meta" badge={<Badge tone="good">REALIZADO</Badge>} />
-          </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-            <Kpi label="Eventos processados" value={int(s.messages.processed)} />
-            <Kpi label="Mensagens enviadas" value={int(s.messages.sent)} hint={`${int(s.messages.delivered)} entregues · ${int(s.messages.failed)} falhas`} />
-            <Kpi label="Mensagens evitadas" value={int(s.messages.avoided)} hint={`${pct((s.messages.avoided / Math.max(1, s.messages.processed)) * 100)} dos eventos`} />
-            <Kpi label="Duplicadas bloqueadas" value={int(s.messages.deduplicated)} />
-            <Kpi label="Substituídas (supersession)" value={int(s.messages.superseded)} />
-            <Kpi label="Consolidadas" value={int(s.messages.consolidated)} hint={`em ${int(s.messages.consolidatedMessages)} mensagens-resumo`} />
-          </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Kpi label="Grátis por Free Entry Point" value={int(s.free.entryPoint)} />
-            <Kpi label="Grátis na janela de atendimento" value={int(s.free.customerServiceWindow)} />
-            <Kpi label="Cota gratuita usada" value={int(s.free.quota)} />
-            <Kpi label="Custo médio por entregue" value={money(Number(s.costs.metaWithWco) / Math.max(1, s.messages.delivered), c, 4)} hint={`${int(s.free.paid)} mensagens pagas`} />
-          </div>
+          <section className="grid grid-cols-1 items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+            <div className="rise space-y-7">
+              <div>
+                <p className="font-mono text-[11px] font-medium uppercase tracking-widest text-muted">Últimos {range} dias</p>
+                <p className="mt-2 font-display text-[clamp(30px,4.2vw,46px)] font-semibold leading-[1.1] tracking-tight text-ink">
+                  Você deixou de pagar{" "}
+                  <span className="figure whitespace-nowrap">
+                    <span className="marker">{money(headline ?? 0, c)}</span>
+                  </span>
+                </p>
+                <ul className="mt-4 space-y-1.5 text-sm text-ink-2">
+                  <li className="flex flex-wrap items-center gap-2">
+                    <ConfidenceBadge value="ESTIMATED" />
+                    <span>pela conta do WCO, comparando com cada evento virando uma mensagem</span>
+                  </li>
+                  <li className="flex flex-wrap items-center gap-2">
+                    <ConfidenceBadge value="REALIZED" />
+                    <span>
+                      <span className="figure font-medium text-ink">{money(s.savings.realized.meta, c)}</span> já confirmados pela Meta nas entregas
+                    </span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                <div className="rounded-2xl border border-dashed border-rule p-4">
+                  <p className="text-xs font-medium text-ink-2">Custo sem WCO (estimado)</p>
+                  <p className="figure struck mt-1.5 text-[26px] font-medium">{money(s.costs.totalWithoutWco, c)}</p>
+                  <p className="mt-1 text-[11px] text-muted">
+                    Meta {money(s.costs.metaWithoutWco, c)} · BSP {money(s.costs.bspWithoutWco, c)}
+                  </p>
+                </div>
+                <ArrowRight className="hidden size-5 self-center text-muted sm:block" aria-hidden />
+                <div className="rounded-2xl border border-line bg-surface p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-ink-2">Custo com WCO</p>
+                    {s.costs.savingsPercent ? <Badge tone="neutral">−{pct(s.costs.savingsPercent)}</Badge> : null}
+                  </div>
+                  <p className="figure mt-1.5 text-[26px] font-semibold text-ink">{money(s.costs.totalWithWco, c)}</p>
+                  <p className="mt-1 text-[11px] text-muted">
+                    Meta {money(s.costs.metaWithWco, c)} · BSP {money(s.costs.bsp, c)} · infra {money(s.costs.infrastructure, c, 4)}
+                  </p>
+                </div>
+              </div>
+
+              <EventFlow s={s} />
+            </div>
+            <Statement s={s} />
+          </section>
+
+          <Card padded={false}>
+            <div className="grid grid-cols-1 divide-y divide-dashed divide-[var(--rule)] sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 xl:divide-x">
+              <StatGroup title="Movimento">
+                <Stat label="Eventos recebidos" value={int(s.messages.processed)} />
+                <Stat label="Mensagens enviadas" value={int(s.messages.sent)} />
+                <Stat label="Entregues" value={int(s.messages.delivered)} />
+                <Stat label="Falhas" value={int(s.messages.failed)} />
+              </StatGroup>
+              <StatGroup title="Evitadas">
+                <Stat label="Total evitado" value={int(s.messages.avoided)} hint={`${pct((s.messages.avoided / Math.max(1, s.messages.processed)) * 100)} dos eventos`} />
+                <Stat label="Duplicadas barradas" value={int(s.messages.deduplicated)} />
+                <Stat label="Substituídas" value={int(s.messages.superseded)} />
+                <Stat label="Consolidadas" value={int(s.messages.consolidated)} hint={`em ${int(s.messages.consolidatedMessages)} mensagens-resumo`} />
+              </StatGroup>
+              <StatGroup title="Enviadas sem custo">
+                <Stat label="Anúncio (Free Entry Point)" value={int(s.free.entryPoint)} />
+                <Stat label="Janela de atendimento" value={int(s.free.customerServiceWindow)} />
+                <Stat label="Cota grátis do mês" value={int(s.free.quota)} />
+              </StatGroup>
+              <StatGroup title="Pagas">
+                <Stat label="Mensagens pagas" value={int(s.free.paid)} />
+                <Stat label="Custo médio por entregue" value={money(Number(s.costs.metaWithWco) / Math.max(1, s.messages.delivered), c, 4)} />
+              </StatGroup>
+            </div>
+          </Card>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <LineCard
@@ -114,28 +279,16 @@ export default function OverviewPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <BarCard
-              title="Economia estimada por mecanismo"
-              subtitle="Custo Meta evitado, atribuído ao mecanismo que o gerou"
-              layout="horizontal"
-              rows={Object.entries(s.savings.byMechanism)
-                .map(([k, v]) => ({ mechanism: MECHANISM[k] ?? k, savings: Number(v) }))
-                .sort((a, b) => b.savings - a.savings)}
-              xKey="mechanism"
-              xLabel="Mecanismo"
-              series={[{ key: "savings", label: "Economia" }]}
-              format={m}
-            />
+          <div>
             <Card title="Oportunidades e recomendações" subtitle={data.insights.disclaimer}>
               {data.insights.anomaly.anomalous ? (
                 <div className="mb-4">
                   <Notice tone="warning">{data.insights.anomaly.message}</Notice>
                 </div>
               ) : null}
-              <ul className="space-y-3">
+              <ul className="grid grid-cols-1 gap-x-8 gap-y-3 lg:grid-cols-2">
                 {data.insights.recommendations.map((r) => (
-                  <li key={r.id} className="rounded-lg border border-line p-3">
+                  <li key={r.id} className="rounded-xl border border-dashed border-rule p-3 lg:col-span-2">
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-sm font-medium text-ink">{r.title}</p>
                       <Badge tone="info">{r.label === "ESTIMATED" ? "ESTIMADO" : r.label}</Badge>
@@ -147,7 +300,7 @@ export default function OverviewPage() {
                   </li>
                 ))}
                 {data.insights.opportunities.map((o) => (
-                  <li key={o.type} className="flex items-start justify-between gap-3 border-b border-line pb-2 text-sm last:border-0">
+                  <li key={o.type} className="flex items-start justify-between gap-3 border-b border-dashed border-line pb-2 text-sm">
                     <div>
                       <p className="text-ink">{o.title}</p>
                       <p className="text-xs text-muted">{o.note}</p>
@@ -161,7 +314,7 @@ export default function OverviewPage() {
           </div>
           <section id="economia" className="scroll-mt-20 space-y-4 pt-2">
             <div>
-              <h2 className="text-lg font-semibold text-ink">Onde a economia acontece</h2>
+              <h2 className="font-display text-[22px] font-semibold tracking-tight text-ink">Onde a economia acontece</h2>
               <p className="text-sm text-ink-2">Por categoria, tipo de evento, janela gratuita e tier. Estimado = decisão do WCO; realizado = confirmado pelos webhooks da Meta.</p>
             </div>
             <OptimizationDetails data={data} />

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Brand } from "@/components/brand";
+import { AuthFrame } from "@/components/brand";
 import { Button, Field, Input } from "@/components/ui";
 
 const ERRORS: Record<number, string> = {
@@ -50,14 +50,8 @@ export function SignupForm({ termsUrl, privacyUrl }: { termsUrl: string | null; 
   };
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <Brand />
-        <form onSubmit={submit} className="space-y-4 rounded-xl border border-line bg-surface p-6">
-          <div>
-            <h2 className="text-base font-semibold text-ink">Criar conta</h2>
-            <p className="mt-1 text-sm text-muted">Plano Free, sem cartão. Depois você conecta o WhatsApp da sua empresa.</p>
-          </div>
+    <AuthFrame title="Criar conta" lead="Plano Free, sem cartão. Depois você conecta o WhatsApp da sua empresa.">
+        <form onSubmit={submit} className="space-y-4">
           <Field label="Nome da empresa">
             <Input autoComplete="organization" required minLength={2} maxLength={120} value={f.companyName} onChange={(e) => setF({ ...f, companyName: e.target.value })} />
           </Field>
@@ -81,17 +75,16 @@ export function SignupForm({ termsUrl, privacyUrl }: { termsUrl: string | null; 
               {error}
             </p>
           ) : null}
-          <Button type="submit" variant="primary" className="w-full" loading={busy}>
+          <Button type="submit" variant="primary" className="h-11 w-full" loading={busy}>
             Criar conta
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-muted">
+        <p className="perf-t mt-6 pt-5 text-sm text-ink-2">
           Já tem conta?{" "}
-          <Link href="/login" className="font-medium text-accent hover:underline">
+          <Link href="/login" className="font-semibold text-accent underline-offset-4 hover:underline">
             Entrar
           </Link>
         </p>
-      </div>
-    </main>
+    </AuthFrame>
   );
 }

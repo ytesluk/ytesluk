@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use } from "react";
 import { ArrowLeft } from "lucide-react";
-import { Badge, Card, ConfidenceBadge, ErrorBox, KeyValue, Loading, PageHeader, StatusBadge, Table } from "@/components/ui";
+import { Badge, Card, ConfidenceBadge, ErrorBox, KeyValue, Loading, PageHeader, ReceiptLine, StatusBadge, Table } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { STATUS_LABEL, dateTime, money, reason } from "@/lib/format";
 
@@ -36,7 +36,7 @@ function Why({ title, items }: { title: string; items: string[] | null | undefin
   if (!items?.length) return null;
   return (
     <div>
-      <p className="text-xs font-semibold text-ink-2">{title}</p>
+      <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-muted">{title}</p>
       <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-ink">
         {items.map((i, k) => (
           <li key={k}>{reason(i)}</li>
@@ -88,33 +88,36 @@ export default function MessageAuditPage({ params }: { params: Promise<{ id: str
               </div>
               <p className="mt-3 text-[11px] text-muted">A categoria final de cada template é determinada pela Meta.</p>
             </Card>
-            <Card title="Custo">
-              <KeyValue
-                cols={1}
-                items={[
-                  ["Sem WCO (estimado)", money(i.baselineCost, c, 4)],
-                  ["Estimado pelo WCO", money(i.estimatedCost, c, 4)],
-                  ["Realizado", i.realizedCost !== null ? money(i.realizedCost, c, 4) : "—"],
-                  ["Confiança", <ConfidenceBadge key="c" value={i.realizedConfidence} />],
-                ]}
-              />
-              {data.savings.length ? (
-                <div className="mt-4 space-y-2">
-                  <p className="text-xs font-semibold text-ink-2">Economia registrada</p>
-                  {data.savings.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="text-ink-2">
-                        {s.kind} · {s.mechanism}
-                      </span>
-                      <span className="flex items-center gap-2">
-                        <span className="tabular">{money(s.savings, s.currency, 4)}</span>
-                        <ConfidenceBadge value={s.confidence} />
-                      </span>
-                    </div>
-                  ))}
+            <div className="receipt-slot self-start">
+              <section className="receipt px-5 pt-5" aria-label="Recibo desta mensagem">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-muted">Recibo desta mensagem</p>
+                <h2 className="perf-b pb-3 pt-1 font-display text-lg font-semibold tracking-tight text-ink">Custo</h2>
+                <div className="perf-b py-2.5">
+                  <ReceiptLine label="Sem WCO (estimado)" value={<span className={Number(i.baselineCost) > Number(i.realizedCost ?? i.estimatedCost ?? 0) ? "struck" : undefined}>{money(i.baselineCost, c, 4)}</span>} />
+                  <ReceiptLine label="Estimado pelo WCO" value={money(i.estimatedCost, c, 4)} />
+                  <ReceiptLine strong label={<span className="inline-flex flex-wrap items-center gap-1.5">Realizado <ConfidenceBadge value={i.realizedConfidence} /></span>} value={i.realizedCost !== null ? money(i.realizedCost, c, 4) : "—"} />
                 </div>
-              ) : null}
-            </Card>
+                {data.savings.length ? (
+                  <div className="pt-2.5">
+                    <p className="pb-1 font-mono text-[10px] uppercase tracking-widest text-muted">Economia registrada</p>
+                    {data.savings.map((s) => (
+                      <ReceiptLine
+                        key={s.id}
+                        highlight={s.kind === "META" && Number(s.savings) > 0}
+                        label={
+                          <span className="inline-flex flex-wrap items-center gap-1.5">
+                            {s.kind} · {s.mechanism} <ConfidenceBadge value={s.confidence} />
+                          </span>
+                        }
+                        value={money(s.savings, s.currency, 4)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="pt-2.5 text-[12px] text-muted">Nenhuma economia registrada para esta mensagem.</p>
+                )}
+              </section>
+            </div>
           </div>
 
           <Card title="Intent">

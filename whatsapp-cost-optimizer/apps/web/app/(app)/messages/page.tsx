@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button, Card, ConfidenceBadge, ErrorBox, Field, Input, Loading, Notice, PageHeader, Select, StatusBadge, Table, Textarea } from "@/components/ui";
+import { Button, Card, ConfidenceBadge, ErrorBox, Field, Input, Loading, Notice, PageHeader, PriceTag, Select, StatusBadge, Table, Textarea } from "@/components/ui";
 import { ApiError, api, useApi } from "@/lib/api";
 import { STATUS_LABEL, dateTime, money, reason } from "@/lib/format";
 import type { IntentRow } from "@/lib/types";
@@ -118,7 +118,7 @@ export default function MessagesPage() {
 
   return (
     <>
-      <PageHeader title="Mensagens" description="Cada evento recebido, a decisão do WCO e o custo estimado e realizado. Clique em uma linha para a auditoria completa." />
+      <PageHeader title="Mensagens" description="Cada evento recebido, o que o WCO decidiu e quanto custou. O valor riscado é o que a mensagem custaria sem o WCO. Clique no evento para ver a auditoria completa." />
       <div className="space-y-6">
         <NewIntent onCreated={reload} />
         <Card
@@ -155,19 +155,44 @@ export default function MessagesPage() {
                 key: "e",
                 header: "Evento",
                 render: (r) => (
-                  <Link href={`/messages/${r.id}`} className="hover:underline">
-                    <code className="text-xs">{r.eventType}</code>
-                    {r.entityId ? <span className="ml-1 text-xs text-muted">· {r.entityId}</span> : null}
+                  <Link href={`/messages/${r.id}`} className="block max-w-[230px] hover:underline">
+                    <code className="text-xs font-medium">{r.eventType}</code>
+                    {r.entityId ? (
+                      <span className="block truncate text-[11px] text-muted" title={r.entityId}>
+                        {r.entityId}
+                      </span>
+                    ) : null}
                   </Link>
                 ),
               },
               { key: "c", header: "Cliente", render: (r) => <span className="font-mono text-xs">{r.customer}</span> },
               { key: "s", header: "Status", render: (r) => <StatusBadge status={r.status} label={STATUS_LABEL[r.status]} /> },
-              { key: "d", header: "Decisão", render: (r) => <span className="text-xs text-ink-2">{r.decisionAction ? `${r.decisionAction} — ${reason((r.decisionReason ?? "").split(",")[0] ?? "")}` : "—"}</span> },
-              { key: "cat", header: "Categoria", render: (r) => <span className="text-xs">{r.category ?? "—"}</span> },
-              { key: "est", header: "Estimado", align: "right", render: (r) => money(r.estimatedCost, r.currency ?? "BRL", 4) },
-              { key: "real", header: "Realizado", align: "right", render: (r) => (r.realizedCost !== null ? money(r.realizedCost, r.currency ?? "BRL", 4) : "—") },
-              { key: "conf", header: "", render: (r) => <ConfidenceBadge value={r.realizedConfidence} /> },
+              {
+                key: "d",
+                header: "Decisão",
+                render: (r) => (
+                  <span className="block max-w-[260px] text-xs text-ink-2">
+                    {r.decisionAction ? `${r.decisionAction} — ${reason((r.decisionReason ?? "").split(",")[0] ?? "")}` : "—"}
+                    {r.category ? <span className="block font-mono text-[10px] uppercase tracking-wide text-muted">{r.category}</span> : null}
+                  </span>
+                ),
+              },
+              {
+                key: "cost",
+                header: "Custo: sem WCO → com WCO",
+                align: "right",
+                render: (r) => {
+                  const cur = r.currency ?? "BRL";
+                  const final = r.realizedCost ?? r.estimatedCost;
+                  const cheaper = r.baselineCost !== null && Number(r.baselineCost) > Number(final ?? 0);
+                  return (
+                    <span className="flex flex-col items-end gap-1">
+                      <PriceTag from={cheaper ? money(r.baselineCost, cur, 4) : null} to={money(final, cur, 4)} />
+                      {r.realizedConfidence ? <ConfidenceBadge value={r.realizedConfidence} /> : null}
+                    </span>
+                  );
+                },
+              },
             ]}
           />
           {cursor ? (

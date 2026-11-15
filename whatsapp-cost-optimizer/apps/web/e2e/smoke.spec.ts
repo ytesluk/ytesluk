@@ -37,7 +37,7 @@ test("owner sees overview KPIs, DEMO label and charts with table view", async ({
 test("company users don't see the operator's internal tools; the optimization breakdown is on the overview", async ({ page }) => {
   await login(page, "owner@loja-demo.wco.dev");
   const nav = page.getByRole("navigation", { name: "Navegação principal" }).first();
-  await expect(nav.getByRole("link").first()).toHaveText("Caixa de entrada");
+  await expect(nav.getByRole("link").first()).toHaveText("Visão geral");
   for (const name of ["Preços", "Políticas", "Simular economia", "Experimento A–F", "Observabilidade", "Otimização"]) {
     await expect(nav.getByRole("link", { name })).toHaveCount(0);
   }

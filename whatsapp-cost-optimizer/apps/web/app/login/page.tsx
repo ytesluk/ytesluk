@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Brand } from "@/components/brand";
+import { AuthFrame } from "@/components/brand";
 import { Button, Field, Input, Notice } from "@/components/ui";
 
 export default function LoginPage() {
@@ -36,34 +36,31 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="grid min-h-screen place-items-center px-4">
-      <div className="w-full max-w-sm">
-        <Brand />
-        <form onSubmit={submit} className="space-y-4 rounded-xl border border-line bg-surface p-6">
-          {expired ? <Notice tone="warning">Sua sessão expirou. Entre novamente.</Notice> : null}
-          <Field label="E-mail">
-            <Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </Field>
-          <Field label="Senha">
-            <Input type="password" autoComplete="current-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
-          </Field>
-          {error ? (
-            <p role="alert" className="text-sm text-critical">
-              {error}
-            </p>
-          ) : null}
-          <Button type="submit" variant="primary" className="w-full" loading={busy}>
-            Entrar
-          </Button>
-        </form>
-        <p className="mt-4 text-center text-sm text-muted">
-          Ainda não tem conta?{" "}
-          <Link href="/signup" className="font-medium text-accent hover:underline">
-            Criar conta grátis
-          </Link>
-        </p>
-        <p className="mt-2 text-center text-[11px] text-muted">Ambiente de desenvolvimento: usuários de demonstração são criados por <code>pnpm db:seed</code>.</p>
-      </div>
-    </main>
+    <AuthFrame title="Entrar" lead="Acompanhe o custo do WhatsApp da sua empresa e o que deixou de ser pago.">
+      <form onSubmit={submit} className="space-y-4">
+        {expired ? <Notice tone="warning">Sua sessão expirou. Entre novamente.</Notice> : null}
+        <Field label="E-mail">
+          <Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        </Field>
+        <Field label="Senha">
+          <Input type="password" autoComplete="current-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+        </Field>
+        {error ? (
+          <p role="alert" className="text-sm text-critical">
+            {error}
+          </p>
+        ) : null}
+        <Button type="submit" variant="primary" className="h-11 w-full" loading={busy}>
+          Entrar
+        </Button>
+      </form>
+      <p className="perf-t mt-6 pt-5 text-sm text-ink-2">
+        Ainda não tem conta?{" "}
+        <Link href="/signup" className="font-semibold text-accent underline-offset-4 hover:underline">
+          Criar conta grátis
+        </Link>
+      </p>
+      <p className="mt-2 text-[11px] text-muted">Ambiente de desenvolvimento: usuários de demonstração são criados por <code>pnpm db:seed</code>.</p>
+    </AuthFrame>
   );
 }

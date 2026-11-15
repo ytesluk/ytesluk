@@ -15,6 +15,26 @@ interface Conversation {
   entryPoints: Array<{ id: string; type: string; source: string | null; userMessageAt: string; firstBusinessReplyAt: string | null; freeWindowStartedAt: string | null; freeWindowExpiresAt: string | null; open: boolean; eligibility: string; verificationStatus: string }>;
 }
 
+const ELIGIBILITY: Record<string, string> = { OPEN: "grátis agora", ELIGIBLE_PENDING_REPLY: "aguardando 1ª resposta", EXPIRED: "expirada", NOT_ELIGIBLE: "não elegível" };
+
+/** Time left in an open window, as a draining bar: how long free-form replies are still possible. */
+function WindowLeft({ expiresAt, hours }: { expiresAt: string | null; hours: number }) {
+  if (!expiresAt) return <Badge tone="good">ABERTA</Badge>;
+  const left = Math.max(0, new Date(expiresAt).getTime() - Date.now());
+  const h = Math.floor(left / 3_600_000);
+  const min = Math.floor((left % 3_600_000) / 60_000);
+  return (
+    <div className="min-w-[150px]" title={`Fecha em ${dateTime(expiresAt)}`}>
+      <p className="text-xs text-ink">
+        <span className="font-semibold">Aberta</span> · fecha em <span className="figure">{h > 0 ? `${h}h${String(min).padStart(2, "0")}` : `${min}min`}</span>
+      </p>
+      <div className="mt-1.5 h-1.5 rounded-full bg-surface-2" aria-hidden>
+        <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, (left / (hours * 3_600_000)) * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
 const EP: Record<string, string> = { CLICK_TO_WHATSAPP_AD: "Anúncio Click-to-WhatsApp", FACEBOOK_PAGE_CTA: "CTA da Página", ORGANIC: "Orgânica", UNKNOWN: "Desconhecida" };
 
 function SimulateInbound({ onDone }: { onDone: () => void }) {
@@ -100,9 +120,7 @@ export default function ConversationsPage() {
                   header: "Janela de atendimento",
                   render: (r) =>
                     r.customerServiceWindow.open ? (
-                      <span className="text-xs">
-                        <Badge tone="good">ABERTA</Badge> até {dateTime(r.customerServiceWindow.expiresAt)}
-                      </span>
+                      <WindowLeft expiresAt={r.customerServiceWindow.expiresAt} hours={r.customerServiceWindow.windowHours} />
                     ) : (
                       <Badge>FECHADA</Badge>
                     ),
@@ -115,7 +133,7 @@ export default function ConversationsPage() {
                       <div className="space-y-1">
                         {r.entryPoints.map((e) => (
                           <div key={e.id} className="text-xs">
-                            <Badge tone={e.open ? "good" : "neutral"}>{e.eligibility}</Badge> {EP[e.type] ?? e.type}
+                            <Badge tone={e.open ? "good" : "neutral"}>{e.eligibility === "OPEN" && !e.open ? "encerrada" : (ELIGIBILITY[e.eligibility] ?? e.eligibility)}</Badge> {EP[e.type] ?? e.type}
                             {e.freeWindowExpiresAt ? <span className="text-muted"> · até {dateTime(e.freeWindowExpiresAt)}</span> : null}
                             <span className="ml-1">
                               <Badge tone={e.verificationStatus === "CONFIRMED" ? "good" : e.verificationStatus === "REJECTED" ? "critical" : "info"}>{e.verificationStatus === "CONFIRMED" ? "confirmada pela Meta" : e.verificationStatus === "REJECTED" ? "rejeitada pela Meta" : "aguardando confirmação"}</Badge>
