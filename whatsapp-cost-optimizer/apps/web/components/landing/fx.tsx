@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { calmMotion, useCalmMotion } from "./motion";
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
-const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
  * A card that leans toward the mouse, in perspective, with a soft light following the pointer.
@@ -14,7 +14,7 @@ export function Tilt({ children, className, max = 7 }: { children: React.ReactNo
   const ref = useRef<HTMLDivElement>(null);
   const move = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = ref.current;
-    if (!el || e.pointerType !== "mouse" || reduced()) return;
+    if (!el || e.pointerType !== "mouse" || calmMotion()) return;
     const r = el.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width;
     const y = (e.clientY - r.top) / r.height;
@@ -42,10 +42,11 @@ export function Tilt({ children, className, max = 7 }: { children: React.ReactNo
  */
 export function ScrollStage({ children, className }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const calm = useCalmMotion();
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (reduced()) {
+    if (calm) {
       el.style.setProperty("--p", "1");
       return;
     }
@@ -68,7 +69,7 @@ export function ScrollStage({ children, className }: { children: React.ReactNode
       window.removeEventListener("resize", on);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [calm]);
   return (
     <div ref={ref} className={`stage3d ${className ?? ""}`}>
       {children}
@@ -81,9 +82,10 @@ export function ScrollStage({ children, className }: { children: React.ReactNode
  * (pointer, -1 to 1) on the target element; each layer moves by its own distance.
  */
 export function Parallax({ targetId }: { targetId: string }) {
+  const calm = useCalmMotion();
   useEffect(() => {
     const el = document.getElementById(targetId);
-    if (!el || reduced()) return;
+    if (!el || calm) return;
     let raf = 0;
     let mx = 0;
     let shown = 0;
@@ -109,6 +111,6 @@ export function Parallax({ targetId }: { targetId: string }) {
       window.removeEventListener("pointermove", onPointer);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [targetId]);
+  }, [targetId, calm]);
   return null;
 }

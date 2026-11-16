@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { SceneHandle } from "./hero-scene";
+import { frameWatch } from "./quality";
 import { studioEnvironment } from "./studio";
 import { SLIP_ASPECT, fontsReady, paperNormal, rng, slipAtlas } from "./textures";
 
@@ -14,11 +15,16 @@ const FAR_Z = -8.5;
  * from side to side, sliding as it tilts, slowly turning. Each one is a curled sheet of thermal
  * paper with a real print, lit by the same studio as the hero, fading with distance. Moving the
  * pointer through them pushes them aside. Three draw calls, rendered only while on screen.
+ *
+ * In the calm version (system set to reduce motion) they do not fall on their own: they come down
+ * as the page is scrolled, still give way to the pointer, and the scene rests in between.
  */
-export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean; small: boolean }): Promise<SceneHandle> {
+export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean }): Promise<SceneHandle> {
   await fontsReady();
+  let calm = opts.calm;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  let ratio = Math.min(window.devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(ratio);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.1;
 
@@ -98,6 +104,14 @@ export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { reduce
   let time = 0;
   let last = 0;
   let scroll = 0;
+  let busy = false;
+  // Slow devices: sharpness first, then resolution.
+  const watch = frameWatch(() => {
+    ratio = ratio > 1 ? 1 : 0.66;
+    renderer.setPixelRatio(ratio);
+    fit();
+    return ratio > 0.66;
+  });
 
   function fit() {
     const w = Math.max(1, canvas.clientWidth);
@@ -112,18 +126,24 @@ export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { reduce
 
   function draw() {
     const now = performance.now();
-    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    const raw = Math.max(0, (now - last) / 1000);
+    const dt = Math.min(0.05, raw);
     last = now;
-    if (!opts.reducedMotion) time += dt;
+    watch(raw);
+    // Calm version: the sheets do not fall on their own, the page's scroll brings them down instead.
+    if (!calm) time += dt;
+    const drift = calm ? scroll * 3.2 : scroll * 0.3;
+    const sway = calm ? scroll * 5 : 0;
     const span = halfH * 2 + 2.4;
     const blowing = ptr.moved > 0.02;
     if (blowing) {
       ndc.set(ptr.x, ptr.y);
       raycaster.setFromCamera(ndc, camera);
     }
+    busy = blowing;
     slips.forEach((s, i) => {
-      const fallen = (s.y + time * s.fall + scroll * 0.3) % 1;
-      const rock = time * s.rock + s.phase;
+      const fallen = (s.y + time * s.fall + drift * (calm ? s.fall * 10 : 1)) % 1;
+      const rock = (time + sway) * s.rock + s.phase;
       // Falling-leaf motion: it slides toward the side it is tilted to, and drops faster when edge-on.
       const tilt = Math.sin(rock) * 0.95;
       const depthScale = (10 - s.z) / (10 - FAR_Z);
@@ -144,9 +164,10 @@ export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { reduce
       s.vy *= 0.93;
       s.ox = (s.ox + s.vx * dt) * 0.992;
       s.oy = (s.oy + s.vy * dt) * 0.992;
+      if (Math.abs(s.vx) + Math.abs(s.vy) > 0.02 || Math.abs(s.ox) + Math.abs(s.oy) > 0.01) busy = true;
       dummy.position.set(here.x + s.ox, here.y + s.oy, here.z);
       const kick = Math.hypot(s.vx, s.vy);
-      dummy.rotation.set(1.15 + Math.sin(rock * 0.5 + s.phase) * 0.35 + s.lean + kick * 0.25, s.yaw + time * 0.12 * (s.lean > 0 ? 1 : -1) + kick * 0.4, tilt * 0.75);
+      dummy.rotation.set(1.15 + Math.sin(rock * 0.5 + s.phase) * 0.35 + s.lean + kick * 0.25, s.yaw + (time + sway) * 0.12 * (s.lean > 0 ? 1 : -1) + kick * 0.4, tilt * 0.75);
       dummy.scale.setScalar(s.scale);
       dummy.updateMatrix();
       meshes[i % meshes.length]!.setMatrixAt(Math.floor(i / meshes.length), dummy.matrix);
@@ -160,21 +181,24 @@ export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { reduce
     raf = 0;
     if (!active || disposed) return;
     draw();
-    if (!opts.reducedMotion) raf = requestAnimationFrame(loop);
+    // The calm version only keeps drawing while sheets pushed by the pointer are still settling.
+    if (!calm || busy) raf = requestAnimationFrame(loop);
   }
   const kick = () => {
-    if (active && !raf) raf = requestAnimationFrame(loop);
+    if (!active || raf) return;
+    last = performance.now(); // the time spent at rest is not a frame
+    raf = requestAnimationFrame(loop);
   };
 
   fit();
 
   return {
     pointerMove(x, y) {
-      if (opts.reducedMotion) return false;
       if (Math.abs(x) < 1.3 && Math.abs(y) < 1.3 && Math.abs(ptr.x) < 5) {
         ptr.dx = x - ptr.x;
         ptr.dy = y - ptr.y;
         ptr.moved = Math.min(0.5, ptr.moved + Math.hypot(ptr.dx, ptr.dy));
+        kick();
       }
       ptr.x = x;
       ptr.y = y;
@@ -190,10 +214,11 @@ export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { reduce
     setActive(on) {
       if (on === active) return;
       active = on;
-      if (on) {
-        last = performance.now();
-        kick();
-      }
+      if (on) kick();
+    },
+    setCalm(on) {
+      calm = on;
+      kick();
     },
     resize() {
       fit();

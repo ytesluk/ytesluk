@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, CornerDownRight, RotateCcw, Zap } from "lucide-react";
 import { cx } from "@/components/ui";
+import { useCalmMotion } from "./motion";
 
 type Verdict = "hold" | "replaced" | "duplicate" | "joined" | "now";
 
@@ -74,6 +75,7 @@ export function Demo() {
   const [shown, setShown] = useState(0);
   const [run, setRun] = useState(0);
   const [inView, setInView] = useState(false);
+  const calm = useCalmMotion();
   const ref = useRef<HTMLDivElement>(null);
   const sc = SCENARIOS[active]!;
   const done = shown > sc.steps.length;
@@ -89,7 +91,7 @@ export function Demo() {
   useEffect(() => {
     if (!inView) return;
     const total = SCENARIOS[active]!.steps.length + 1;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (calm) {
       setShown(total);
       return;
     }
@@ -101,7 +103,7 @@ export function Demo() {
       if (n >= total) clearInterval(t);
     }, STEP_MS);
     return () => clearInterval(t);
-  }, [active, run, inView]);
+  }, [active, run, inView, calm]);
 
   const avoided = sc.steps.length - sc.delivered.length;
 

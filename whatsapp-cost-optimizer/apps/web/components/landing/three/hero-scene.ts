@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { PaperSim, STEP, paperGeometry, type Gust, type SlotFrame } from "./paper";
 import { SLOT, buildPrinter } from "./printer";
+import { frameWatch } from "./quality";
 import { studioEnvironment } from "./studio";
 import { RECEIPTS, RECEIPT_ASPECT, RECEIPT_TOTAL_AT, fontsReady, ghostBubbleTexture, paperNormal, receiptTextures } from "./textures";
 
@@ -17,6 +18,8 @@ export interface SceneHandle {
   setFocus(f: number): void;
   /** Rendering only runs while the scene is on screen. */
   setActive(on: boolean): void;
+  /** Calm version: nothing moves on its own or follows the pointer; what the visitor does on purpose still answers. */
+  setCalm(on: boolean): void;
   resize(): void;
   dispose(): void;
 }
@@ -55,12 +58,18 @@ const PITCH = 0.34;
  * pointer passes, and tears off when the feed key is pressed, after which a new statement prints.
  * The machine turns toward the pointer, can be dragged around with inertia, and the camera moves
  * in on the highlighted total when the page asks for the close-up.
+ *
+ * In the calm version (system set to reduce motion) the scene is just as physical, but it only
+ * moves when the visitor acts on it: drag, click, scroll. It does not sway, follow the pointer or
+ * blink, and it stops drawing once everything has come to rest.
  */
-export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean; small: boolean }): Promise<SceneHandle> {
+export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean }): Promise<SceneHandle> {
   await fontsReady();
+  let calm = opts.calm;
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  let ratio = Math.min(window.devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(ratio);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -174,30 +183,37 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
   let time = 0;
   let last = 0;
   let acc = 0;
+  /** Calm version: the scene keeps drawing until this moment, then rests until something happens. */
+  let wake = 0;
   let baseDist = 10;
   const camPos = new THREE.Vector3();
   const camLook = new THREE.Vector3();
   const total = new THREE.Vector3();
 
-  // Slow devices: after the first print, if most frames miss ~30 fps, give up sharpness first and
-  // soft shadows second. It never steps back up.
-  let quality = 2;
-  let measured = 0;
-  let slow = 0;
-  function stepDown() {
+  // Slow devices give up picture quality for speed, one step at a time, and never step back up:
+  // first sharpness and shadow detail, then the shadows, then resolution.
+  let quality = 3;
+  const watch = frameWatch(() => {
     quality -= 1;
-    if (quality === 1) {
-      renderer.setPixelRatio(1);
-      fit();
-    } else {
+    if (quality === 2) {
+      ratio = Math.min(ratio, 1);
+      key.shadow.mapSize.set(1024, 1024);
+      key.shadow.map?.dispose();
+      key.shadow.map = null;
+    } else if (quality === 1) {
       renderer.shadowMap.enabled = false;
       key.castShadow = false;
       scene.traverse((o) => {
         const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
         for (const mat of Array.isArray(m) ? m : m ? [m] : []) mat.needsUpdate = true;
       });
+    } else {
+      ratio = 0.66;
     }
-  }
+    renderer.setPixelRatio(ratio);
+    fit();
+    return quality > 0;
+  });
 
   function fit() {
     const w = Math.max(1, canvas.clientWidth);
@@ -218,7 +234,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
   /** Feed key: tears the statement off and prints the next one. */
   function feed() {
     pressed = 1;
-    if (phase !== "idle" || opts.reducedMotion) return;
+    if (phase !== "idle") return;
     phase = "tearing";
     tearT = 0;
     frontMat.transparent = true;
@@ -250,16 +266,10 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
     const dt = Math.max(0, (now - last) / 1000);
     const step = Math.min(0.05, dt);
     last = now;
-    if (!opts.reducedMotion) time += step;
-    if (quality > 0 && !opts.reducedMotion && time > 5) {
-      measured += 1;
-      if (dt > 0.034) slow += 1;
-      if (measured >= 90) {
-        if (slow > 60) stepDown();
-        measured = 0;
-        slow = 0;
-      }
-    }
+    time += step;
+    if (time > 1.2) watch(dt);
+    /** 1 when the scene may move on its own, 0 in the calm version. */
+    const ambient = calm ? 0 : 1;
 
     // --- pose: base angle, the pointer it turns toward, the user's drag, the page's scroll -----
     focusNow += (focus - focusNow) * 0.09;
@@ -290,14 +300,28 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
     rig.rotation.y += (yawT - rig.rotation.y) * ease;
     rig.rotation.x += (pitchT - rig.rotation.x) * ease;
     rig.rotation.z = -ptr.x * 0.03 * follow;
-    rig.position.set(HOME.x + ptr.x * 0.14 * follow - f * HOME.x, HOME.y + ptr.y * 0.07 * follow + Math.sin(time * 0.7) * 0.02 + scroll * 0.25 * (1 - f), HOME.z);
+    rig.position.set(HOME.x + ptr.x * 0.14 * follow - f * HOME.x, HOME.y + ptr.y * 0.07 * follow + Math.sin(time * 0.7) * 0.02 * ambient + scroll * 0.25 * (1 - f), HOME.z);
     readSlot();
+    // Anything still on its way somewhere keeps the calm version drawing; the paper then needs a moment to come to rest.
+    if (
+      phase !== "idle" ||
+      drag.on ||
+      pressed > 0.01 ||
+      Math.abs(drag.vy) > 0.0004 ||
+      Math.abs(drag.yaw) > 0.002 ||
+      Math.abs(drag.pitch) > 0.002 ||
+      Math.abs(focus - focusNow) > 0.002 ||
+      Math.abs(yawT - rig.rotation.y) > 0.002 ||
+      Math.abs(pitchT - rig.rotation.x) > 0.002 ||
+      gust.push.lengthSq() > 0.5
+    )
+      wake = time + 2.5;
 
     // --- printing, resting, tearing off ---------------------------------------------------------
     pressed *= 0.86;
     printer.press(pressed);
-    if (phase === "printing") printer.setPower(Math.sin(time * 34) > 0 ? 1 : 0.35);
-    else if (phase === "idle") printer.setPower(0.86 + Math.sin(time * 1.6) * 0.14);
+    if (phase === "printing") printer.setPower(calm || Math.sin(time * 34) > 0 ? 1 : 0.35);
+    else if (phase === "idle") printer.setPower(0.86 + Math.sin(time * 1.6) * 0.14 * ambient);
     else printer.setPower(0.3);
     if (phase === "tearing") {
       tearT += step;
@@ -308,21 +332,20 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
     }
 
     // --- physics --------------------------------------------------------------------------------
-    if (!opts.reducedMotion) {
-      acc = Math.min(acc + step, STEP * 3);
-      while (acc >= STEP) {
-        acc -= STEP;
-        if (phase === "printing") {
-          sim.fed = Math.min(PAPER_L, sim.fed + PRINT_SPEED * STEP);
-          if (sim.fed >= PAPER_L) phase = "idle";
-        }
-        const blowing = gust.push.lengthSq() > 0.5;
-        sim.step(slot, inv, rig.matrixWorld, printer.half, blowing ? gust : null, time);
-        gust.push.multiplyScalar(0.84);
+    sim.breeze = ambient;
+    acc = Math.min(acc + step, STEP * 3);
+    while (acc >= STEP) {
+      acc -= STEP;
+      if (phase === "printing") {
+        sim.fed = Math.min(PAPER_L, sim.fed + PRINT_SPEED * STEP);
+        if (sim.fed >= PAPER_L) phase = "idle";
       }
-      paperGeo.attributes.position!.needsUpdate = true;
-      paperGeo.computeVertexNormals();
+      const blowing = gust.push.lengthSq() > 0.5;
+      sim.step(slot, inv, rig.matrixWorld, printer.half, blowing ? gust : null, time);
+      gust.push.multiplyScalar(0.84);
     }
+    paperGeo.attributes.position!.needsUpdate = true;
+    paperGeo.computeVertexNormals();
 
     // --- camera: the whole machine, or in close on the highlighted total ------------------------
     const row = Math.round(TOTAL_AT * ROWS);
@@ -335,13 +358,13 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
     camera.lookAt(camLook);
 
     for (const g of ghosts) {
-      const k = opts.reducedMotion ? 1 : backOut((time - g.delay) / 0.7);
+      const k = calm ? 1 : backOut((time - g.delay) / 0.7);
       g.mesh.visible = k > 0.001 && f < 0.98;
       g.mat.opacity = 1 - f;
       g.mesh.scale.setScalar(Math.max(0.0001, k) * g.scale);
       const depth = 1 + g.base.z * 0.6;
-      g.mesh.position.set(HOME.x + g.base.x + ptr.x * 0.34 * depth, g.base.y + Math.sin(time * 0.8 + g.phase) * 0.08 + ptr.y * 0.16 * depth + scroll * (0.7 + g.base.z * 0.5), g.base.z);
-      g.mesh.rotation.set(Math.sin(time * 0.6 + g.phase) * 0.05 - ptr.y * 0.1, g.turn + ptr.x * 0.3 + Math.sin(time * 0.5 + g.phase) * 0.06, Math.sin(time * 0.7 + g.phase * 2) * 0.03);
+      g.mesh.position.set(HOME.x + g.base.x + ptr.x * 0.34 * depth, g.base.y + Math.sin(time * 0.8 + g.phase) * 0.08 * ambient + ptr.y * 0.16 * depth + scroll * (0.7 + g.base.z * 0.5), g.base.z);
+      g.mesh.rotation.set(Math.sin(time * 0.6 + g.phase) * 0.05 * ambient - ptr.y * 0.1, g.turn + ptr.x * 0.3 + Math.sin(time * 0.5 + g.phase) * 0.06 * ambient, Math.sin(time * 0.7 + g.phase * 2) * 0.03 * ambient);
     }
     renderer.render(scene, camera);
   }
@@ -350,26 +373,20 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
     raf = 0;
     if (!active || disposed) return;
     draw();
-    if (!opts.reducedMotion) raf = requestAnimationFrame(loop);
+    if (!calm || time < wake) raf = requestAnimationFrame(loop);
   }
   const kick = () => {
-    if (active && !raf) raf = requestAnimationFrame(loop);
+    if (!active || raf) return;
+    last = performance.now(); // the time spent at rest is not a frame
+    raf = requestAnimationFrame(loop);
   };
 
   fit();
   readSlot();
-  if (opts.reducedMotion) {
-    sim.settle(slot, inv, rig.matrixWorld, printer.half);
-    paperGeo.attributes.position!.needsUpdate = true;
-    paperGeo.computeVertexNormals();
-    phase = "idle";
-  } else {
-    sim.reset(slot);
-  }
+  sim.reset(slot);
 
   return {
     pointerMove(x, y) {
-      if (opts.reducedMotion) return false;
       const dx = x - ptr.px;
       const dy = y - ptr.py;
       ptr.px = x;
@@ -381,11 +398,12 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
         drag.pitch = clamp(drag.pitch + drag.vp, -0.6, 0.7);
         drag.lx = x;
         drag.ly = y;
+        kick();
         return true;
       }
       // It turns toward the pointer, but never so far that the statement stops being readable.
-      ptr.tx = clamp(x, -1.25, 1.25);
-      ptr.ty = clamp(y, -1.25, 1.25);
+      ptr.tx = calm ? 0 : clamp(x, -1.25, 1.25);
+      ptr.ty = calm ? 0 : clamp(y, -1.25, 1.25);
       // The pointer is a hand passing by: it drags air along with it and pushes the paper back.
       if (Math.abs(x) < 1.2 && Math.abs(y) < 1.2) {
         ndc.set(x, y);
@@ -400,16 +418,18 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
           .multiplyScalar(clamp(dx, -0.35, 0.35) * 520)
           .addScaledVector(camUp, clamp(dy, -0.35, 0.35) * 520)
           .addScaledVector(gust.dir, speed * 300);
+        if (gust.push.lengthSq() > 0.5) kick();
       }
       return overMachine(x, y);
     },
     pointerDown(x, y) {
-      if (opts.reducedMotion || !overMachine(x, y)) return false;
+      if (!overMachine(x, y)) return false;
       drag.on = true;
       drag.lx = x;
       drag.ly = y;
       drag.vy = 0;
       drag.vp = 0;
+      kick();
       return true;
     },
     pointerUp(click) {
@@ -420,6 +440,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
         drag.vp = 0;
         feed();
       }
+      kick();
     },
     setScroll(p) {
       scroll = p;
@@ -433,12 +454,22 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { reduced
       if (on === active) return;
       active = on;
       if (on) {
-        last = performance.now();
+        wake = time + 2.5;
         kick();
       }
     },
+    setCalm(on) {
+      calm = on;
+      if (on) {
+        ptr.tx = 0;
+        ptr.ty = 0;
+      }
+      wake = time + 2.5;
+      kick();
+    },
     resize() {
       fit();
+      wake = Math.max(wake, time + 0.2);
       kick();
     },
     dispose() {

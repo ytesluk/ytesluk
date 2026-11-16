@@ -243,7 +243,7 @@ export default async function LandingPage() {
           {/* A thermal printer rendered like a product photo, printing the statement (WebGL, loaded on demand).
               On large screens the stage stays pinned while the left column scrolls on to the close-up. */}
           <div className="relative [touch-action:pan-y]">
-            <div className="relative h-[430px] sm:h-[560px] lg:sticky lg:top-[70px] lg:h-[600px]">
+            <div className="hero-pin relative h-[430px] sm:h-[560px]">
               <div className="hero-stage">
                 <Scene3D
                   kind="hero"

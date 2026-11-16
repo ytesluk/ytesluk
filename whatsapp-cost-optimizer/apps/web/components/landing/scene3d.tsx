@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { calmMotion, setFullMotion, useCalmMotion, useSystemReducesMotion } from "./motion";
 import type { SceneHandle } from "./three/hero-scene";
 
 type Kind = "hero" | "slips";
@@ -20,7 +21,8 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 /**
  * Mounts one of the WebGL scenes on a canvas that fills its parent. three.js is loaded on demand
  * (it is not part of the page's first load), the scene only renders while it is on screen, and
- * visitors without WebGL get `fallback` instead. With "reduce motion" the scene is a still image.
+ * visitors without WebGL get `fallback` instead. On a system set to reduce motion the scene runs
+ * in its calm version, and the hint offers to turn every animation on (see `motion.ts`).
  *
  * The canvas itself never takes pointer events (the page under its transparent parts stays
  * clickable): the pointer is followed on the window and handed to the scene, which says whether it
@@ -29,8 +31,15 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
  */
 export function Scene3D({ kind, className, fallback, label, hint, focusId }: { kind: Kind; className?: string; fallback?: React.ReactNode; label?: string; hint?: string; focusId?: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const live = useRef<SceneHandle | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "unsupported">("loading");
   const [touched, setTouched] = useState(false);
+  const calm = useCalmMotion();
+  const systemReduces = useSystemReducesMotion();
+
+  useEffect(() => {
+    live.current?.setCalm(calm);
+  }, [calm]);
 
   useEffect(() => {
     const el = canvas.current;
@@ -46,7 +55,6 @@ export function Scene3D({ kind, className, fallback, label, hint, focusId }: { k
     let travel = 0;
     let lastX = 0;
     let lastY = 0;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const small = window.matchMedia("(max-width: 767px)").matches;
     const root = document.documentElement;
 
@@ -121,13 +129,15 @@ export function Scene3D({ kind, className, fallback, label, hint, focusId }: { k
       try {
         const h =
           kind === "hero"
-            ? await (await import("./three/hero-scene")).createHeroScene(el, { reducedMotion, small })
-            : await (await import("./three/slips-scene")).createSlipsScene(el, { reducedMotion, small });
+            ? await (await import("./three/hero-scene")).createHeroScene(el, { calm: calmMotion(), small })
+            : await (await import("./three/slips-scene")).createSlipsScene(el, { calm: calmMotion(), small });
         if (cancelled) {
           h.dispose();
           return;
         }
         handle = h;
+        live.current = h;
+        h.setCalm(calmMotion()); // the choice may have changed while the scene was loading
         io.observe(el);
         ro.observe(el);
         window.addEventListener("pointermove", onMove, { passive: true });
@@ -152,6 +162,7 @@ export function Scene3D({ kind, className, fallback, label, hint, focusId }: { k
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("scroll", onScroll);
       root.style.cursor = "";
+      live.current = null;
       handle?.dispose();
     };
   }, [kind, focusId]);
@@ -161,9 +172,19 @@ export function Scene3D({ kind, className, fallback, label, hint, focusId }: { k
     <>
       <canvas ref={canvas} role="img" aria-label={label} className={className} style={{ opacity: state === "ready" ? 1 : 0, transition: "opacity 500ms ease" }} />
       {hint && state === "ready" ? (
-        <p className="scene-hint" style={{ opacity: touched ? 0 : 1 }} aria-hidden>
-          {hint}
-        </p>
+        <div className="scene-notes">
+          <p className="scene-hint" style={{ opacity: touched ? 0 : 1 }} aria-hidden>
+            {hint}
+          </p>
+          {systemReduces ? (
+            <p className="scene-motion">
+              {calm ? "Animações reduzidas pelo seu sistema" : "Todas as animações ligadas"}
+              <button type="button" onClick={() => setFullMotion(calm)}>
+                {calm ? "Ligar todas" : "Reduzir"}
+              </button>
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </>
   );

@@ -218,6 +218,13 @@ body {
     animation: rise 420ms ease-out both;
   }
 }
+/* The system asks for less motion, but the visitor turned every animation on (product page). */
+html[data-motion="full"] .receipt-print {
+  animation: print 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+html[data-motion="full"] .rise {
+  animation: rise 420ms ease-out both;
+}
 
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -283,6 +290,12 @@ html {
     animation: pop 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 }
+html[data-motion="full"] .pop {
+  animation: pop 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+html[data-motion="full"] {
+  scroll-behavior: smooth;
+}
 
 /* ---- Depth on the product page ---------------------------------------------------------- */
 /* The WebGL stage of the hero: fills its column on small screens; on large ones it bleeds to the
@@ -293,24 +306,39 @@ html {
   pointer-events: none;
 }
 @media (min-width: 1024px) {
+  /* Pinned just under the menu, and exactly as tall as the stage: it lets go when the close-up text ends. */
+  .hero-pin {
+    position: sticky;
+    top: 122px;
+    height: calc(min(800px, 100svh - 96px) - 52px);
+  }
   .hero-stage {
     inset: auto;
     top: -52px;
     left: -110px;
     right: calc(-1 * max(0px, (100vw - 1180px) / 2) - 32px);
     height: min(800px, calc(100svh - 96px));
-    /* The close-up fills the stage: its left and bottom edges dissolve instead of cutting the picture. */
+  }
+  /* The close-up fills the stage: its left and bottom edges dissolve instead of cutting the picture. */
+  .hero-stage > canvas {
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 11%), linear-gradient(0deg, transparent, #000 9%);
     mask-image: linear-gradient(90deg, transparent, #000 11%), linear-gradient(0deg, transparent, #000 9%);
     -webkit-mask-composite: source-in;
     mask-composite: intersect;
   }
 }
-/* How to play with the machine; fades once it has been touched. */
-.scene-hint {
+/* Notes under the machine, bottom right of the stage. */
+.scene-notes {
   position: absolute;
   right: 7%;
   bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+/* How to play with the machine; fades once it has been touched. */
+.scene-hint {
   white-space: nowrap;
   border: 1px dashed rgba(244, 241, 230, 0.32);
   border-radius: 999px;
@@ -323,6 +351,30 @@ html {
   background: rgba(12, 23, 18, 0.55);
   backdrop-filter: blur(6px);
   transition: opacity 600ms ease;
+}
+/* Shown only on systems set to reduce motion: says so, and lets the visitor turn everything on. */
+.scene-motion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 999px;
+  padding: 4px 4px 4px 13px;
+  font-size: 12.5px;
+  color: #dfe5dc;
+  background: rgba(12, 23, 18, 0.82);
+  border: 1px solid rgba(244, 241, 230, 0.2);
+  pointer-events: auto;
+}
+.scene-motion button {
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-weight: 600;
+  color: #14201b;
+  background: #dcf45b;
+  cursor: pointer;
+}
+.scene-motion button:hover {
+  background: #e7fa7c;
 }
 
 /* A card that leans toward the pointer. */

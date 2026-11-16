@@ -50,6 +50,8 @@ export class PaperSim {
   fed = 0;
   /** Torn off: nothing holds the sheet any more. */
   detached = false;
+  /** Strength of the light draught that keeps the sheet from being perfectly still (0 = none). */
+  breeze = 1;
 
   constructor(width: number, length: number, rows: number, cols: number) {
     this.rows = rows;
@@ -100,24 +102,6 @@ export class PaperSim {
     this.fed = 0;
     this.detached = false;
     this.hold(slot, true);
-  }
-
-  /** The whole sheet already out and hanging (used when motion is reduced: no printing animation). */
-  settle(slot: SlotFrame, inv: THREE.Matrix4, mat: THREE.Matrix4, half: THREE.Vector3) {
-    this.fed = this.length;
-    this.detached = false;
-    for (let r = 0; r <= this.rows; r++) {
-      const d = this.length - r * this.ds;
-      for (let k = 0; k <= this.cols; k++) {
-        const i = this.index(r, k) * 3;
-        const x = (k / this.cols - 0.5) * this.width;
-        this.pos[i] = slot.origin.x + slot.right.x * x + slot.exit.x * Math.min(d, 0.25);
-        this.pos[i + 1] = slot.origin.y + slot.right.y * x - Math.max(0, d - 0.25);
-        this.pos[i + 2] = slot.origin.z + slot.right.z * x + slot.exit.z * Math.min(d, 0.25);
-      }
-    }
-    this.prev.set(this.pos);
-    for (let n = 0; n < 240; n++) this.step(slot, inv, mat, half, null, n * STEP);
   }
 
   /** Lets go of the sheet and gives it a first shove. */
@@ -194,7 +178,7 @@ export class PaperSim {
         nx = ay * tz - az * ty;
         ny = az * tx - ax * tz;
         nz = ax * ty - ay * tx;
-        const len = Math.hypot(nx, ny, nz) || 1;
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
         const k = (15 * (1 - r / curlRows) ** 2) / len;
         nx *= k;
         ny *= k;
@@ -202,7 +186,7 @@ export class PaperSim {
       }
       const along = r / rows;
       // A light draught, so the sheet is never perfectly still.
-      const breeze = (1 - along) * (Math.sin(time * 1.1 + r * 0.21) * 0.55 + Math.sin(time * 2.3 + r * 0.4) * 0.25);
+      const breeze = this.breeze * (1 - along) * (Math.sin(time * 1.1 + r * 0.21) * 0.55 + Math.sin(time * 2.3 + r * 0.4) * 0.25);
       for (let k = 0; k <= cols; k++) {
         const n = this.index(r, k);
         if (held[n]) continue;
@@ -221,7 +205,7 @@ export class PaperSim {
           const dx = ox - gust.dir.x * t;
           const dy = oy - gust.dir.y * t;
           const dz = oz - gust.dir.z * t;
-          const dist = Math.hypot(dx, dy, dz);
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
           if (dist < gust.radius) {
             const f = (1 - dist / gust.radius) ** 2;
             ax += gust.push.x * f;
@@ -253,7 +237,7 @@ export class PaperSim {
         const dx = (pos[j] as number) - (pos[i] as number);
         const dy = (pos[j + 1] as number) - (pos[i + 1] as number);
         const dz = (pos[j + 2] as number) - (pos[i + 2] as number);
-        const dist = Math.hypot(dx, dy, dz) || 1e-6;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-6;
         const corr = (((dist - (rest[c] as number)) / dist) * (stiff[c] as number)) / (wa + wb);
         if (wa) {
           pos[i] = (pos[i] as number) + dx * corr;
