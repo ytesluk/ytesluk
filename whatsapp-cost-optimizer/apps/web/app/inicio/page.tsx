@@ -197,8 +197,8 @@ export default async function LandingPage() {
       </div>
 
       {/* Hero */}
-      <header className="theme-ink relative -mt-[70px] overflow-hidden pt-[70px]" style={{ background: `linear-gradient(180deg, ${INK} 0%, #0f241c 62%, #153427 100%)` }}>
-        <div className={`${wrap} relative z-10 grid grid-cols-1 items-start gap-10 pb-[clamp(130px,16vw,215px)] pt-10 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(380px,470px)]`}>
+      <header className="theme-ink relative -mt-[70px] overflow-clip pt-[70px]" style={{ background: `linear-gradient(180deg, ${INK} 0%, #0f241c 62%, #153427 100%)` }}>
+        <div className={`${wrap} relative z-10 grid grid-cols-1 items-start gap-10 pb-[clamp(130px,16vw,215px)] pt-10 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(380px,470px)] lg:items-stretch`}>
           <div>
             <p className={`${eyebrow} text-[#dcf45b]`}>Custo de WhatsApp sob controle</p>
             <h1 className="mt-5 font-display text-[clamp(36px,5.1vw,62px)] font-semibold leading-[1.13] tracking-[-0.025em] text-ink">
@@ -230,22 +230,36 @@ export default async function LandingPage() {
                 </span>
               </Link>
             </div>
+
+            <div id="hero-closeup" className="hidden pb-[24vh] pt-[44vh] lg:block">
+              <p className={`${eyebrow} text-[#dcf45b]`}>De perto</p>
+              <h2 className="mt-4 max-w-[520px] font-display text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.1] tracking-tight text-ink">A prova sai impressa, linha por linha.</h2>
+              <p className="mt-5 max-w-[500px] text-[17px] leading-relaxed text-ink-2">
+                O extrato mostra o que cada decisão evitou e destaca o total. A conta do WCO aparece como estimado; o que a Meta já confirmou, como realizado. Os dois nunca são somados.
+              </p>
+              <p className="mt-6 font-mono text-[11px] uppercase tracking-wider text-muted">Gire a impressora com o mouse. Clique nela para imprimir outro extrato.</p>
+            </div>
           </div>
-          {/* The logo come to life: a 3D machine printing the statement (WebGL, loaded on demand). */}
-          <div className="relative h-[390px] sm:h-[520px] lg:h-[600px]">
-            <div className="hero-stage">
-              <Scene3D
-                kind="hero"
-                className="block h-full w-full"
-                label="Ilustração em 3D: uma pequena impressora verde imprime o extrato do que o WCO evitou; ao redor, uma mensagem entregue e três que não precisaram ser enviadas."
-                fallback={
-                  <div className="flex h-full items-start justify-center pt-10 lg:pl-24">
-                    <div className="w-full max-w-[360px] rotate-[2.2deg]">
-                      <SampleStatement />
+          {/* A thermal printer rendered like a product photo, printing the statement (WebGL, loaded on demand).
+              On large screens the stage stays pinned while the left column scrolls on to the close-up. */}
+          <div className="relative [touch-action:pan-y]">
+            <div className="relative h-[430px] sm:h-[560px] lg:sticky lg:top-[70px] lg:h-[600px]">
+              <div className="hero-stage">
+                <Scene3D
+                  kind="hero"
+                  focusId="hero-closeup"
+                  className="block h-full w-full"
+                  label="Cena em 3D: uma impressora térmica verde imprime o extrato do que o WCO evitou, com o total destacado em marca-texto. Ao redor, os contornos das mensagens que não precisaram ser enviadas."
+                  hint="Arraste para girar · clique para imprimir outro"
+                  fallback={
+                    <div className="flex h-full items-start justify-center pt-10 lg:pl-24">
+                      <div className="w-full max-w-[360px] rotate-[2.2deg]">
+                        <SampleStatement />
+                      </div>
                     </div>
-                  </div>
-                }
-              />
+                  }
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -37,9 +37,11 @@ continua respondendo os clientes no próprio WhatsApp (ou na ferramenta de atend
 cuida das mensagens automáticas e do custo, e não guarda o texto das conversas.
 
 **Página de apresentação:** quem não está logado vê a landing page do produto em `/` (demonstração
-interativa, calculadora e planos); quem está logado cai direto no painel. Ela tem elementos em 3D
-(three.js, carregado sob demanda): a impressora que imprime o extrato no topo e os recibos caindo no
-fechamento. Sem WebGL aparece a versão estática; com "reduzir movimento" ativado a cena fica parada.
+interativa, calculadora e planos); quem está logado cai direto no painel. Ela tem cenas em 3D
+(three.js, carregado sob demanda): no topo, uma impressora térmica com materiais fotorrealistas imprime
+o extrato em papel com física (dá para girar arrastando, e clicar imprime outro; ao rolar, a câmera
+aproxima do total); no fechamento, extratos caem como papel de verdade. Sem WebGL aparece a versão
+estática; com "reduzir movimento" ativado as cenas ficam paradas.
 
 **Como SaaS:** cada empresa cria a conta em `/signup` (plano Free), conecta o próprio WhatsApp pelo
 fluxo oficial da Meta (Embedded Signup — requer que o operador seja Tech Provider) e acompanha
