@@ -1,13 +1,23 @@
 import { cx } from "./ui";
 
-/** Product mark: a statement slip with a torn edge and one highlighted line (the money not spent). */
+/**
+ * Product mark: a statement printing out of a slot, with its total highlighted. Fixed brand colors
+ * (it is a badge, so it reads the same on light and dark surfaces).
+ */
 export function Mark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <path d="M8.5 3h15A2.5 2.5 0 0 1 26 5.5V29l-3.3-2.6-3.4 2.6-3.3-2.6-3.3 2.6-3.4-2.6L6 29V5.5A2.5 2.5 0 0 1 8.5 3z" fill="var(--accent)" />
-      <rect x="10" y="8" width="12" height="2" rx="1" fill="var(--accent-ink)" opacity=".55" />
-      <rect x="10" y="12.5" width="8" height="2" rx="1" fill="var(--accent-ink)" opacity=".55" />
-      <rect x="9.5" y="17" width="13" height="4.5" rx="1.4" fill="var(--marker)" />
+    <svg viewBox="0 0 48 48" className={className} aria-hidden>
+      <rect width="48" height="48" rx="12" fill="#0e5a45" />
+      <path d="M12.5 13h23v25.6l-2.3-2.3-2.3 2.3-2.3-2.3-2.3 2.3-2.3-2.3-2.3 2.3-2.3-2.3-2.3 2.3-2.3-2.3-2.3 2.3z" fill="#fffdf6" />
+      <path d="M12.5 13h23v3.4h-23z" fill="#14201b" opacity=".14" />
+      <rect x="8" y="10.4" width="32" height="3.6" rx="1.8" fill="#062a20" />
+      <rect x="16" y="18.6" width="9.5" height="1.9" rx=".95" fill="#14201b" opacity=".8" />
+      <rect x="28.5" y="18.6" width="3.5" height="1.9" rx=".95" fill="#14201b" opacity=".8" />
+      <rect x="16" y="22.6" width="6.5" height="1.9" rx=".95" fill="#14201b" opacity=".45" />
+      <rect x="27" y="22.6" width="5" height="1.9" rx=".95" fill="#14201b" opacity=".45" />
+      <path d="M16 27.3h16" stroke="#14201b" strokeOpacity=".5" strokeWidth="1" strokeDasharray="1.6 1.4" />
+      <rect x="15.2" y="29.6" width="17.6" height="5" rx="1.5" fill="#dcf45b" />
+      <rect x="24.6" y="31.15" width="6.4" height="1.9" rx=".95" fill="#14201b" />
     </svg>
   );
 }
@@ -15,7 +25,7 @@ export function Mark({ className }: { className?: string }) {
 export function Wordmark({ compact }: { compact?: boolean }) {
   return (
     <span className="flex items-center gap-2.5">
-      <Mark className={compact ? "size-8" : "size-10"} />
+      <Mark className={compact ? "size-9" : "size-11"} />
       <span className="leading-none">
         <span className={cx("block font-display font-bold tracking-tight text-ink", compact ? "text-[19px]" : "text-2xl")}>WCO</span>
         <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-muted">WhatsApp Cost Optimizer</span>
