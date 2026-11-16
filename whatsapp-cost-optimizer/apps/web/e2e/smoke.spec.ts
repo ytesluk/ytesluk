@@ -12,8 +12,13 @@ async function login(page: Page, email: string) {
   await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
-test("redirects anonymous users to login", async ({ page }) => {
+test("anonymous visitors see the product page at / and are sent to login from the dashboard", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Pare de pagar por mensagem");
+  await expect(page.getByRole("link", { name: "Criar conta grátis" }).first()).toBeVisible();
+  await page.getByRole("tab", { name: "Código de verificação" }).click();
+  await expect(page.getByText("urgente: sai na hora")).toBeVisible();
+  await page.goto("/messages");
   await expect(page).toHaveURL(/\/login/);
 });
 

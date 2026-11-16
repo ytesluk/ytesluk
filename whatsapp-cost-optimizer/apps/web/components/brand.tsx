@@ -1,4 +1,4 @@
-import { cx } from "./ui";
+const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(" ");
 
 /**
  * Product mark: a statement printing out of a slot, with its total highlighted. Fixed brand colors
@@ -37,9 +37,9 @@ export function Wordmark({ compact }: { compact?: boolean }) {
 /** Product mark used on the public pages (login, signup). */
 export function Brand() {
   return (
-    <div className="mb-7">
+    <a href="/inicio" className="mb-7 inline-block" aria-label="WCO, página inicial">
       <Wordmark />
-    </div>
+    </a>
   );
 }
 

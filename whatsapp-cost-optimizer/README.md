@@ -36,6 +36,9 @@ tentados de novo; e os webhooks da Meta são copiados para o CRM do cliente. Tud
 continua respondendo os clientes no próprio WhatsApp (ou na ferramenta de atendimento que já usa); o WCO
 cuida das mensagens automáticas e do custo, e não guarda o texto das conversas.
 
+**Página de apresentação:** quem não está logado vê a landing page do produto em `/` (demonstração
+interativa, calculadora e planos); quem está logado cai direto no painel.
+
 **Como SaaS:** cada empresa cria a conta em `/signup` (plano Free), conecta o próprio WhatsApp pelo
 fluxo oficial da Meta (Embedded Signup — requer que o operador seja Tech Provider) e acompanha
 consumo e faturas em **Plano e uso**. As mensagens continuam cobradas pela Meta diretamente do cliente.
