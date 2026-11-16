@@ -4,9 +4,11 @@ import { ArrowRight, BellOff, Copy, FileSearch, Layers, RefreshCw, ShieldCheck, 
 import { Wordmark } from "@/components/brand";
 import { Calculator } from "@/components/landing/calculator";
 import { Demo } from "@/components/landing/demo";
+import { Parallax, ScrollStage, Tilt } from "@/components/landing/fx";
 import { HeroArt, TornEdge } from "@/components/landing/hero-art";
 import painel from "@/components/landing/painel.jpg";
 import { PLANS } from "@/components/landing/plans";
+import { Scene3D } from "@/components/landing/scene3d";
 import { int, money } from "@/lib/format";
 import { sessionToken } from "@/lib/server";
 
@@ -90,6 +92,36 @@ const FAQ = [
   },
 ];
 
+/**
+ * Regions of the dashboard screenshot (left, top, width, height as fractions of the image) that
+ * float in front of it on large screens. Measured on the page when the screenshot was taken.
+ */
+const PANEL_PIECES: Array<{ box: readonly [number, number, number, number]; z: number }> = [
+  { box: [0.6824, 0.2936, 0.2941, 0.5875], z: 78 },
+  { box: [0.2176, 0.3221, 0.4353, 0.12], z: 44 },
+  { box: [0.0118, 0.7991, 0.1699, 0.173], z: 58 },
+];
+
+function PanelPiece({ box, z }: { box: readonly [number, number, number, number]; z: number }) {
+  const [l, t, w, h] = box;
+  return (
+    <div
+      aria-hidden
+      className="float-z hidden lg:block"
+      style={{
+        left: `${l * 100}%`,
+        top: `${t * 100}%`,
+        width: `${w * 100}%`,
+        height: `${h * 100}%`,
+        backgroundImage: `url(${painel.src})`,
+        backgroundSize: `${100 / w}% ${100 / h}%`,
+        backgroundPosition: `${(l / (1 - w)) * 100}% ${(t / (1 - h)) * 100}%`,
+        ["--z" as string]: `${z}px`,
+      }}
+    />
+  );
+}
+
 function SampleStatement() {
   const rows: Array<[string, string]> = [
     ["Duplicadas barradas", "R$ 148,20"],
@@ -166,10 +198,10 @@ export default async function LandingPage() {
 
       {/* Hero */}
       <header className="theme-ink relative -mt-[70px] overflow-hidden pt-[70px]" style={{ background: `linear-gradient(180deg, ${INK} 0%, #0f241c 62%, #153427 100%)` }}>
-        <div className={`${wrap} relative z-10 grid grid-cols-1 items-start gap-10 pb-[clamp(130px,16vw,215px)] pt-10 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_360px]`}>
+        <div className={`${wrap} relative z-10 grid grid-cols-1 items-start gap-10 pb-[clamp(130px,16vw,215px)] pt-10 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(380px,470px)]`}>
           <div>
             <p className={`${eyebrow} text-[#dcf45b]`}>Custo de WhatsApp sob controle</p>
-            <h1 className="mt-5 font-display text-[clamp(36px,5.5vw,66px)] font-semibold leading-[1.13] tracking-[-0.025em] text-ink">
+            <h1 className="mt-5 font-display text-[clamp(36px,5.1vw,62px)] font-semibold leading-[1.13] tracking-[-0.025em] text-ink">
               Pare de pagar por mensagem que <span className="marker">ninguém precisava receber.</span>
             </h1>
             <p className="mt-5 max-w-[600px] text-[17px] leading-relaxed text-ink-2 sm:text-[18px]">
@@ -180,30 +212,45 @@ export default async function LandingPage() {
 
             <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <a href="#demo" className="group rounded-2xl bg-[#dcf45b] p-4 text-[#14201b] transition hover:-translate-y-0.5">
-                <span className={`${eyebrow} block opacity-70`}>Quero ver funcionando</span>
+                <span className={`${eyebrow} block opacity-70`}>Ver funcionando</span>
                 <span className="mt-2 flex items-center justify-between gap-2 font-display text-[17px] font-semibold leading-tight">
                   Assistir à demonstração <ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
                 </span>
               </a>
               <a href="#calculadora" className="group rounded-2xl bg-[#fdfcf8] p-4 text-[#14201b] transition hover:-translate-y-0.5">
-                <span className={`${eyebrow} block text-[#0e5a45]`}>Quero fazer a conta</span>
+                <span className={`${eyebrow} block text-[#0e5a45]`}>Fazer a conta</span>
                 <span className="mt-2 flex items-center justify-between gap-2 font-display text-[17px] font-semibold leading-tight">
                   Calcular com meus números <ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
                 </span>
               </a>
               <Link href="/signup" className="group rounded-2xl bg-[#fdfcf8] p-4 text-[#14201b] transition hover:-translate-y-0.5">
-                <span className={`${eyebrow} block text-[#0e5a45]`}>Quero começar</span>
+                <span className={`${eyebrow} block text-[#0e5a45]`}>Começar agora</span>
                 <span className="mt-2 flex items-center justify-between gap-2 font-display text-[17px] font-semibold leading-tight">
                   Criar conta grátis <ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
                 </span>
               </Link>
             </div>
           </div>
-          <div className="hidden rotate-[2.2deg] pt-6 lg:block">
-            <SampleStatement />
+          {/* The logo come to life: a 3D machine printing the statement (WebGL, loaded on demand). */}
+          <div className="relative h-[390px] sm:h-[520px] lg:h-[600px]">
+            <div className="hero-stage">
+              <Scene3D
+                kind="hero"
+                className="block h-full w-full"
+                label="Ilustração em 3D: uma pequena impressora verde imprime o extrato do que o WCO evitou; ao redor, uma mensagem entregue e três que não precisaram ser enviadas."
+                fallback={
+                  <div className="flex h-full items-start justify-center pt-10 lg:pl-24">
+                    <div className="w-full max-w-[360px] rotate-[2.2deg]">
+                      <SampleStatement />
+                    </div>
+                  </div>
+                }
+              />
+            </div>
           </div>
         </div>
         <HeroArt className="pointer-events-none absolute inset-x-0 bottom-0 h-[clamp(190px,25vw,340px)] w-full" />
+        <Parallax targetId="hero-art" />
       </header>
 
       <main>
@@ -220,16 +267,18 @@ export default async function LandingPage() {
           </div>
           <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
             {SITUATIONS.map((s) => (
-              <article key={s.n} className="flex flex-col rounded-3xl border border-line bg-surface p-6">
+              <article key={s.n} className="flex">
+               <Tilt className="flex w-full flex-col rounded-3xl border border-line bg-surface p-6">
                 <p className={`${eyebrow} text-muted`}>Situação {s.n}</p>
                 <h3 className="mt-4 font-display text-[21px] font-semibold leading-snug tracking-tight text-ink">{s.title}</h3>
                 <p className="mt-3 flex-1 text-[15px] leading-relaxed text-ink-2">{s.body}</p>
-                <p className="perf-t mt-6 flex items-baseline justify-between gap-3 pt-4">
+                <p className="lift perf-t mt-6 flex items-baseline justify-between gap-3 pt-4">
                   <span className="text-xs text-muted">você pagou</span>
                   <span className="figure text-[15px]">
                     <span className="struck">{s.paid}</span> <span className="marker font-semibold">{s.needed}</span>
                   </span>
                 </p>
+               </Tilt>
               </article>
             ))}
           </div>
@@ -303,18 +352,28 @@ export default async function LandingPage() {
                   </ul>
                   <p className="mt-6 text-[15px] leading-relaxed text-ink">Os dois aparecem lado a lado e nunca são somados. Você sabe o que é projeção e o que já é fato.</p>
                 </div>
-                <figure>
-                  <div className="overflow-hidden rounded-2xl border border-line shadow-[0_40px_80px_-40px_rgba(0,0,0,.9)]">
-                    <div className="flex items-center gap-1.5 bg-[#1b2a23] px-4 py-2.5" aria-hidden>
-                      <span className="size-2.5 rounded-full bg-[#f4f1e6]/25" />
-                      <span className="size-2.5 rounded-full bg-[#f4f1e6]/25" />
-                      <span className="size-2.5 rounded-full bg-[#f4f1e6]/25" />
+                <ScrollStage>
+                  <figure>
+                    <div className="stage3d-inner relative">
+                      <div className="overflow-hidden rounded-2xl border border-line shadow-[0_50px_90px_-40px_rgba(0,0,0,.95)]">
+                        <div className="flex h-8 items-center gap-1.5 bg-[#1b2a23] px-4" aria-hidden>
+                          <span className="size-2.5 rounded-full bg-[#f4f1e6]/25" />
+                          <span className="size-2.5 rounded-full bg-[#f4f1e6]/25" />
+                          <span className="size-2.5 rounded-full bg-[#f4f1e6]/25" />
+                        </div>
+                        {/* Bundled static asset: served as-is, no image optimizer needed. */}
+                        <img src={painel.src} width={painel.width} height={painel.height} alt="Painel do WCO: a frase “Você deixou de pagar”, a comparação de custo sem e com o WCO e o extrato com cada linha do que foi evitado." loading="lazy" className="block h-auto w-full" />
+                      </div>
+                      {/* The same screen, taken apart: these pieces float in front of it. */}
+                      <div className="absolute inset-x-px bottom-px top-[33px] [transform-style:preserve-3d]">
+                        {PANEL_PIECES.map((piece) => (
+                          <PanelPiece key={piece.z} {...piece} />
+                        ))}
+                      </div>
                     </div>
-                    {/* Bundled static asset: served as-is, no image optimizer needed. */}
-                    <img src={painel.src} width={painel.width} height={painel.height} alt="Painel do WCO: a frase “Você deixou de pagar”, a comparação de custo sem e com o WCO e o extrato com cada linha do que foi evitado." loading="lazy" className="block h-auto w-full" />
-                  </div>
-                  <figcaption className="mt-3 font-mono text-[11px] uppercase tracking-wider text-muted">Tela real do painel, com dados de demonstração</figcaption>
-                </figure>
+                    <figcaption className="mt-6 font-mono text-[11px] uppercase tracking-wider text-muted">Tela real do painel, com dados de demonstração</figcaption>
+                  </figure>
+                </ScrollStage>
               </div>
             </div>
           </div>
@@ -359,7 +418,8 @@ export default async function LandingPage() {
           <h2 className={`${h2} mt-4 max-w-3xl`}>Comece de graça. Mude de plano quando o volume pedir.</h2>
           <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {PLANS.map((p) => (
-              <article key={p.code} className={`flex flex-col rounded-3xl border p-6 ${p.code === "FREE" ? "border-transparent bg-[#14201b] text-[#f4f1e6]" : "border-line bg-surface"}`}>
+              <article key={p.code} className="flex">
+               <Tilt max={5} className={`flex w-full flex-col rounded-3xl border p-6 ${p.code === "FREE" ? "border-transparent bg-[#14201b] text-[#f4f1e6]" : "border-line bg-surface"}`}>
                 <h3 className="font-display text-[20px] font-semibold tracking-tight">{p.name}</h3>
                 <p className="mt-4 flex items-baseline gap-1.5">
                   <span className={p.fee === null ? "font-display text-[26px] font-semibold leading-[30px]" : "figure text-[30px] font-semibold leading-none"}>{p.fee === null ? "Sob consulta" : p.fee === 0 ? "R$ 0" : money(p.fee, "BRL", 0)}</span>
@@ -374,14 +434,15 @@ export default async function LandingPage() {
                 </p>
                 <p className={`mt-2 flex-1 text-[14px] leading-relaxed ${p.code === "FREE" ? "opacity-80" : "text-ink-2"}`}>{p.blurb}</p>
                 {p.code === "FREE" ? (
-                  <Link href="/signup" className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-[#dcf45b] px-5 text-sm font-semibold text-[#14201b] hover:opacity-90">
+                  <Link href="/signup" className="lift mt-6 inline-flex h-11 items-center justify-center rounded-full bg-[#dcf45b] px-5 text-sm font-semibold text-[#14201b] hover:opacity-90">
                     Criar conta grátis
                   </Link>
                 ) : (
-                  <Link href="/signup" className="mt-6 inline-flex h-11 items-center justify-center rounded-full border border-rule px-5 text-sm font-semibold text-ink hover:bg-surface-2">
+                  <Link href="/signup" className="lift mt-6 inline-flex h-11 items-center justify-center rounded-full border border-rule bg-surface px-5 text-sm font-semibold text-ink hover:bg-surface-2">
                     Começar pelo Free
                   </Link>
                 )}
+               </Tilt>
               </article>
             ))}
           </div>
@@ -418,8 +479,11 @@ export default async function LandingPage() {
 
       {/* Closing call + footer */}
       <TornEdge color={INK} seed={33} className="block h-5 w-full sm:h-6" />
-      <footer className="theme-ink" style={{ background: INK }}>
-        <div className={`${wrap} py-16 sm:py-24`}>
+      <footer className="theme-ink relative overflow-hidden" style={{ background: INK }}>
+        <div className="slips-stage" aria-hidden>
+          <Scene3D kind="slips" className="block h-full w-full" />
+        </div>
+        <div className={`${wrap} relative py-16 sm:py-24`}>
           <h2 className="max-w-4xl font-display text-[clamp(32px,5vw,60px)] font-semibold leading-[1.14] tracking-[-0.02em] text-ink">
             Descubra quanto da sua conta de WhatsApp é <span className="marker">mensagem repetida.</span>
           </h2>

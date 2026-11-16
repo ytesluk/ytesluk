@@ -167,8 +167,8 @@ export function Demo() {
         </div>
 
         {/* The customer's phone: what actually arrives. */}
-        <div className="mx-auto w-full max-w-[300px]">
-          <div className="rounded-[34px] border-[7px] border-[#14201b] bg-[#e9e5d9] p-3 shadow-[0_30px_60px_-30px_rgba(20,32,27,.55)]">
+        <div className="phone-stage mx-auto w-full max-w-[300px] pt-2">
+          <div className="phone3d rounded-[34px] border-[7px] border-[#14201b] bg-[#e9e5d9] p-3">
             <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-[#14201b]/25" aria-hidden />
             <div className="flex items-center gap-2 rounded-2xl bg-[#fffefb] px-3 py-2">
               <span className="grid size-7 place-items-center rounded-full bg-accent font-display text-xs font-bold text-accent-ink">L</span>
@@ -177,14 +177,16 @@ export function Demo() {
                 <span className="block text-[10px] text-muted">conta comercial</span>
               </span>
             </div>
-            <div className="flex min-h-[210px] flex-col justify-end gap-2 px-1 pb-1 pt-4">
+            <div className="flex min-h-[210px] flex-col justify-end gap-2 px-1 pb-1 pt-4 [transform-style:preserve-3d]">
               {done ? (
                 sc.delivered.map((m, i) => (
-                  <div key={`${sc.key}-${run}-${i}`} className="pop max-w-[92%] rounded-2xl rounded-bl-md bg-[#fffefb] px-3 py-2 text-[13px] leading-snug text-ink shadow-sm">
-                    {m}
-                    <span className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted">
-                      agora <Check className="size-3" aria-hidden />
-                    </span>
+                  <div key={`${sc.key}-${run}-${i}`} className="lift max-w-[92%]">
+                    <div className="pop rounded-2xl rounded-bl-md bg-[#fffefb] px-3 py-2 text-[13px] leading-snug text-ink shadow-[0_14px_22px_-12px_rgba(20,32,27,.55)]">
+                      {m}
+                      <span className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted">
+                        agora <Check className="size-3" aria-hidden />
+                      </span>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -192,7 +194,7 @@ export function Demo() {
               )}
             </div>
           </div>
-          <p className="mt-4 text-center text-sm font-medium text-ink">{sc.lesson}</p>
+          <p className="mt-9 text-center text-sm font-medium text-ink">{sc.lesson}</p>
         </div>
       </div>
     </div>
