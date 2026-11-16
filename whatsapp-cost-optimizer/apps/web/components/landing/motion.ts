@@ -5,44 +5,42 @@ import { useSyncExternalStore } from "react";
 /**
  * How much the product page moves.
  *
- * A system set to "reduce motion" (on Windows: animation effects turned off, which many people do
- * only to make an old computer faster) gets the calm version: nothing moves on its own and nothing
- * follows the mouse, but everything the visitor does on purpose still answers: dragging the
- * printer, clicking it, scrolling. From there the visitor can turn every animation on for this
- * site, and back off again. The choice is kept in this browser.
+ * Everyone gets every animation, including visitors whose system is set to "reduce motion" (on
+ * Windows that is "animation effects" turned off, which many people do only to make an old
+ * computer faster): the 3D scenes are the product's shop window. Those visitors do get a discreet
+ * "Reduzir animações" switch in the footer. It turns on the calm version, where nothing moves on
+ * its own and nothing follows the mouse, but everything done on purpose still answers: dragging
+ * the printer, clicking it, scrolling. The choice is kept in this browser.
  */
 const KEY = "wco-motion";
 const QUERY = "(prefers-reduced-motion: reduce)";
 const listeners = new Set<() => void>();
-
-function optedIn(): boolean {
-  try {
-    return window.localStorage.getItem(KEY) === "full";
-  } catch {
-    return false;
-  }
-}
 
 /** The system asks for less motion. */
 export function systemReducesMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia(QUERY).matches;
 }
 
-/** The calm version is in effect: the system asks for less motion and the visitor has not chosen otherwise. */
+/** The calm version is in effect: the visitor asked for it on this site. */
 export function calmMotion(): boolean {
-  return systemReducesMotion() && !optedIn();
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(KEY) === "calm";
+  } catch {
+    return false;
+  }
 }
 
 function mark() {
-  // Lets the stylesheet play its own short animations once the visitor has asked for all of them.
-  if (systemReducesMotion() && optedIn()) document.documentElement.dataset.motion = "full";
+  // Lets the stylesheet play its animations on a system that asks for less motion.
+  if (systemReducesMotion() && !calmMotion()) document.documentElement.dataset.motion = "full";
   else delete document.documentElement.dataset.motion;
 }
 
-/** The visitor's own choice, on top of what the system says. */
-export function setFullMotion(on: boolean) {
+/** The visitor's own choice. */
+export function setCalmMotion(on: boolean) {
   try {
-    if (on) window.localStorage.setItem(KEY, "full");
+    if (on) window.localStorage.setItem(KEY, "calm");
     else window.localStorage.removeItem(KEY);
   } catch {
     // Storage is blocked: the choice cannot be kept, so there is nothing to switch.

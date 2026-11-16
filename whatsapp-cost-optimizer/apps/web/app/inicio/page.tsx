@@ -8,6 +8,7 @@ import { Parallax, ScrollStage, Tilt } from "@/components/landing/fx";
 import { HeroArt, TornEdge } from "@/components/landing/hero-art";
 import painel from "@/components/landing/painel.jpg";
 import { PLANS } from "@/components/landing/plans";
+import { MotionSwitch } from "@/components/landing/motion-switch";
 import { Scene3D } from "@/components/landing/scene3d";
 import { int, money } from "@/lib/format";
 import { sessionToken } from "@/lib/server";
@@ -522,6 +523,7 @@ export default async function LandingPage() {
               <a href="#duvidas" className="hover:text-ink">Dúvidas</a>
               {process.env.TERMS_URL ? <a href={process.env.TERMS_URL} className="hover:text-ink">Termos de uso</a> : null}
               {process.env.PRIVACY_URL ? <a href={process.env.PRIVACY_URL} className="hover:text-ink">Privacidade</a> : null}
+              <MotionSwitch className="cursor-pointer underline decoration-dotted underline-offset-4 hover:text-ink" />
             </nav>
           </div>
           <p className="mt-6 max-w-3xl text-xs leading-relaxed text-muted">WhatsApp é uma marca da Meta Platforms, Inc. O WCO é um produto independente, sem vínculo com a Meta, e envia mensagens exclusivamente pela API oficial (Cloud API).</p>

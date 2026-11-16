@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { calmMotion, setFullMotion, useCalmMotion, useSystemReducesMotion } from "./motion";
+import { calmMotion, useCalmMotion } from "./motion";
 import type { SceneHandle } from "./three/hero-scene";
 
 type Kind = "hero" | "slips";
@@ -21,8 +21,8 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 /**
  * Mounts one of the WebGL scenes on a canvas that fills its parent. three.js is loaded on demand
  * (it is not part of the page's first load), the scene only renders while it is on screen, and
- * visitors without WebGL get `fallback` instead. On a system set to reduce motion the scene runs
- * in its calm version, and the hint offers to turn every animation on (see `motion.ts`).
+ * visitors without WebGL get `fallback` instead. Visitors who chose the calm version (see
+ * `motion.ts`) get a scene that only moves when they act on it.
  *
  * The canvas itself never takes pointer events (the page under its transparent parts stays
  * clickable): the pointer is followed on the window and handed to the scene, which says whether it
@@ -35,7 +35,6 @@ export function Scene3D({ kind, className, fallback, label, hint, focusId }: { k
   const [state, setState] = useState<"loading" | "ready" | "unsupported">("loading");
   const [touched, setTouched] = useState(false);
   const calm = useCalmMotion();
-  const systemReduces = useSystemReducesMotion();
 
   useEffect(() => {
     live.current?.setCalm(calm);
@@ -172,19 +171,9 @@ export function Scene3D({ kind, className, fallback, label, hint, focusId }: { k
     <>
       <canvas ref={canvas} role="img" aria-label={label} className={className} style={{ opacity: state === "ready" ? 1 : 0, transition: "opacity 500ms ease" }} />
       {hint && state === "ready" ? (
-        <div className="scene-notes">
-          <p className="scene-hint" style={{ opacity: touched ? 0 : 1 }} aria-hidden>
-            {hint}
-          </p>
-          {systemReduces ? (
-            <p className="scene-motion">
-              {calm ? "Animações reduzidas pelo seu sistema" : "Todas as animações ligadas"}
-              <button type="button" onClick={() => setFullMotion(calm)}>
-                {calm ? "Ligar todas" : "Reduzir"}
-              </button>
-            </p>
-          ) : null}
-        </div>
+        <p className="scene-hint" style={{ opacity: touched ? 0 : 1 }} aria-hidden>
+          {hint}
+        </p>
       ) : null}
     </>
   );
