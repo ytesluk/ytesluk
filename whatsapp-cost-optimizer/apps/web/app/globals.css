@@ -324,7 +324,7 @@ html[data-motion="full"] {
     bottom: 6px;
   }
   /* The close-up fills the stage: its left and bottom edges dissolve instead of cutting the picture. */
-  .hero-stage > canvas {
+  .hero-stage > canvas.is-close {
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%), linear-gradient(0deg, transparent, #000 5%);
     mask-image: linear-gradient(90deg, transparent, #000 6%), linear-gradient(0deg, transparent, #000 5%);
     -webkit-mask-composite: source-in;
@@ -334,13 +334,31 @@ html[data-motion="full"] {
 /* The still picture shown until the live scene is ready: same place, same size, under the canvas. */
 .hero-stage > .scene-poster {
   position: absolute;
+  max-width: none;
+  object-fit: contain;
+  user-select: none;
+}
+.hero-stage > .scene-poster-wide {
   top: 0;
   left: 50%;
   height: 100%;
-  max-width: none;
   transform: translateX(-50%);
-  object-fit: contain;
-  user-select: none;
+}
+.hero-stage > .scene-poster-narrow {
+  display: none;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  transform: translateY(-50%);
+}
+/* Same width as NARROW_QUERY in three/frame.ts. */
+@media (max-width: 519px) {
+  .hero-stage > .scene-poster-wide {
+    display: none;
+  }
+  .hero-stage > .scene-poster-narrow {
+    display: block;
+  }
 }
 .hero-stage > canvas {
   position: relative;
@@ -359,8 +377,7 @@ html[data-motion="full"] {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #c3cdc4;
-  background: rgba(12, 23, 18, 0.55);
-  backdrop-filter: blur(6px);
+  background: rgba(12, 23, 18, 0.72);
   transition: opacity 600ms ease;
 }
 
@@ -401,18 +418,15 @@ html[data-motion="full"] {
 
 /* Scroll-linked stage: the block arrives leaning back and settles as it reaches the middle of the screen. */
 .stage3d {
-  perspective: 1500px;
   --q: calc(1 - var(--p, 1));
 }
-/* Tilted while the section arrives, flat once it has: text is only sharp on a flat surface. */
+/* The stage rises into place as the section arrives. It is never tilted: text is only sharp on a flat surface. */
 .stage3d-inner {
-  transform: translateY(calc(var(--q) * 56px)) rotateX(calc(var(--q) * 26deg)) rotateY(calc(var(--q) * -16deg)) scale(calc(1 - var(--q) * 0.07));
-  transform-origin: 50% 70%;
-  transform-style: preserve-3d;
+  transform: translateY(calc(var(--q) * 44px));
 }
-/* Pieces in front of the window: they stand off it while the stage is tilted and settle onto it. */
+/* Pieces in front of the window lag a little behind it, then settle onto it. */
 .float-z {
-  transform: translateZ(calc(var(--z, 60px) * var(--q) * 2.4));
+  transform: translateY(calc(var(--z, 60px) * var(--q) * 0.7));
 }
 
 /* The dashboard rebuilt for the product page: a window, the statement in front of it, the meter in the corner. */
@@ -500,17 +514,22 @@ html[data-motion="full"] {
   inset: 0;
   pointer-events: none;
   opacity: 0.22;
-  -webkit-mask-image: linear-gradient(180deg, #000 50%, transparent 82%);
-  mask-image: linear-gradient(180deg, #000 50%, transparent 82%);
+}
+/* The fade is a gradient of the band's own colour laid over the scene: far cheaper than masking a
+   canvas that redraws every frame. */
+.slips-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 50%, #0c1712 82%);
 }
 @media (min-width: 1024px) {
   .slips-stage {
     left: auto;
     width: 56%;
     opacity: 1;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 34%), linear-gradient(180deg, #000 52%, transparent 80%);
-    mask-image: linear-gradient(90deg, transparent, #000 34%), linear-gradient(180deg, #000 52%, transparent 80%);
-    -webkit-mask-composite: source-in;
-    mask-composite: intersect;
+  }
+  .slips-stage::after {
+    background: linear-gradient(90deg, #0c1712, transparent 34%), linear-gradient(180deg, transparent 52%, #0c1712 80%);
   }
 }

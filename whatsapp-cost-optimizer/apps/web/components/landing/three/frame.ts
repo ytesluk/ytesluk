@@ -4,3 +4,6 @@
  */
 export const DESIGN_W = 5.15;
 export const DESIGN_H = 5.75;
+
+/** Phones held upright: the outlines around the machine stack down the left of the statement. */
+export const NARROW_QUERY = "(max-width: 519px)";

@@ -20,7 +20,7 @@ const FAR_Z = -8.5;
  * In the calm version (system set to reduce motion) they do not fall on their own: they come down
  * as the page is scrolled, still give way to the pointer, and the scene rests in between.
  */
-export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean }): Promise<SceneHandle> {
+export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean; narrow?: boolean }): Promise<SceneHandle> {
   await fontsReady();
   let calm = opts.calm;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
@@ -108,10 +108,10 @@ export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { calm: 
   let busy = false;
   // Slow devices: sharpness first, then resolution.
   const watch = frameWatch(() => {
-    ratio = ratio > 1 ? 1 : 0.66;
+    ratio = ratio > 1 ? 1 : 0.75;
     renderer.setPixelRatio(ratio);
     fit();
-    return ratio > 0.66;
+    return ratio > 0.75;
   });
 
   function fit() {

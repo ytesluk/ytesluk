@@ -3,7 +3,7 @@ import { buildBubbles } from "./bubbles";
 import { fontsReady } from "./fonts";
 import { DESIGN_H, DESIGN_W } from "./frame";
 import { PaperSim, STEP, paperGeometry, type Gust, type SlotFrame } from "./paper";
-import { PRINTER, SLOT, buildPrinter } from "./printer";
+import { SLOT, buildPrinter } from "./printer";
 import { frameWatch } from "./quality";
 import { studioEnvironment } from "./studio";
 import { RECEIPTS, RECEIPT_ASPECT, RECEIPT_TOTAL_AT, paperNormal, receiptTextures } from "./textures";
@@ -59,7 +59,7 @@ const PITCH = 0.34;
  * moves when the visitor acts on it: drag, click, scroll. It does not sway, follow the pointer or
  * blink, and it stops drawing once everything has come to rest.
  */
-export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean }): Promise<SceneHandle> {
+export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean; narrow: boolean }): Promise<SceneHandle> {
   await fontsReady();
   let calm = opts.calm;
 
@@ -88,7 +88,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   const key = new THREE.DirectionalLight("#fff3df", 2.3);
   key.position.set(-5.5, 8, 8.5);
   key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.mapSize.set(1024, 1024);
   key.shadow.camera.left = -4.5;
   key.shadow.camera.right = 4.5;
   key.shadow.camera.top = 5;
@@ -145,27 +145,25 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   }
 
   // ---- the messages that never had to be sent ----------------------------------------------
-  const bubbles = buildBubbles(keep, maxAniso);
+  const bubbles = buildBubbles(keep, opts.narrow);
   scene.add(bubbles.group);
-  const intake = new THREE.Vector3();
 
   // ---- state -------------------------------------------------------------------------------
   const ptr = { x: 0, y: 0, tx: 0, ty: 0, px: 0, py: 0 };
   const drag = { on: false, yaw: 0, pitch: 0, vy: 0, vp: 0, lx: 0, ly: 0, idle: 9 };
   const gust: Gust = { origin: new THREE.Vector3(), dir: new THREE.Vector3(0, 0, -1), push: new THREE.Vector3(), radius: 0.8 };
   const raycaster = new THREE.Raycaster();
+  const localRay = new THREE.Ray();
+  const body = new THREE.Box3(printer.half.clone().negate(), printer.half.clone());
   const ndc = new THREE.Vector2();
   const camRight = new THREE.Vector3();
   const camUp = new THREE.Vector3();
   let scroll = 0;
   let focus = 0;
   let focusNow = 0;
-  let phase: "printing" | "idle" | "tearing" = "printing";
+  let phase: "printing" | "idle" | "tearing" = "idle";
   let tearT = 0;
   let pressed = 0;
-  /** The power light flaring as a message's tally arrives. */
-  let flash = 0;
-  let hovering = -1;
   let halfWidth = 4;
   let active = false;
   let disposed = false;
@@ -180,16 +178,13 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   const camLook = new THREE.Vector3();
   const total = new THREE.Vector3();
 
-  // Slow devices give up picture quality for speed, one step at a time, and never step back up:
-  // first sharpness and shadow detail, then the shadows, then resolution.
+  // Devices that cannot hold a smooth frame rate give up picture quality for speed, one step at a
+  // time, and never step back up: first sharpness, then the shadows, then resolution.
   let quality = 3;
   const watch = frameWatch(() => {
     quality -= 1;
     if (quality === 2) {
       ratio = Math.min(ratio, 1);
-      key.shadow.mapSize.set(1024, 1024);
-      key.shadow.map?.dispose();
-      key.shadow.map = null;
     } else if (quality === 1) {
       renderer.shadowMap.enabled = false;
       key.castShadow = false;
@@ -198,7 +193,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
         for (const mat of Array.isArray(m) ? m : m ? [m] : []) mat.needsUpdate = true;
       });
     } else {
-      ratio = 0.66;
+      ratio = 0.75;
     }
     renderer.setPixelRatio(ratio);
     fit();
@@ -216,10 +211,12 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
     camera.updateProjectionMatrix();
   }
 
+  /** Is the pointer on the machine? Its ray against the machine's box, in the machine's own space (no triangles tested). */
   function overMachine(x: number, y: number): boolean {
     ndc.set(x, y);
     raycaster.setFromCamera(ndc, camera);
-    return raycaster.intersectObjects(printer.pickables, false).length > 0;
+    localRay.copy(raycaster.ray).applyMatrix4(inv);
+    return localRay.intersectsBox(body);
   }
 
   /** Feed key: tears the statement off and prints the next one. */
@@ -310,11 +307,10 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
 
     // --- printing, resting, tearing off ---------------------------------------------------------
     pressed *= 0.86;
-    flash *= 0.9;
     printer.press(pressed);
-    if (phase === "printing") printer.setPower((calm || Math.sin(time * 34) > 0 ? 1 : 0.35) + flash);
-    else if (phase === "idle") printer.setPower(0.86 + Math.sin(time * 1.6) * 0.14 * ambient + flash);
-    else printer.setPower(0.3 + flash);
+    if (phase === "printing") printer.setPower(calm || Math.sin(time * 34) > 0 ? 1 : 0.35);
+    else if (phase === "idle") printer.setPower(0.86 + Math.sin(time * 1.6) * 0.14 * ambient);
+    else printer.setPower(0.3);
     if (phase === "tearing") {
       tearT += step;
       const o = 1 - smooth(0.3, 0.95, tearT);
@@ -349,8 +345,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
     camera.position.copy(camPos);
     camera.lookAt(camLook);
 
-    intake.set(0, PRINTER.H / 2 + 0.05, -0.35).applyMatrix4(rig.matrixWorld);
-    if (bubbles.update({ time, step, ambient, px: ptr.x, py: ptr.y, scroll, focus: f, halfWidth, home: HOME, intake })) flash = 1.1;
+    bubbles.update({ time, ambient, px: ptr.x, py: ptr.y, scroll, focus: f, halfWidth, home: HOME });
     renderer.render(scene, camera);
   }
 
@@ -368,7 +363,11 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
 
   fit();
   readSlot();
-  sim.reset(slot);
+  // The page opens with the statement already printed: exactly the still picture shown while this
+  // scene loads (scripts/hero-poster.mjs), so the live scene takes over without a jump.
+  sim.settle(slot, inv, rig.matrixWorld, printer.half);
+  paperGeo.attributes.position!.needsUpdate = true;
+  paperGeo.computeVertexNormals();
   // Have the graphics card build every shader before the scene is shown, without freezing the page meanwhile.
   camera.position.set(0, LOOK_Y + 2.7, baseDist);
   camera.lookAt(0, LOOK_Y, 0);
@@ -409,16 +408,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
           .addScaledVector(gust.dir, speed * 300);
         if (gust.push.lengthSq() > 0.5) kick();
       }
-      const over = overMachine(x, y);
-      // A message under the pointer swells and turns to face the visitor.
-      const hit = over ? -1 : bubbles.pick(raycaster);
-      if (hit !== hovering) {
-        hovering = hit;
-        bubbles.hover(hit);
-        wake = Math.max(wake, time + 1.2);
-        kick();
-      }
-      return over;
+      return overMachine(x, y);
     },
     pointerDown(x, y) {
       if (!overMachine(x, y)) return false;

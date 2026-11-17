@@ -104,6 +104,24 @@ export class PaperSim {
     this.hold(slot, true);
   }
 
+  /** The whole sheet already out and hanging (how the page opens: the statement is already printed). */
+  settle(slot: SlotFrame, inv: THREE.Matrix4, mat: THREE.Matrix4, half: THREE.Vector3) {
+    this.fed = this.length;
+    this.detached = false;
+    for (let r = 0; r <= this.rows; r++) {
+      const d = this.length - r * this.ds;
+      for (let k = 0; k <= this.cols; k++) {
+        const i = this.index(r, k) * 3;
+        const x = (k / this.cols - 0.5) * this.width;
+        this.pos[i] = slot.origin.x + slot.right.x * x + slot.exit.x * Math.min(d, 0.25);
+        this.pos[i + 1] = slot.origin.y + slot.right.y * x - Math.max(0, d - 0.25);
+        this.pos[i + 2] = slot.origin.z + slot.right.z * x + slot.exit.z * Math.min(d, 0.25);
+      }
+    }
+    this.prev.set(this.pos);
+    for (let n = 0; n < 240; n++) this.step(slot, inv, mat, half, null, n * STEP);
+  }
+
   /** Lets go of the sheet and gives it a first shove. */
   detach(impulse: THREE.Vector3, spin: number) {
     this.detached = true;

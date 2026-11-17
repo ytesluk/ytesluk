@@ -7,7 +7,9 @@ import { Calculator } from "@/components/landing/calculator";
 import { Demo } from "@/components/landing/demo";
 import { Parallax, ScrollStage, Tilt } from "@/components/landing/fx";
 import { HeroArt, TornEdge } from "@/components/landing/hero-art";
+import heroPosterNarrow from "@/components/landing/hero-poster-narrow.webp";
 import heroPoster from "@/components/landing/hero-poster.webp";
+import { NARROW_QUERY } from "@/components/landing/three/frame";
 import { PLANS } from "@/components/landing/plans";
 import { MotionSwitch } from "@/components/landing/motion-switch";
 import { PanelShowcase } from "@/components/landing/panel-showcase";
@@ -131,13 +133,14 @@ function SampleStatement() {
 export default async function LandingPage() {
   const logged = !!(await sessionToken());
   // The picture of the printer is the first thing on screen: fetch it with the page itself.
-  preload(heroPoster.src, { as: "image", fetchPriority: "high" });
+  preload(heroPoster.src, { as: "image", fetchPriority: "high", media: `not all and ${NARROW_QUERY}` });
+  preload(heroPosterNarrow.src, { as: "image", fetchPriority: "high", media: NARROW_QUERY });
 
   return (
     <div className="theme-paper min-h-screen overflow-x-clip">
       {/* Navigation: one paper pill that stays on top. */}
       <div className="sticky top-3 z-50 px-3 sm:px-5">
-        <nav aria-label="Navegação do site" className="mx-auto flex max-w-[1180px] items-center gap-1 rounded-full border border-line bg-[#fdfcf8]/95 py-2 pl-4 pr-2 shadow-[0_12px_30px_-18px_rgba(0,0,0,.6)] backdrop-blur">
+        <nav aria-label="Navegação do site" className="mx-auto flex max-w-[1180px] items-center gap-1 rounded-full border border-line bg-[#fdfcf8] py-2 pl-4 pr-2 shadow-[0_12px_30px_-18px_rgba(0,0,0,.6)]">
           <Link href="/inicio" aria-label="WCO, página inicial" className="mr-auto [&_span_span:last-child]:hidden sm:[&_span_span:last-child]:block">
             <Wordmark compact />
           </Link>
@@ -223,7 +226,10 @@ export default async function LandingPage() {
                 <Scene3D
                   kind="hero"
                   focusId="hero-closeup"
-                  poster={{ src: heroPoster.src, width: heroPoster.width, height: heroPoster.height }}
+                  poster={{
+                    wide: { src: heroPoster.src, width: heroPoster.width, height: heroPoster.height },
+                    narrow: { src: heroPosterNarrow.src, width: heroPosterNarrow.width, height: heroPosterNarrow.height },
+                  }}
                   className="block h-full w-full"
                   label="Cena em 3D: uma impressora térmica verde imprime o extrato do que o WCO evitou, com o total destacado em marca-texto. Ao redor, os contornos das mensagens que não precisaram ser enviadas."
                   hint="Arraste para girar · clique para imprimir"

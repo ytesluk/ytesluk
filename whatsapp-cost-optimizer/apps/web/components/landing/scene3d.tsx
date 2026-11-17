@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { calmMotion, useCalmMotion } from "./motion";
 import { fontsReady } from "./three/fonts";
-import { DESIGN_H, DESIGN_W } from "./three/frame";
+import { DESIGN_H, DESIGN_W, NARROW_QUERY } from "./three/frame";
 import type { SceneHandle } from "./three/hero-scene";
 
 type Kind = "hero" | "slips";
+type Still = { src: string; width: number; height: number };
+/** Stage proportion at which the camera stops framing by height and starts framing by width. */
+const FIT = DESIGN_W / DESIGN_H;
 
 const load = {
   hero: () => import("./three/hero-scene").then((m) => m.createHeroScene),
@@ -38,9 +41,10 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
  * Visitors who chose the calm version (see `motion.ts`) get a scene that only moves when they act
  * on it.
  *
- * `poster` is a still picture of the scene's first frame (see `scripts/hero-poster.mjs`). It is in
- * the page from the first paint, laid out exactly where the scene will draw, so the machine is
- * there at once and comes alive when the graphics card is ready.
+ * `poster` holds still pictures of the scene's first frame, one for wide stages and one for phones
+ * (see `scripts/hero-poster.mjs`). The right one is in the page from the first paint, laid out
+ * exactly where the scene will draw, so the whole picture is there at once and comes alive when
+ * the graphics card is ready.
  *
  * The canvas itself never takes pointer events (the page under its transparent parts stays
  * clickable): the pointer is followed on the window and handed to the scene, which says whether it
@@ -62,10 +66,9 @@ export function Scene3D({
   label?: string;
   hint?: string;
   focusId?: string;
-  poster?: { src: string; width: number; height: number };
+  poster?: { wide: Still; narrow: Still };
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const still = useRef<HTMLImageElement>(null);
   const live = useRef<SceneHandle | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "unsupported">("loading");
   const [covered, setCovered] = useState(false);
@@ -98,6 +101,7 @@ export function Scene3D({
     let lastX = 0;
     let lastY = 0;
     const small = window.matchMedia("(max-width: 767px)").matches;
+    const narrow = window.matchMedia(NARROW_QUERY).matches;
     const root = document.documentElement;
 
     /** Pointer in the canvas's own frame: -1..1 on each axis, y up; beyond that outside it. */
@@ -153,7 +157,10 @@ export function Scene3D({
           // 1 while the block is around the middle of the screen, 0 when it is at an edge.
           const d = Math.abs(r.top + r.height / 2 - window.innerHeight / 2) / (window.innerHeight / 2);
           const t = clamp01((d - 0.16) / 0.84);
-          handle.setFocus(1 - t * t * (3 - 2 * t));
+          const focus = 1 - t * t * (3 - 2 * t);
+          handle.setFocus(focus);
+          // The edge fade is only needed (and only paid for) while the statement fills the stage.
+          el.classList.toggle("is-close", focus > 0.01);
         } else handle.setFocus(0);
       } else {
         // 0 when the canvas enters the viewport from below, 1 when it leaves at the top.
@@ -171,14 +178,14 @@ export function Scene3D({
       try {
         // Building the scene keeps the graphics card and this thread busy: let the still picture
         // reach the screen first, so the visitor is never looking at an empty stage.
-        const img = still.current;
+        const img = Array.from(el.parentElement?.querySelectorAll<HTMLImageElement>(".scene-poster") ?? []).find((i) => getComputedStyle(i).display !== "none");
         if (img) {
           await img.decode().catch(() => undefined);
           await new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
         }
         const create = await load[kind]();
         if (cancelled) return;
-        const h = await create(el, { calm: calmMotion(), small });
+        const h = await create(el, { calm: calmMotion(), small, narrow });
         if (cancelled) {
           h.dispose();
           return;
@@ -230,9 +237,12 @@ export function Scene3D({
   return (
     <>
       {poster && !covered ? (
-        // Same picture the scene opens with, sized by the same rule as the camera: full height, or
-        // the whole design width when the stage is too narrow for that.
-        <img ref={still} src={poster.src} alt="" aria-hidden draggable={false} fetchPriority="high" className="scene-poster" style={{ width: `${(poster.width / poster.height / (DESIGN_W / DESIGN_H)) * 100}%` }} />
+        // The picture the scene opens with, sized by the same rule as the camera: the wide one fills
+        // the height (or the design width when the stage is too narrow), the phone one the width.
+        <>
+          <img src={poster.wide.src} alt="" aria-hidden draggable={false} fetchPriority="high" className="scene-poster scene-poster-wide" style={{ width: `${(poster.wide.width / poster.wide.height / FIT) * 100}%` }} />
+          <img src={poster.narrow.src} alt="" aria-hidden draggable={false} fetchPriority="high" className="scene-poster scene-poster-narrow" style={{ height: `${(FIT / (poster.narrow.width / poster.narrow.height)) * 100}%` }} />
+        </>
       ) : null}
       <canvas ref={canvas} role="img" aria-label={label} className={className} style={{ opacity: state === "ready" ? 1 : 0, transition: "opacity 400ms ease" }} />
       {hint && state === "ready" ? (

@@ -507,114 +507,56 @@ export function glowTexture(): THREE.CanvasTexture {
   return asTexture(c);
 }
 
-/** What one of the floating messages says, and why it never had to be sent. */
-export interface MessageSpec {
-  /** The reason, stamped across it. */
-  stamp: string;
-  /** Small line above the text: what kind of notice it was. */
-  label: string;
-  /** The notice itself, in two short lines. */
-  lines: readonly [string, string];
+function bubblePath(g: G, x: number, y: number, w: number, h: number, r: number) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.lineTo(x + r * 1.9, y + h);
+  g.lineTo(x + r * 0.2, y + h + r * 0.95);
+  g.lineTo(x, y + h - r * 0.9);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
 }
-
-/** Face of a message bubble's box, tail zone included (the bubble's own outline crops it). */
-export const MESSAGE_FACE = { w: 1024, h: 772, body: 0.82 };
 
 /**
- * The face of a message that never had to be sent: dark glass, the notice written on it and
- * crossed out. The reason is stamped on top by a separate layer (see `stampTexture`).
+ * A message that never had to be sent. It is not a real object, so it is not rendered like one:
+ * only a dashed outline (the same "dashed = not real money" convention as the estimate tags),
+ * with the reason underneath.
  */
-export function messageTexture(spec: MessageSpec, anisotropy: number): THREE.CanvasTexture {
-  const { w, h } = MESSAGE_FACE;
-  const [c, g] = canvas(w, h);
-  const body = h * MESSAGE_FACE.body;
-  const glass = g.createLinearGradient(0, 0, w * 0.35, h);
-  glass.addColorStop(0, "#21473a");
-  glass.addColorStop(0.55, "#17352a");
-  glass.addColorStop(1, "#102720");
-  g.fillStyle = glass;
-  g.fillRect(0, 0, w, h);
-  // A soft sheen across the top, as on a pane of glass.
-  const sheen = g.createLinearGradient(0, 0, 0, body * 0.5);
-  sheen.addColorStop(0, "rgba(255,255,255,.13)");
-  sheen.addColorStop(1, "rgba(255,255,255,0)");
-  g.fillStyle = sheen;
-  g.fillRect(0, 0, w, body * 0.5);
-
-  const pad = 84;
-  g.textBaseline = "alphabetic";
-  g.font = `500 34px ${FONT.mono}`;
-  spacing(g, 5);
-  g.fillStyle = "rgba(196,210,200,.72)";
-  g.textAlign = "left";
-  g.fillText(spec.label, pad, 128);
-  spacing(g, 0);
-  // Sender dot, where a contact's picture would be.
-  g.fillStyle = C.lime;
-  g.beginPath();
-  g.arc(w - pad - 14, 114, 15, 0, Math.PI * 2);
+export function ghostBubbleTexture(caption: string): THREE.CanvasTexture {
+  const [c, g] = canvas(640, 500);
+  const bx = 40;
+  const by = 36;
+  const bw = 560;
+  const bh = 270;
+  bubblePath(g, bx, by, bw, bh, 66);
+  g.fillStyle = "rgba(220,244,91,.06)";
   g.fill();
-
-  g.font = `600 78px ${FONT.display}`;
-  g.fillStyle = "rgba(244,241,230,.5)";
-  spec.lines.forEach((line, i) => {
-    const y = 262 + i * 104;
-    g.fillText(line, pad, y);
-    // Crossed out: this one was not sent.
-    const len = g.measureText(line).width;
-    g.strokeStyle = "rgba(244,241,230,.82)";
-    g.lineWidth = 7;
-    g.lineCap = "round";
-    g.setLineDash([26, 16]);
-    g.beginPath();
-    g.moveTo(pad - 10, y - 25);
-    g.lineTo(pad + len + 10, y - 25);
-    g.stroke();
-    g.setLineDash([]);
-  });
-  return asTexture(c, { anisotropy });
-}
-
-/** The reason a message was not sent, as a rubber stamp: a slightly uneven frame and heavy letters. */
-export function stampTexture(word: string, anisotropy: number): { texture: THREE.CanvasTexture; aspect: number } {
-  const size = 96;
-  const [probe, pg] = canvas(8, 8);
-  pg.font = `600 ${size}px ${FONT.mono}`;
-  const text = pg.measureText(word).width + (word.length - 1) * 9;
-  probe.width = 0; // only needed for measuring
-  const w = Math.ceil(text + 118);
-  const h = 208;
-  const [c, g] = canvas(w, h);
   g.strokeStyle = C.lime;
-  g.fillStyle = "rgba(12,23,18,.72)";
-  g.lineWidth = 11;
+  g.lineWidth = 5;
   g.lineJoin = "round";
-  g.beginPath();
-  g.moveTo(38, 12);
-  g.arcTo(w - 12, 12, w - 12, h - 12, 26);
-  g.arcTo(w - 12, h - 12, 12, h - 12, 26);
-  g.arcTo(12, h - 12, 12, 12, 26);
-  g.arcTo(12, 12, w - 12, 12, 26);
-  g.closePath();
-  g.fill();
+  g.setLineDash([22, 16]);
   g.stroke();
-  g.font = `600 ${size}px ${FONT.mono}`;
-  spacing(g, 9);
-  g.fillStyle = C.lime;
-  g.textAlign = "left";
-  g.textBaseline = "middle";
-  g.fillText(word, 59, h / 2 + 6);
-  spacing(g, 0);
-  // Worn rubber: the ink does not take everywhere.
-  const r = rng(word.length * 131 + 7);
-  g.globalCompositeOperation = "destination-out";
-  for (let i = 0; i < 420; i++) {
-    g.globalAlpha = 0.35 + r() * 0.5;
+  g.setLineDash([18, 14]);
+  g.lineCap = "round";
+  g.lineWidth = 9;
+  g.strokeStyle = "rgba(220,244,91,.45)";
+  for (const [x1, yy] of [
+    [bx + bw - 90, by + 100],
+    [bx + bw - 210, by + 164],
+  ] as const) {
     g.beginPath();
-    g.arc(r() * w, r() * h, 0.8 + r() * 2.4, 0, Math.PI * 2);
-    g.fill();
+    g.moveTo(bx + 76, yy);
+    g.lineTo(x1, yy);
+    g.stroke();
   }
-  g.globalAlpha = 1;
-  g.globalCompositeOperation = "source-over";
-  return { texture: asTexture(c, { anisotropy }), aspect: w / h };
+  g.setLineDash([]);
+  g.font = `500 38px ${FONT.mono}`;
+  spacing(g, 7);
+  g.fillStyle = C.lime;
+  g.textAlign = "center";
+  g.fillText(caption, 323, by + bh + 132);
+  spacing(g, 0);
+  return asTexture(c);
 }
