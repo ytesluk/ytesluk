@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { preload } from "react-dom";
 import { ArrowRight, BellOff, Copy, FileSearch, Layers, RefreshCw, ShieldCheck, Timer, Zap } from "lucide-react";
 import { Wordmark } from "@/components/brand";
 import { Calculator } from "@/components/landing/calculator";
 import { Demo } from "@/components/landing/demo";
 import { Parallax, ScrollStage, Tilt } from "@/components/landing/fx";
 import { HeroArt, TornEdge } from "@/components/landing/hero-art";
+import heroPosterLiteNarrow from "@/components/landing/hero-poster-lite-narrow.webp";
+import heroPosterLite from "@/components/landing/hero-poster-lite.webp";
 import heroPosterNarrow from "@/components/landing/hero-poster-narrow.webp";
 import heroPoster from "@/components/landing/hero-poster.webp";
+import { tierScript } from "@/components/landing/three/tier";
 import { NARROW_QUERY } from "@/components/landing/three/frame";
 import { PLANS } from "@/components/landing/plans";
 import { MotionSwitch } from "@/components/landing/motion-switch";
@@ -97,6 +99,8 @@ const FAQ = [
   },
 ];
 
+const still = (img: { src: string; width: number; height: number }) => ({ src: img.src, width: img.width, height: img.height });
+
 function SampleStatement() {
   const rows: Array<[string, string]> = [
     ["Duplicadas barradas", "R$ 148,20"],
@@ -132,12 +136,15 @@ function SampleStatement() {
 
 export default async function LandingPage() {
   const logged = !!(await sessionToken());
-  // The picture of the printer is the first thing on screen: fetch it with the page itself.
-  preload(heroPoster.src, { as: "image", fetchPriority: "high", media: `not all and ${NARROW_QUERY}` });
-  preload(heroPosterNarrow.src, { as: "image", fetchPriority: "high", media: NARROW_QUERY });
 
   return (
     <div className="theme-paper min-h-screen overflow-x-clip">
+      {/* Before anything paints: how this device draws 3D, and the matching picture of the printer. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: tierScript({ full: { wide: heroPoster.src, narrow: heroPosterNarrow.src }, lite: { wide: heroPosterLite.src, narrow: heroPosterLiteNarrow.src } }, NARROW_QUERY),
+        }}
+      />
       {/* Navigation: one paper pill that stays on top. */}
       <div className="sticky top-3 z-50 px-3 sm:px-5">
         <nav aria-label="Navegação do site" className="mx-auto flex max-w-[1180px] items-center gap-1 rounded-full border border-line bg-[#fdfcf8] py-2 pl-4 pr-2 shadow-[0_12px_30px_-18px_rgba(0,0,0,.6)]">
@@ -227,8 +234,8 @@ export default async function LandingPage() {
                   kind="hero"
                   focusId="hero-closeup"
                   poster={{
-                    wide: { src: heroPoster.src, width: heroPoster.width, height: heroPoster.height },
-                    narrow: { src: heroPosterNarrow.src, width: heroPosterNarrow.width, height: heroPosterNarrow.height },
+                    full: { wide: still(heroPoster), narrow: still(heroPosterNarrow) },
+                    lite: { wide: still(heroPosterLite), narrow: still(heroPosterLiteNarrow) },
                   }}
                   className="block h-full w-full"
                   label="Cena em 3D: uma impressora térmica verde imprime o extrato do que o WCO evitou, com o total destacado em marca-texto. Ao redor, os contornos das mensagens que não precisaram ser enviadas."

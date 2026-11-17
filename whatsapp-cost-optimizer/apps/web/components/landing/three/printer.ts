@@ -8,6 +8,9 @@ const hw = PRINTER.W / 2;
 const hh = PRINTER.H / 2;
 const hd = PRINTER.D / 2;
 
+/** Half extents of the box the paper must stay out of (and the pointer is tested against). */
+export const BODY_HALF = new THREE.Vector3(hw + 0.03, hh + 0.02, hd + 0.04);
+
 /** Where the paper leaves the machine, in the machine's own space. */
 export const SLOT = { x: 0, y: 0.47, z: hd + 0.012 };
 
@@ -141,7 +144,7 @@ export function buildPrinter(keep: Keep): Printer {
   return {
     group,
     pickables: [base, shell, lid],
-    half: new THREE.Vector3(hw + 0.03, hh + 0.02, hd + 0.04),
+    half: BODY_HALF,
     setPower(level) {
       powerMat.emissiveIntensity = 2.4 * level;
       (glow.material as THREE.SpriteMaterial).opacity = 0.85 * level;

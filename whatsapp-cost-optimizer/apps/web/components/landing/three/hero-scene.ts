@@ -3,9 +3,10 @@ import { buildBubbles } from "./bubbles";
 import { fontsReady } from "./fonts";
 import { DESIGN_H, DESIGN_W } from "./frame";
 import { PaperSim, STEP, paperGeometry, type Gust, type SlotFrame } from "./paper";
-import { SLOT, buildPrinter } from "./printer";
+import { BODY_HALF, SLOT, buildPrinter } from "./printer";
 import { frameWatch } from "./quality";
 import { studioEnvironment } from "./studio";
+import { noteRenderer, rememberSlowDevice } from "./tier";
 import { RECEIPTS, RECEIPT_ASPECT, RECEIPT_TOTAL_AT, paperNormal, receiptTextures } from "./textures";
 
 export interface SceneHandle {
@@ -59,14 +60,42 @@ const PITCH = 0.34;
  * moves when the visitor acts on it: drag, click, scroll. It does not sway, follow the pointer or
  * blink, and it stops drawing once everything has come to rest.
  */
-export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean; narrow: boolean }): Promise<SceneHandle> {
-  await fontsReady();
+export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean; narrow: boolean; lite: boolean }): Promise<SceneHandle> {
+  const fonts = fontsReady();
+
+  // The page opens with the statement already printed: exactly the still picture shown while this
+  // scene loads (scripts/hero-poster.mjs), so the live scene takes over without a jump. Its resting
+  // shape is plain arithmetic, so it is worked out here, while the fonts are still on their way
+  // and before the graphics card is given anything to do.
+  const rig = new THREE.Group();
+  rig.position.copy(HOME);
+  rig.rotation.set(PITCH, YAW, 0);
+  const slot: SlotFrame = { origin: new THREE.Vector3(), exit: new THREE.Vector3(), right: new THREE.Vector3() };
+  const inv = new THREE.Matrix4();
+  const rot = new THREE.Matrix3();
+  function readSlot() {
+    rig.updateMatrixWorld(true);
+    slot.origin.set(SLOT.x, SLOT.y, SLOT.z).applyMatrix4(rig.matrixWorld);
+    rot.setFromMatrix4(rig.matrixWorld);
+    slot.exit.set(0, -0.07, 1).normalize().applyMatrix3(rot);
+    slot.right.set(1, 0, 0).applyMatrix3(rot);
+    inv.copy(rig.matrixWorld).invert();
+  }
+  const sim = new PaperSim(PAPER_W, PAPER_L, ROWS, COLS);
+  readSlot();
+  sim.settle(slot, inv, rig.matrixWorld, BODY_HALF);
+
+  await fonts;
   let calm = opts.calm;
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
-  let ratio = Math.min(window.devicePixelRatio || 1, 2);
+  // "Lite" is for browsers drawing on the processor (see tier.ts): no smoothing pass, no shadow
+  // pass, a tiny studio map, plain materials. Decided once, before anything is shown.
+  const lite = opts.lite;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !lite, alpha: true, powerPreference: "high-performance" });
+  noteRenderer(renderer.getContext());
+  let ratio = Math.min(window.devicePixelRatio || 1, lite ? 1 : 2);
   renderer.setPixelRatio(ratio);
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !lite;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
@@ -79,15 +108,24 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   };
 
   const scene = new THREE.Scene();
-  const studio = keep(studioEnvironment(renderer));
-  scene.environment = studio.texture;
-  scene.environmentIntensity = 0.95;
+  if (lite) {
+    // No studio map (baking and sampling it is the dearest thing a processor can be asked to draw):
+    // the same mood from three plain lights.
+    scene.add(new THREE.HemisphereLight("#ffffff", "#5e9a76", 5.6));
+    const fill = new THREE.DirectionalLight("#eef4ff", 1.2);
+    fill.position.set(7, 3, 4);
+    scene.add(fill);
+  } else {
+    const studio = keep(studioEnvironment(renderer));
+    scene.environment = studio.texture;
+    scene.environmentIntensity = 0.95;
+  }
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 80);
 
   // One shadow-casting key light; everything else comes from the studio map.
   const key = new THREE.DirectionalLight("#fff3df", 2.3);
   key.position.set(-5.5, 8, 8.5);
-  key.castShadow = true;
+  key.castShadow = !lite;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.camera.left = -4.5;
   key.shadow.camera.right = 4.5;
@@ -99,20 +137,16 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   key.shadow.normalBias = 0.025;
   key.shadow.radius = 3.5;
   scene.add(key);
-  const rim = new THREE.DirectionalLight("#dcf45b", 0.7);
+  const rim = new THREE.DirectionalLight("#dcf45b", lite ? 4.2 : 0.7);
   rim.position.set(5, -5, -5);
   scene.add(rim);
 
   // ---- machine -----------------------------------------------------------------------------
-  const rig = new THREE.Group();
-  rig.position.copy(HOME);
-  rig.rotation.set(PITCH, YAW, 0);
   scene.add(rig);
   const printer = buildPrinter(keep);
   rig.add(printer.group);
 
   // ---- paper -------------------------------------------------------------------------------
-  const sim = new PaperSim(PAPER_W, PAPER_L, ROWS, COLS);
   const paperGeo = keep(paperGeometry(sim));
   const fibres = keep(paperNormal());
   const texWidth = opts.small ? 768 : Math.min(1280, Math.floor(renderer.capabilities.maxTextureSize / RECEIPT_ASPECT));
@@ -131,18 +165,6 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   paperBack.receiveShadow = true;
   paperBack.frustumCulled = false;
   scene.add(paperFront, paperBack);
-
-  const slot: SlotFrame = { origin: new THREE.Vector3(), exit: new THREE.Vector3(), right: new THREE.Vector3() };
-  const inv = new THREE.Matrix4();
-  const rot = new THREE.Matrix3();
-  function readSlot() {
-    rig.updateMatrixWorld(true);
-    slot.origin.set(SLOT.x, SLOT.y, SLOT.z).applyMatrix4(rig.matrixWorld);
-    rot.setFromMatrix4(rig.matrixWorld);
-    slot.exit.set(0, -0.07, 1).normalize().applyMatrix3(rot);
-    slot.right.set(1, 0, 0).applyMatrix3(rot);
-    inv.copy(rig.matrixWorld).invert();
-  }
 
   // ---- the messages that never had to be sent ----------------------------------------------
   const bubbles = buildBubbles(keep, opts.narrow);
@@ -178,26 +200,31 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   const camLook = new THREE.Vector3();
   const total = new THREE.Vector3();
 
-  // Devices that cannot hold a smooth frame rate give up picture quality for speed, one step at a
-  // time, and never step back up: first sharpness, then the shadows, then resolution.
-  let quality = 3;
+  /** Drops what costs most per pixel: the shadow pass and the lacquer layer of the plastics. */
+  function plain() {
+    renderer.shadowMap.enabled = false;
+    key.castShadow = false;
+    scene.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      for (const mat of Array.isArray(m) ? m : m ? [m] : []) {
+        if ((mat as THREE.MeshPhysicalMaterial).isMeshPhysicalMaterial) (mat as THREE.MeshPhysicalMaterial).clearcoat = 0;
+        if (lite && (mat as THREE.MeshStandardMaterial).normalMap) (mat as THREE.MeshStandardMaterial).normalMap = null;
+        mat.needsUpdate = true;
+      }
+    });
+  }
+  // A graphics card that still cannot hold a smooth frame rate gets the plain version too, once,
+  // and the device is remembered so that the next visit opens that way from the first frame.
+  let stepped = lite;
   const watch = frameWatch(() => {
-    quality -= 1;
-    if (quality === 2) {
-      ratio = Math.min(ratio, 1);
-    } else if (quality === 1) {
-      renderer.shadowMap.enabled = false;
-      key.castShadow = false;
-      scene.traverse((o) => {
-        const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
-        for (const mat of Array.isArray(m) ? m : m ? [m] : []) mat.needsUpdate = true;
-      });
-    } else {
-      ratio = 0.75;
-    }
+    if (stepped) return false;
+    stepped = true;
+    ratio = Math.min(ratio, 1);
     renderer.setPixelRatio(ratio);
+    plain();
     fit();
-    return quality > 0;
+    rememberSlowDevice();
+    return false;
   });
 
   function fit() {
@@ -361,11 +388,9 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
     raf = requestAnimationFrame(loop);
   };
 
+  if (lite) plain();
   fit();
   readSlot();
-  // The page opens with the statement already printed: exactly the still picture shown while this
-  // scene loads (scripts/hero-poster.mjs), so the live scene takes over without a jump.
-  sim.settle(slot, inv, rig.matrixWorld, printer.half);
   paperGeo.attributes.position!.needsUpdate = true;
   paperGeo.computeVertexNormals();
   // Have the graphics card build every shader before the scene is shown, without freezing the page meanwhile.

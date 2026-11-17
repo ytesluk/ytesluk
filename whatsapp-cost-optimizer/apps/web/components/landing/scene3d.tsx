@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { calmMotion, useCalmMotion } from "./motion";
 import { fontsReady } from "./three/fonts";
 import { DESIGN_H, DESIGN_W, NARROW_QUERY } from "./three/frame";
 import type { SceneHandle } from "./three/hero-scene";
+import { renderTier } from "./three/tier";
 
 type Kind = "hero" | "slips";
 type Still = { src: string; width: number; height: number };
@@ -22,15 +23,6 @@ if (typeof window !== "undefined") {
   void fontsReady();
 }
 
-function webglAvailable(): boolean {
-  try {
-    const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") || c.getContext("webgl"));
-  } catch {
-    return false;
-  }
-}
-
 const INTERACTIVE = "a,button,input,textarea,select,summary,label,[role=tab]";
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
@@ -41,8 +33,8 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
  * Visitors who chose the calm version (see `motion.ts`) get a scene that only moves when they act
  * on it.
  *
- * `poster` holds still pictures of the scene's first frame, one for wide stages and one for phones
- * (see `scripts/hero-poster.mjs`). The right one is in the page from the first paint, laid out
+ * `poster` holds still pictures of the scene's first frame, for wide stages and for phones, in each
+ * render tier (see `scripts/hero-poster.mjs`, `three/tier.ts`). The right one is in the page from the first paint, laid out
  * exactly where the scene will draw, so the whole picture is there at once and comes alive when
  * the graphics card is ready.
  *
@@ -66,7 +58,7 @@ export function Scene3D({
   label?: string;
   hint?: string;
   focusId?: string;
-  poster?: { wide: Still; narrow: Still };
+  poster?: Record<"full" | "lite", { wide: Still; narrow: Still }>;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const live = useRef<SceneHandle | null>(null);
@@ -89,7 +81,7 @@ export function Scene3D({
   useEffect(() => {
     const el = canvas.current;
     if (!el) return;
-    if (!webglAvailable()) {
+    if (renderTier() === "none") {
       setState("unsupported");
       return;
     }
@@ -185,7 +177,7 @@ export function Scene3D({
         }
         const create = await load[kind]();
         if (cancelled) return;
-        const h = await create(el, { calm: calmMotion(), small, narrow });
+        const h = await create(el, { calm: calmMotion(), small, narrow, lite: renderTier() === "lite" });
         if (cancelled) {
           h.dispose();
           return;
@@ -239,10 +231,29 @@ export function Scene3D({
       {poster && !covered ? (
         // The picture the scene opens with, sized by the same rule as the camera: the wide one fills
         // the height (or the design width when the stage is too narrow), the phone one the width.
-        <>
-          <img src={poster.wide.src} alt="" aria-hidden draggable={false} fetchPriority="high" className="scene-poster scene-poster-wide" style={{ width: `${(poster.wide.width / poster.wide.height / FIT) * 100}%` }} />
-          <img src={poster.narrow.src} alt="" aria-hidden draggable={false} fetchPriority="high" className="scene-poster scene-poster-narrow" style={{ height: `${(FIT / (poster.narrow.width / poster.narrow.height)) * 100}%` }} />
-        </>
+        // Only the one that applies is displayed (and, being lazy, downloaded).
+        (["full", "lite"] as const).map((tier) => (
+          <Fragment key={tier}>
+            <img
+              src={poster[tier].wide.src}
+              alt=""
+              aria-hidden
+              draggable={false}
+              loading="lazy"
+              className={`scene-poster scene-poster-wide is-${tier}`}
+              style={{ width: `${(poster[tier].wide.width / poster[tier].wide.height / FIT) * 100}%` }}
+            />
+            <img
+              src={poster[tier].narrow.src}
+              alt=""
+              aria-hidden
+              draggable={false}
+              loading="lazy"
+              className={`scene-poster scene-poster-narrow is-${tier}`}
+              style={{ height: `${(FIT / (poster[tier].narrow.width / poster[tier].narrow.height)) * 100}%` }}
+            />
+          </Fragment>
+        ))
       ) : null}
       <canvas ref={canvas} role="img" aria-label={label} className={className} style={{ opacity: state === "ready" ? 1 : 0, transition: "opacity 400ms ease" }} />
       {hint && state === "ready" ? (

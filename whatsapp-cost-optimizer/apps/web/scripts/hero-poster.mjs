@@ -11,12 +11,16 @@ import { writeFile } from "node:fs/promises";
 import { chromium } from "@playwright/test";
 
 const base = process.argv[2] ?? "http://localhost:3000";
+// Each in both render tiers (components/landing/three/tier.ts): with a graphics card, and the
+// plain version for browsers that draw on the processor.
 const shots = [
   // A wide, tall stage: the camera frames by height there, which is the size the page lays the picture out by.
-  { file: "hero-poster.webp", viewport: { width: 1800, height: 900 }, deviceScaleFactor: 1.5 },
+  { file: "hero-poster.webp", render: "full", viewport: { width: 1800, height: 900 }, deviceScaleFactor: 1.5 },
+  { file: "hero-poster-lite.webp", render: "lite", viewport: { width: 1800, height: 900 }, deviceScaleFactor: 1 },
   // A phone held upright (tall enough here to show the whole stage without scrolling): the camera
   // frames by width, and the outlines stack down the left.
-  { file: "hero-poster-narrow.webp", viewport: { width: 390, height: 1700 }, deviceScaleFactor: 3 },
+  { file: "hero-poster-narrow.webp", render: "full", viewport: { width: 390, height: 1700 }, deviceScaleFactor: 3 },
+  { file: "hero-poster-lite-narrow.webp", render: "lite", viewport: { width: 390, height: 1700 }, deviceScaleFactor: 1 },
 ];
 
 const browser = await chromium.launch({
@@ -36,12 +40,12 @@ try {
           cb(t);
           if (window.__poster) return;
           const canvas = document.querySelector(".hero-stage canvas");
-          if (!canvas || canvas.width < 600) return;
+          if (!canvas || canvas.width < 360) return;
           const url = canvas.toDataURL("image/webp", 0.9);
           if (url.length > 20000) window.__poster = { url, width: canvas.width, height: canvas.height };
         });
     });
-    await page.goto(`${base}/inicio`);
+    await page.goto(`${base}/inicio?render=${shot.render}`);
     const handle = await page.waitForFunction(() => window.__poster, null, { timeout: 180000 });
     const got = await handle.jsonValue();
     const bytes = Buffer.from(got.url.split(",")[1], "base64");

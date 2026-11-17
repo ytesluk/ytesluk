@@ -345,18 +345,33 @@ html[data-motion="full"] {
   transform: translateX(-50%);
 }
 .hero-stage > .scene-poster-narrow {
-  display: none;
   top: 50%;
   left: 0;
   width: 100%;
   transform: translateY(-50%);
 }
-/* Same width as NARROW_QUERY in three/frame.ts. */
+/* One of the four shows: wide or phone (same width as NARROW_QUERY in three/frame.ts), in the
+   render tier the page worked out before painting (three/tier.ts). */
+.hero-stage > .scene-poster-narrow,
+.hero-stage > .scene-poster.is-lite,
+html[data-render="lite"] .hero-stage > .scene-poster.is-full {
+  display: none;
+}
+html[data-render="lite"] .hero-stage > .scene-poster-wide.is-lite {
+  display: block;
+}
+html[data-render="none"] .hero-stage > .scene-poster {
+  display: none;
+}
 @media (max-width: 519px) {
-  .hero-stage > .scene-poster-wide {
+  .hero-stage > .scene-poster-wide,
+  html[data-render="lite"] .hero-stage > .scene-poster-wide.is-lite {
     display: none;
   }
-  .hero-stage > .scene-poster-narrow {
+  .hero-stage > .scene-poster-narrow.is-full {
+    display: block;
+  }
+  html[data-render="lite"] .hero-stage > .scene-poster-narrow.is-lite {
     display: block;
   }
 }

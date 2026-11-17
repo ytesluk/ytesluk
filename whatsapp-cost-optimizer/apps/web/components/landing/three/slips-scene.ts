@@ -20,20 +20,25 @@ const FAR_Z = -8.5;
  * In the calm version (system set to reduce motion) they do not fall on their own: they come down
  * as the page is scrolled, still give way to the pointer, and the scene rests in between.
  */
-export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean; narrow?: boolean }): Promise<SceneHandle> {
+export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { calm: boolean; small: boolean; narrow?: boolean; lite?: boolean }): Promise<SceneHandle> {
   await fontsReady();
   let calm = opts.calm;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
-  let ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const lite = !!opts.lite; // drawing on the processor: see tier.ts
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !lite, alpha: true, powerPreference: "low-power" });
+  let ratio = Math.min(window.devicePixelRatio || 1, lite ? 1 : 2);
   renderer.setPixelRatio(ratio);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.1;
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(FOG, 8, 19.5);
-  const studio = studioEnvironment(renderer, 1.5);
-  scene.environment = studio.texture;
-  scene.environmentIntensity = 0.7;
+  const studio = lite ? null : studioEnvironment(renderer, 1.5);
+  if (studio) {
+    scene.environment = studio.texture;
+    scene.environmentIntensity = 0.7;
+  } else {
+    scene.add(new THREE.HemisphereLight("#f3f6ee", "#27503d", 1.1));
+  }
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 40);
   camera.position.set(0, 0, 10);
   const key = new THREE.DirectionalLight("#fff3df", 2.2);
@@ -48,7 +53,7 @@ export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { calm: 
     shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", "#include <map_fragment>\n\tif ( ! gl_FrontFacing ) diffuseColor.rgb = mix( vec3( 0.86, 0.85, 0.81 ), diffuseColor.rgb, 0.1 );");
   };
 
-  const total = opts.small ? 21 : 42;
+  const total = opts.small || lite ? 21 : 42;
   const perKind = Math.floor(total / atlas.count);
   const r = rng(77);
   const geos: THREE.BufferGeometry[] = [];
@@ -106,12 +111,14 @@ export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { calm: 
   let last = 0;
   let scroll = 0;
   let busy = false;
-  // Slow devices: sharpness first, then resolution.
+  // A device that cannot keep up gives up sharpness, once.
   const watch = frameWatch(() => {
-    ratio = ratio > 1 ? 1 : 0.75;
-    renderer.setPixelRatio(ratio);
-    fit();
-    return ratio > 0.75;
+    if (ratio > 1) {
+      ratio = 1;
+      renderer.setPixelRatio(ratio);
+      fit();
+    }
+    return false;
   });
 
   function fit() {
@@ -233,7 +240,7 @@ export async function createSlipsScene(canvas: HTMLCanvasElement, opts: { calm: 
       material.dispose();
       atlas.texture.dispose();
       fibres.dispose();
-      studio.dispose();
+      studio?.dispose();
       renderer.dispose();
     },
   };
