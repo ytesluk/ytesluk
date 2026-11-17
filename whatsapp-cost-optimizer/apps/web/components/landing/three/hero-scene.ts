@@ -1,9 +1,12 @@
 import * as THREE from "three";
+import { buildBubbles } from "./bubbles";
+import { fontsReady } from "./fonts";
+import { DESIGN_H, DESIGN_W } from "./frame";
 import { PaperSim, STEP, paperGeometry, type Gust, type SlotFrame } from "./paper";
-import { SLOT, buildPrinter } from "./printer";
+import { PRINTER, SLOT, buildPrinter } from "./printer";
 import { frameWatch } from "./quality";
 import { studioEnvironment } from "./studio";
-import { RECEIPTS, RECEIPT_ASPECT, RECEIPT_TOTAL_AT, fontsReady, ghostBubbleTexture, paperNormal, receiptTextures } from "./textures";
+import { RECEIPTS, RECEIPT_ASPECT, RECEIPT_TOTAL_AT, paperNormal, receiptTextures } from "./textures";
 
 export interface SceneHandle {
   /** Pointer over the canvas, each axis in [-1, 1] (y up); may go past the edges. Returns true while over the machine. */
@@ -29,15 +32,8 @@ const smooth = (a: number, b: number, x: number) => {
   const t = clamp((x - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
 };
-const backOut = (t: number) => {
-  const x = clamp(t, 0, 1) - 1;
-  return 1 + 2.2 * x * x * x + 1.2 * x * x;
-};
 
-/** The frame the camera must always contain, in scene units. */
-const DESIGN_W = 5.6;
-const DESIGN_H = 6.1;
-const LOOK_Y = 0.05;
+const LOOK_Y = -0.02;
 const FOV = 26;
 
 const PAPER_W = 1.55;
@@ -148,20 +144,10 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
     inv.copy(rig.matrixWorld).invert();
   }
 
-  // ---- the messages that never had to be sent (graphic overlays, not objects) -----------------
-  const ghostGeo = keep(new THREE.PlaneGeometry(1.92, 1.5));
-  const ghosts = (
-    [
-      ["REPETIDA", -2.0, 0.3, -0.5, 0.36, 0.6],
-      ["SUBSTITUÍDA", 2.0, -0.95, -0.7, -0.32, 0.6],
-      ["JUNTADA", -2.1, -1.3, 0.3, 0.42, 0.54],
-    ] as const
-  ).map(([caption, x, y, z, turn, scale], i) => {
-    const mat = keep(new THREE.MeshBasicMaterial({ map: keep(ghostBubbleTexture(caption)), transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
-    const mesh = new THREE.Mesh(ghostGeo, mat);
-    scene.add(mesh);
-    return { mesh, mat, base: new THREE.Vector3(x, y, z), turn, scale, phase: 1.3 + i * 1.7, delay: 2.1 + i * 0.18 };
-  });
+  // ---- the messages that never had to be sent ----------------------------------------------
+  const bubbles = buildBubbles(keep, maxAniso);
+  scene.add(bubbles.group);
+  const intake = new THREE.Vector3();
 
   // ---- state -------------------------------------------------------------------------------
   const ptr = { x: 0, y: 0, tx: 0, ty: 0, px: 0, py: 0 };
@@ -177,6 +163,10 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   let phase: "printing" | "idle" | "tearing" = "printing";
   let tearT = 0;
   let pressed = 0;
+  /** The power light flaring as a message's tally arrives. */
+  let flash = 0;
+  let hovering = -1;
+  let halfWidth = 4;
   let active = false;
   let disposed = false;
   let raf = 0;
@@ -221,6 +211,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const visH = Math.max(DESIGN_H, DESIGN_W / camera.aspect);
+    halfWidth = (visH * camera.aspect) / 2;
     baseDist = visH / 2 / Math.tan(THREE.MathUtils.degToRad(FOV / 2));
     camera.updateProjectionMatrix();
   }
@@ -319,10 +310,11 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
 
     // --- printing, resting, tearing off ---------------------------------------------------------
     pressed *= 0.86;
+    flash *= 0.9;
     printer.press(pressed);
-    if (phase === "printing") printer.setPower(calm || Math.sin(time * 34) > 0 ? 1 : 0.35);
-    else if (phase === "idle") printer.setPower(0.86 + Math.sin(time * 1.6) * 0.14 * ambient);
-    else printer.setPower(0.3);
+    if (phase === "printing") printer.setPower((calm || Math.sin(time * 34) > 0 ? 1 : 0.35) + flash);
+    else if (phase === "idle") printer.setPower(0.86 + Math.sin(time * 1.6) * 0.14 * ambient + flash);
+    else printer.setPower(0.3 + flash);
     if (phase === "tearing") {
       tearT += step;
       const o = 1 - smooth(0.3, 0.95, tearT);
@@ -357,15 +349,8 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
     camera.position.copy(camPos);
     camera.lookAt(camLook);
 
-    for (const g of ghosts) {
-      const k = calm ? 1 : backOut((time - g.delay) / 0.7);
-      g.mesh.visible = k > 0.001 && f < 0.98;
-      g.mat.opacity = 1 - f;
-      g.mesh.scale.setScalar(Math.max(0.0001, k) * g.scale);
-      const depth = 1 + g.base.z * 0.6;
-      g.mesh.position.set(HOME.x + g.base.x + ptr.x * 0.34 * depth, g.base.y + Math.sin(time * 0.8 + g.phase) * 0.08 * ambient + ptr.y * 0.16 * depth + scroll * (0.7 + g.base.z * 0.5), g.base.z);
-      g.mesh.rotation.set(Math.sin(time * 0.6 + g.phase) * 0.05 * ambient - ptr.y * 0.1, g.turn + ptr.x * 0.3 + Math.sin(time * 0.5 + g.phase) * 0.06 * ambient, Math.sin(time * 0.7 + g.phase * 2) * 0.03 * ambient);
-    }
+    intake.set(0, PRINTER.H / 2 + 0.05, -0.35).applyMatrix4(rig.matrixWorld);
+    if (bubbles.update({ time, step, ambient, px: ptr.x, py: ptr.y, scroll, focus: f, halfWidth, home: HOME, intake })) flash = 1.1;
     renderer.render(scene, camera);
   }
 
@@ -384,6 +369,10 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   fit();
   readSlot();
   sim.reset(slot);
+  // Have the graphics card build every shader before the scene is shown, without freezing the page meanwhile.
+  camera.position.set(0, LOOK_Y + 2.7, baseDist);
+  camera.lookAt(0, LOOK_Y, 0);
+  await renderer.compileAsync(scene, camera).catch(() => undefined);
 
   return {
     pointerMove(x, y) {
@@ -420,7 +409,16 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
           .addScaledVector(gust.dir, speed * 300);
         if (gust.push.lengthSq() > 0.5) kick();
       }
-      return overMachine(x, y);
+      const over = overMachine(x, y);
+      // A message under the pointer swells and turns to face the visitor.
+      const hit = over ? -1 : bubbles.pick(raycaster);
+      if (hit !== hovering) {
+        hovering = hit;
+        bubbles.hover(hit);
+        wake = Math.max(wake, time + 1.2);
+        kick();
+      }
+      return over;
     },
     pointerDown(x, y) {
       if (!overMachine(x, y)) return false;

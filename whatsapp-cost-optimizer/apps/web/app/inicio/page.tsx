@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { preload } from "react-dom";
 import { ArrowRight, BellOff, Copy, FileSearch, Layers, RefreshCw, ShieldCheck, Timer, Zap } from "lucide-react";
 import { Wordmark } from "@/components/brand";
 import { Calculator } from "@/components/landing/calculator";
 import { Demo } from "@/components/landing/demo";
 import { Parallax, ScrollStage, Tilt } from "@/components/landing/fx";
 import { HeroArt, TornEdge } from "@/components/landing/hero-art";
-import painel from "@/components/landing/painel.jpg";
+import heroPoster from "@/components/landing/hero-poster.webp";
 import { PLANS } from "@/components/landing/plans";
 import { MotionSwitch } from "@/components/landing/motion-switch";
+import { PanelShowcase } from "@/components/landing/panel-showcase";
 import { Scene3D } from "@/components/landing/scene3d";
 import { int, money } from "@/lib/format";
 import { sessionToken } from "@/lib/server";
@@ -93,36 +95,6 @@ const FAQ = [
   },
 ];
 
-/**
- * Regions of the dashboard screenshot (left, top, width, height as fractions of the image) that
- * float in front of it on large screens. Measured on the page when the screenshot was taken.
- */
-const PANEL_PIECES: Array<{ box: readonly [number, number, number, number]; z: number }> = [
-  { box: [0.6824, 0.2936, 0.2941, 0.5875], z: 78 },
-  { box: [0.2176, 0.3221, 0.4353, 0.12], z: 44 },
-  { box: [0.0118, 0.7991, 0.1699, 0.173], z: 58 },
-];
-
-function PanelPiece({ box, z }: { box: readonly [number, number, number, number]; z: number }) {
-  const [l, t, w, h] = box;
-  return (
-    <div
-      aria-hidden
-      className="float-z hidden lg:block"
-      style={{
-        left: `${l * 100}%`,
-        top: `${t * 100}%`,
-        width: `${w * 100}%`,
-        height: `${h * 100}%`,
-        backgroundImage: `url(${painel.src})`,
-        backgroundSize: `${100 / w}% ${100 / h}%`,
-        backgroundPosition: `${(l / (1 - w)) * 100}% ${(t / (1 - h)) * 100}%`,
-        ["--z" as string]: `${z}px`,
-      }}
-    />
-  );
-}
-
 function SampleStatement() {
   const rows: Array<[string, string]> = [
     ["Duplicadas barradas", "R$ 148,20"],
@@ -158,6 +130,8 @@ function SampleStatement() {
 
 export default async function LandingPage() {
   const logged = !!(await sessionToken());
+  // The picture of the printer is the first thing on screen: fetch it with the page itself.
+  preload(heroPoster.src, { as: "image", fetchPriority: "high" });
 
   return (
     <div className="theme-paper min-h-screen overflow-x-clip">
@@ -249,9 +223,10 @@ export default async function LandingPage() {
                 <Scene3D
                   kind="hero"
                   focusId="hero-closeup"
+                  poster={{ src: heroPoster.src, width: heroPoster.width, height: heroPoster.height }}
                   className="block h-full w-full"
                   label="Cena em 3D: uma impressora térmica verde imprime o extrato do que o WCO evitou, com o total destacado em marca-texto. Ao redor, os contornos das mensagens que não precisaram ser enviadas."
-                  hint="Arraste para girar · clique para imprimir outro"
+                  hint="Arraste para girar · clique para imprimir"
                   fallback={
                     <div className="flex h-full items-start justify-center pt-10 lg:pl-24">
                       <div className="w-full max-w-[360px] rotate-[2.2deg]">
@@ -326,16 +301,6 @@ export default async function LandingPage() {
               <p className="figure text-[44px] font-semibold leading-none text-ink">02</p>
               <h3 className="mt-5 font-display text-[22px] font-semibold tracking-tight text-ink">Envie os avisos para o WCO</h3>
               <p className="mt-2 text-[15px] leading-relaxed text-ink-2">O seu sistema manda o que aconteceu, em uma chamada simples. O WCO decide se aquilo vira mensagem agora, depois, junto com outra, ou não vira.</p>
-              <pre className="mt-4 overflow-x-auto rounded-2xl bg-[#14201b] p-4 font-mono text-[12px] leading-relaxed text-[#dfe6dc]">
-                <code>{`POST /api/v1/messages/intents
-
-{
-  "customer":  "+5511999990000",
-  "eventType": "order.status",
-  "entityId":  "ORD-4812",
-  "data": { "status": "SHIPPED" }
-}`}</code>
-              </pre>
             </li>
             <li>
               <p className="figure text-[44px] font-semibold leading-none text-ink">03</p>
@@ -368,26 +333,7 @@ export default async function LandingPage() {
                   <p className="mt-6 text-[15px] leading-relaxed text-ink">Os dois aparecem lado a lado e nunca são somados. Você sabe o que é projeção e o que já é fato.</p>
                 </div>
                 <ScrollStage>
-                  <figure>
-                    <div className="stage3d-inner relative">
-                      <div className="overflow-hidden rounded-2xl border border-line shadow-[0_50px_90px_-40px_rgba(0,0,0,.95)]">
-                        <div className="flex h-8 items-center gap-1.5 bg-[#1b2a23] px-4" aria-hidden>
-                          <span className="size-2.5 rounded-full bg-[#f4f1e6]/25" />
-                          <span className="size-2.5 rounded-full bg-[#f4f1e6]/25" />
-                          <span className="size-2.5 rounded-full bg-[#f4f1e6]/25" />
-                        </div>
-                        {/* Bundled static asset: served as-is, no image optimizer needed. */}
-                        <img src={painel.src} width={painel.width} height={painel.height} alt="Painel do WCO: a frase “Você deixou de pagar”, a comparação de custo sem e com o WCO e o extrato com cada linha do que foi evitado." loading="lazy" className="block h-auto w-full" />
-                      </div>
-                      {/* The same screen, taken apart: these pieces float in front of it. */}
-                      <div className="absolute inset-x-px bottom-px top-[33px] [transform-style:preserve-3d]">
-                        {PANEL_PIECES.map((piece) => (
-                          <PanelPiece key={piece.z} {...piece} />
-                        ))}
-                      </div>
-                    </div>
-                    <figcaption className="mt-6 font-mono text-[11px] uppercase tracking-wider text-muted">Tela real do painel, com dados de demonstração</figcaption>
-                  </figure>
+                  <PanelShowcase />
                 </ScrollStage>
               </div>
             </div>

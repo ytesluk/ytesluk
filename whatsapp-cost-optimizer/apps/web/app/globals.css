@@ -310,22 +310,40 @@ html[data-motion="full"] {
   .hero-pin {
     position: sticky;
     top: 122px;
-    height: calc(min(800px, 100svh - 96px) - 52px);
+    height: calc(min(820px, 100svh - 76px) - 52px);
   }
   .hero-stage {
     inset: auto;
     top: -52px;
     left: -110px;
     right: calc(-1 * max(0px, (100vw - 1180px) / 2) - 32px);
-    height: min(800px, calc(100svh - 96px));
+    height: min(820px, calc(100svh - 76px));
+  }
+  .scene-hint {
+    right: 3%;
+    bottom: 6px;
   }
   /* The close-up fills the stage: its left and bottom edges dissolve instead of cutting the picture. */
   .hero-stage > canvas {
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 11%), linear-gradient(0deg, transparent, #000 9%);
-    mask-image: linear-gradient(90deg, transparent, #000 11%), linear-gradient(0deg, transparent, #000 9%);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%), linear-gradient(0deg, transparent, #000 5%);
+    mask-image: linear-gradient(90deg, transparent, #000 6%), linear-gradient(0deg, transparent, #000 5%);
     -webkit-mask-composite: source-in;
     mask-composite: intersect;
   }
+}
+/* The still picture shown until the live scene is ready: same place, same size, under the canvas. */
+.hero-stage > .scene-poster {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  max-width: none;
+  transform: translateX(-50%);
+  object-fit: contain;
+  user-select: none;
+}
+.hero-stage > canvas {
+  position: relative;
 }
 /* How to play with the machine; fades once it has been touched. */
 .scene-hint {
@@ -386,24 +404,54 @@ html[data-motion="full"] {
   perspective: 1500px;
   --q: calc(1 - var(--p, 1));
 }
+/* Tilted while the section arrives, flat once it has: text is only sharp on a flat surface. */
 .stage3d-inner {
-  transform: translateY(calc(var(--q) * 56px)) rotateX(calc(var(--q) * 26deg)) rotateY(calc(var(--q) * -10deg)) scale(calc(1 - var(--q) * 0.07));
+  transform: translateY(calc(var(--q) * 56px)) rotateX(calc(var(--q) * 26deg)) rotateY(calc(var(--q) * -16deg)) scale(calc(1 - var(--q) * 0.07));
   transform-origin: 50% 70%;
   transform-style: preserve-3d;
-  will-change: transform;
+}
+/* Pieces in front of the window: they stand off it while the stage is tilted and settle onto it. */
+.float-z {
+  transform: translateZ(calc(var(--z, 60px) * var(--q) * 2.4));
+}
+
+/* The dashboard rebuilt for the product page: a window, the statement in front of it, the meter in the corner. */
+.panel-window {
+  overflow: hidden;
+  border-radius: 18px;
+  box-shadow: 0 0 0 1px rgba(244, 241, 230, 0.14), 0 50px 90px -40px rgba(0, 0, 0, 0.95);
+}
+.panel-receipt {
+  position: relative;
+  width: min(320px, 90%);
+  margin: -30px 12px 0 auto;
+}
+.panel-receipt .receipt-slot {
+  filter: drop-shadow(0 26px 30px rgba(0, 0, 0, 0.45));
+}
+.panel-meter {
+  display: none;
 }
 @media (min-width: 1024px) {
-  .stage3d-inner {
-    transform: translateY(calc(var(--q) * 56px)) rotateX(calc(var(--q) * 26deg + 3deg)) rotateY(calc(var(--q) * -12deg - 9deg)) scale(calc(1 - var(--q) * 0.07));
+  .panel-receipt {
+    position: absolute;
+    top: 82px;
+    right: -18px;
+    width: 286px;
+    margin: 0;
   }
-}
-/* Pieces of the screen that float in front of it (they separate further while the stage is tilted). */
-.float-z {
-  position: absolute;
-  background-repeat: no-repeat;
-  border-radius: 10px;
-  box-shadow: 0 30px 44px -22px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(20, 32, 27, 0.1);
-  transform: translateZ(calc(var(--z, 60px) * (1 + var(--q) * 1.3)));
+  .panel-meter {
+    display: block;
+    position: absolute;
+    left: -22px;
+    bottom: -30px;
+    width: 212px;
+    border-radius: 14px;
+    border: 1px dashed var(--rule);
+    padding: 12px 14px;
+    background: var(--surface-1);
+    box-shadow: 0 26px 40px -18px rgba(0, 0, 0, 0.7);
+  }
 }
 
 /* The customer's phone, as an object with thickness. */

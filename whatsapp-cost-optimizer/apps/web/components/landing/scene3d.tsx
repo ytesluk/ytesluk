@@ -2,9 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { calmMotion, useCalmMotion } from "./motion";
+import { fontsReady } from "./three/fonts";
+import { DESIGN_H, DESIGN_W } from "./three/frame";
 import type { SceneHandle } from "./three/hero-scene";
 
 type Kind = "hero" | "slips";
+
+const load = {
+  hero: () => import("./three/hero-scene").then((m) => m.createHeroScene),
+  slips: () => import("./three/slips-scene").then((m) => m.createSlipsScene),
+};
+// The hero is on the first screen: its code and fonts start downloading as soon as this script
+// runs, not after the page has hydrated.
+if (typeof window !== "undefined") {
+  void load.hero().catch(() => undefined);
+  void fontsReady();
+}
 
 function webglAvailable(): boolean {
   try {
@@ -20,21 +33,51 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 /**
  * Mounts one of the WebGL scenes on a canvas that fills its parent. three.js is loaded on demand
- * (it is not part of the page's first load), the scene only renders while it is on screen, and
- * visitors without WebGL get `fallback` instead. Visitors who chose the calm version (see
- * `motion.ts`) get a scene that only moves when they act on it.
+ * (it is not part of the page's first load), a scene is only built when the visitor gets near it
+ * and only renders while it is on screen, and visitors without WebGL get `fallback` instead.
+ * Visitors who chose the calm version (see `motion.ts`) get a scene that only moves when they act
+ * on it.
+ *
+ * `poster` is a still picture of the scene's first frame (see `scripts/hero-poster.mjs`). It is in
+ * the page from the first paint, laid out exactly where the scene will draw, so the machine is
+ * there at once and comes alive when the graphics card is ready.
  *
  * The canvas itself never takes pointer events (the page under its transparent parts stays
  * clickable): the pointer is followed on the window and handed to the scene, which says whether it
  * is over the machine. `focusId` names an element whose passage through the middle of the screen
  * drives the close-up.
  */
-export function Scene3D({ kind, className, fallback, label, hint, focusId }: { kind: Kind; className?: string; fallback?: React.ReactNode; label?: string; hint?: string; focusId?: string }) {
+export function Scene3D({
+  kind,
+  className,
+  fallback,
+  label,
+  hint,
+  focusId,
+  poster,
+}: {
+  kind: Kind;
+  className?: string;
+  fallback?: React.ReactNode;
+  label?: string;
+  hint?: string;
+  focusId?: string;
+  poster?: { src: string; width: number; height: number };
+}) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const still = useRef<HTMLImageElement>(null);
   const live = useRef<SceneHandle | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "unsupported">("loading");
+  const [covered, setCovered] = useState(false);
   const [touched, setTouched] = useState(false);
   const calm = useCalmMotion();
+
+  // The still picture stays under the scene until the scene has fully faded in over it.
+  useEffect(() => {
+    if (state !== "ready") return;
+    const t = window.setTimeout(() => setCovered(true), 600);
+    return () => window.clearTimeout(t);
+  }, [state]);
 
   useEffect(() => {
     live.current?.setCalm(calm);
@@ -124,12 +167,18 @@ export function Scene3D({ kind, className, fallback, label, hint, focusId }: { k
       onScroll();
     });
 
-    (async () => {
+    const start = async () => {
       try {
-        const h =
-          kind === "hero"
-            ? await (await import("./three/hero-scene")).createHeroScene(el, { calm: calmMotion(), small })
-            : await (await import("./three/slips-scene")).createSlipsScene(el, { calm: calmMotion(), small });
+        // Building the scene keeps the graphics card and this thread busy: let the still picture
+        // reach the screen first, so the visitor is never looking at an empty stage.
+        const img = still.current;
+        if (img) {
+          await img.decode().catch(() => undefined);
+          await new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
+        }
+        const create = await load[kind]();
+        if (cancelled) return;
+        const h = await create(el, { calm: calmMotion(), small });
         if (cancelled) {
           h.dispose();
           return;
@@ -149,10 +198,21 @@ export function Scene3D({ kind, className, fallback, label, hint, focusId }: { k
       } catch {
         if (!cancelled) setState("unsupported");
       }
-    })();
+    };
+    // A scene far down the page is not built (and costs the graphics card nothing) until the visitor gets near it.
+    const near = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        near.disconnect();
+        void start();
+      },
+      { rootMargin: "1000px 0px" },
+    );
+    near.observe(el);
 
     return () => {
       cancelled = true;
+      near.disconnect();
       io.disconnect();
       ro.disconnect();
       window.removeEventListener("pointermove", onMove);
@@ -169,7 +229,12 @@ export function Scene3D({ kind, className, fallback, label, hint, focusId }: { k
   if (state === "unsupported") return <>{fallback ?? null}</>;
   return (
     <>
-      <canvas ref={canvas} role="img" aria-label={label} className={className} style={{ opacity: state === "ready" ? 1 : 0, transition: "opacity 500ms ease" }} />
+      {poster && !covered ? (
+        // Same picture the scene opens with, sized by the same rule as the camera: full height, or
+        // the whole design width when the stage is too narrow for that.
+        <img ref={still} src={poster.src} alt="" aria-hidden draggable={false} fetchPriority="high" className="scene-poster" style={{ width: `${(poster.width / poster.height / (DESIGN_W / DESIGN_H)) * 100}%` }} />
+      ) : null}
+      <canvas ref={canvas} role="img" aria-label={label} className={className} style={{ opacity: state === "ready" ? 1 : 0, transition: "opacity 400ms ease" }} />
       {hint && state === "ready" ? (
         <p className="scene-hint" style={{ opacity: touched ? 0 : 1 }} aria-hidden>
           {hint}

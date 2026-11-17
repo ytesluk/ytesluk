@@ -28,8 +28,10 @@ export function studioEnvironment(renderer: THREE.WebGLRenderer, sun = 7): { tex
   panel("#ffffff", 3.2, 30, 9, [0, 8, -22]); // back wall wash: what the glossy lid mirrors
   panel("#dcf45b", sun, 9, 9, [11, -9, -12]); // the page's sun, low and behind
 
+  // Half the default resolution: the studio is a few large soft panels, and this is the slowest
+  // step of starting a scene on a modest graphics card.
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const target = pmrem.fromScene(scene, 0.03);
+  const target = pmrem.fromScene(scene, 0.03, 0.1, 100, { size: 128 });
   pmrem.dispose();
   for (const t of trash) t.dispose();
   return { texture: target.texture, dispose: () => target.dispose() };

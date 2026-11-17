@@ -1,8 +1,9 @@
 import * as THREE from "three";
+import { fontsReady } from "./fonts";
 import type { SceneHandle } from "./hero-scene";
 import { frameWatch } from "./quality";
 import { studioEnvironment } from "./studio";
-import { SLIP_ASPECT, fontsReady, paperNormal, rng, slipAtlas } from "./textures";
+import { SLIP_ASPECT, paperNormal, rng, slipAtlas } from "./textures";
 
 const FOG = "#0c1712";
 const SLIP_W = 0.66;
