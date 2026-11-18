@@ -14,8 +14,7 @@ import type { AppContext } from "./context";
 import { loadConversationContext, markBusinessReply } from "./conversations";
 import { incrementQuota, incrementTier, loadCounters } from "./counters";
 import { recordDeliveryFailure } from "./deliverability";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the FinOps integration
-import { getFinOpsBridge } from "@wco/optimization";
+import { finopsBeforeDispatch } from "./finops-dispatch";
 import { costRows } from "./optimizer";
 import { toIntentRecord } from "./records";
 import { prioritizeForFreeEntryPoint } from "./routing";
@@ -111,6 +110,51 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
       ]);
       await audit(ctx.db, { tenantId: tenant.id, action: "message.cancelled", entityType: "MessageAttempt", entityId: attempt.id, data: { reason: "window_closed" } });
       return { status: "cancelled:window_closed" };
+    }
+
+    // FinOps (packages/optimization/src/finops, wired in finops-dispatch.ts): the global deliverability
+    // cache may hold this send back, and the template mirror pool may pick another approved variant.
+    const serviceCost = kind === MessageKind.TEMPLATE ? Number(priceAt(rec, now, MessageKind.NON_TEMPLATE, BillingCategory.SERVICE, context, pricing, false).estimatedCost.toFixed(6)) : 0;
+    const gate = await finopsBeforeDispatch(ctx, {
+      tenantId: tenant.id,
+      intentId: intent.id,
+      recipient,
+      phoneNumberId: phone.metaPhoneNumberId,
+      kind,
+      category,
+      templateName,
+      priority: intent.priority,
+      deadlineAt: intent.deadlineAt,
+      mustSendImmediately: intent.mustSendImmediately,
+      marketingOptedOut: !!customer.marketingOptedOutAt,
+      estimate,
+      serviceCost,
+      now,
+    });
+    if (gate.action === "SUPPRESS") {
+      await ctx.db.$transaction([
+        ctx.db.messageAttempt.update({ where: { id: attempt.id }, data: { status: MessageStatus.CANCELLED, errorCode: "FINOPS_SUPPRESSED", errorMessage: gate.reason } }),
+        ctx.db.messageIntent.updateMany({ where: { tenantId: tenant.id, id: { in: attempt.coveredIntentIds } }, data: { status: MessageStatus.BLOCKED, decisionReason: `finops:${gate.reason.toLowerCase()}` } }),
+      ]);
+      await event(ctx.db, { tenantId: tenant.id, type: "DECISION", intentId: intent.id, conversationId, occurredAt: now, data: { action: "FINOPS_SUPPRESSED", reasons: [gate.reason], strategies: gate.strategies } });
+      await audit(ctx.db, { tenantId: tenant.id, action: "message.cancelled", entityType: "MessageAttempt", entityId: attempt.id, data: { reason: "finops_global_suppression", code: gate.reason } });
+      return { status: "blocked:finops" };
+    }
+    if (gate.action === "DEFER") {
+      await event(ctx.db, { tenantId: tenant.id, type: "DECISION", intentId: intent.id, conversationId, occurredAt: now, data: { action: "FINOPS_DEFERRED", reasons: [gate.reason], until: gate.until.toISOString(), strategies: gate.strategies } });
+      throw new RetryLaterError(Math.max(1_000, gate.until.getTime() - now.getTime()), "finops marketing frequency cap");
+    }
+    if (gate.templateName && kind === MessageKind.TEMPLATE) {
+      const variant = tenant.templates.get(gate.templateName);
+      if (variant?.approved) {
+        const from = templateName;
+        templateName = variant.name;
+        category = variant.category;
+        estimate = priceAt(rec, now, kind, category, context, pricing, true);
+        await ctx.db.messageAttempt.update({ where: { id: attempt.id }, data: { templateName, category } });
+        await ctx.db.messageIntent.update({ where: { id: intent.id, tenantId: tenant.id }, data: { category, decisionReason: `${intent.decisionReason ?? ""},finops_mirror_failover` } });
+        await event(ctx.db, { tenantId: tenant.id, type: "DECISION", intentId: intent.id, conversationId, occurredAt: now, data: { action: "FINOPS_MIRROR_FAILOVER", from, template: templateName, strategies: gate.strategies } });
+      }
     }
 
     await ctx.db.messageAttempt.update({ where: { id: attempt.id }, data: { status: MessageStatus.SENDING } });

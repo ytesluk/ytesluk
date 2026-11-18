@@ -36,6 +36,9 @@
 * Cadastro self-service não verifica o e-mail nem tem recuperação de senha.
 * Assistente de classificação de templates (IA) é um ponto de extensão desligado: não há integração com
   provedor de LLM embarcada.
+* FinOps ([FINOPS.md](FINOPS.md)): ativo no envio para supressão global e pool de templates-espelho; a
+  ponte HTTP externa, o split em duas etapas e a taxa de BSP evitada não são usados; o livro de economia
+  não aparece no painel.
 
 ## Atendimento (respostas aos clientes)
 
