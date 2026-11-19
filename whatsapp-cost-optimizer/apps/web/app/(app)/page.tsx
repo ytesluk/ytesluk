@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { BarCard, LineCard } from "@/components/charts";
+import { FinOpsPanel } from "@/components/finops-panel";
 import { OptimizationDetails } from "@/components/optimization-details";
 import { RangePicker, useRange } from "@/components/range";
 import { useCountUp } from "@/components/shell";
@@ -318,6 +319,7 @@ export default function OverviewPage() {
               <p className="text-sm text-ink-2">Por categoria, tipo de evento, janela gratuita e tier. Estimado = decisão do WCO; realizado = confirmado pelos webhooks da Meta.</p>
             </div>
             <OptimizationDetails data={data} />
+            <FinOpsPanel query={query} />
           </section>
           <p className="text-xs text-muted">{s.savings.note}</p>
         </div>

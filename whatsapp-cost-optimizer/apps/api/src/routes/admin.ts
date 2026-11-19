@@ -13,6 +13,7 @@ import {
   RetentionSchema,
   SavingsSimulationSchema,
   SimulateInboundSchema,
+  MirrorVariantSchema,
   TemplateCostSchema,
   TemplateSchema,
   TemplateSplitSchema,
@@ -33,7 +34,10 @@ import {
   listOptimizationPolicies,
   listPricing,
   listResearchRuns,
+  deleteMirrorVariant,
+  listMirrorVariants,
   listTemplates,
+  upsertMirrorVariant,
   syncTemplates,
   onboardingStatus,
   rateCardSimulation,
@@ -82,6 +86,9 @@ export async function adminRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/api/v1/templates/:id/assistant", { schema: { tags: ["templates"], summary: "Optional AI classification assistant (disabled by default)" }, preHandler: guard(ctx, Permission.TEMPLATES_WRITE) }, async (req) =>
     classificationAssistant(ctx, actorOf(req), (req.params as { id: string }).id),
   );
+  app.get("/api/v1/templates/mirrors", { schema: { tags: ["templates"], summary: "List Mirror Template Pool variants" }, preHandler: guard(ctx, Permission.TEMPLATES_READ) }, async (req) => listMirrorVariants(ctx, t(req)));
+  app.post("/api/v1/templates/mirrors", { schema: { tags: ["templates"], summary: "Add or update a Mirror Template variant", body: doc(MirrorVariantSchema) }, preHandler: guard(ctx, Permission.TEMPLATES_WRITE) }, async (req, reply) => reply.status(201).send(await upsertMirrorVariant(ctx, t(req), req.body)));
+  app.delete("/api/v1/templates/mirrors/:id", { schema: { tags: ["templates"], summary: "Delete a Mirror Template variant" }, preHandler: guard(ctx, Permission.TEMPLATES_WRITE) }, async (req) => deleteMirrorVariant(ctx, t(req), (req.params as { id: string }).id));
 
   // ---------------------------------------------------------------- optimization policies (spec §9, §60)
   app.get("/api/v1/optimization/policies", { schema: { tags: ["optimization"] }, preHandler: guard(ctx, Permission.POLICIES_READ) }, async (req) => listOptimizationPolicies(ctx, t(req)));

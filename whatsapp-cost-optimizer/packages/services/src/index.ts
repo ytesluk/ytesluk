@@ -25,3 +25,4 @@ export * from "./deliverability";
 export * from "./followups";
 export * from "./outbound-webhooks";
 export * from "./routing";
+export * from "./finops-analytics";

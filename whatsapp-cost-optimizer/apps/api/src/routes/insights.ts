@@ -19,6 +19,7 @@ import {
   billingOverview,
   changeTenantPlan,
   ChangePlanSchema,
+  finopsSummary,
   summary,
   type AppContext,
 } from "@wco/services";
@@ -54,6 +55,11 @@ export async function insightRoutes(app: FastifyInstance, ctx: AppContext) {
       const s = await summary(ctx, t(req), q(req));
       return { ...(await routingSummary(ctx, t(req), q(req))), currency: s.currency, isDemoRates: s.isDemoRates, savings: s.savings.routing };
     },
+  );
+  app.get(
+    "/api/v1/finops/summary",
+    { schema: { tags: ["analytics"], summary: "FinOps ledger, mirror pools, global suppressions and monthly quota", querystring: doc(RangeQuery) }, preHandler: guard(ctx, Permission.ANALYTICS_READ) },
+    async (req) => finopsSummary(ctx, t(req), q(req)),
   );
 
   app.get("/api/v1/observability", { schema: { tags: ["system"], summary: "Queue depth, throughput, error rate, Meta API latency" }, preHandler: guard(ctx, Permission.OBSERVABILITY_READ) }, async (req) => operations(ctx, t(req)));

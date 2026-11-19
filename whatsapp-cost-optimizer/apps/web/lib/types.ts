@@ -106,3 +106,59 @@ export interface IntentRow {
   duplicateOfId: string | null;
   consolidatedIntoId: string | null;
 }
+
+export interface MirrorVariant {
+  id: string;
+  tenantId: string;
+  groupKey: string;
+  metaTemplateName: string;
+  language: string;
+  category: string;
+  status: string;
+  priority: number;
+  lastReclassifiedAt: string | null;
+}
+
+export interface FinOpsSummary {
+  range: { from: string; to: string };
+  currency: string;
+  totals: {
+    decisions: number;
+    baselineUsd: number;
+    finalUsd: number;
+    metaTariffSavingsUsd: number;
+    avoidedBspFeeUsd: number;
+    totalSavingsUsd: number;
+  };
+  byStatus: Record<string, number>;
+  byTransport: Record<string, number>;
+  strategies: Array<{ strategy: string; count: number; savingsUsd: number }>;
+  suppressions: {
+    activeTotal: number;
+    totalHits: number;
+    invalidRecipient131026: number;
+    marketingFrequencyCap131049: number;
+  };
+  quotas: Array<{
+    id: string;
+    wabaPhoneId: string;
+    yearMonth: string;
+    freeUsedCount: number;
+    freeLimit: number;
+    remaining: number;
+  }>;
+  mirrorVariants: MirrorVariant[];
+  recent: Array<{
+    id: string;
+    intentId: string;
+    status: string;
+    transport: string;
+    deliveryMode: string;
+    selectedTemplateName: string | null;
+    baselineTotalCostUsd: number;
+    finalTotalCostUsd: number;
+    totalSavingsUsd: number;
+    strategies: string[];
+    createdAt: string;
+  }>;
+}
