@@ -78,7 +78,7 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
     let templateName = attempt.templateName;
     const pricing = { engine, counters, timezone, currency, quotaUsed: 0, tierPosition: 0, authInternationalEligible: waba?.authInternationalEligible ?? false };
     let estimate = priceAt(rec, now, kind, category, context, pricing, true);
-    const payload = (attempt.payload ?? {}) as { parameters?: TemplateParameter[]; text?: string | null; renderFromTemplate?: string | null };
+    const payload = (attempt.payload ?? {}) as { parameters?: TemplateParameter[]; text?: string | null; renderFromTemplate?: string | null; deferredPromoText?: string | null; flowId?: string | null };
     const paramsOf = (t: { bodyParams: string[] } | undefined): TemplateParameter[] =>
       payload.parameters && payload.parameters.length > 0 ? payload.parameters : (t?.bodyParams ?? []).map((name) => ({ name, value: sanitizeParam(rec.data[name]) }));
 
@@ -127,9 +127,14 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
       deadlineAt: intent.deadlineAt,
       mustSendImmediately: intent.mustSendImmediately,
       marketingOptedOut: !!customer.marketingOptedOutAt,
+      wabaId: waba?.businessAccountId,
       estimate,
       serviceCost,
       now,
+      coveredIntentIds: attempt.coveredIntentIds,
+      tierPosition: pricing.tierPosition,
+      deferredPromoText: payload.deferredPromoText ?? null,
+      flowId: payload.flowId ?? null,
     });
     if (gate.action === "SUPPRESS") {
       await ctx.db.$transaction([
@@ -143,6 +148,17 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
     if (gate.action === "DEFER") {
       await event(ctx.db, { tenantId: tenant.id, type: "DECISION", intentId: intent.id, conversationId, occurredAt: now, data: { action: "FINOPS_DEFERRED", reasons: [gate.reason], until: gate.until.toISOString(), strategies: gate.strategies } });
       throw new RetryLaterError(Math.max(1_000, gate.until.getTime() - now.getTime()), "finops marketing frequency cap");
+    }
+    if (gate.convertToFreeForm && kind === MessageKind.TEMPLATE && templateName) {
+      const src = tenant.templates.get(templateName);
+      const rnd = src ? templateToFreeForm(src.components, paramsOf(src)) : null;
+      if (rnd?.ok) {
+        kind = MessageKind.NON_TEMPLATE;
+        freeForm = rnd.content;
+        estimate = priceAt(rec, now, kind, BillingCategory.SERVICE, context, pricing, true);
+        await ctx.db.messageAttempt.update({ where: { id: attempt.id }, data: { messageKind: kind } });
+        await ctx.db.messageIntent.update({ where: { id: intent.id, tenantId: tenant.id }, data: { messageKind: kind, decisionReason: (intent.decisionReason ?? "") + ",finops_csw_free_form" } });
+      }
     }
     if (gate.templateName && kind === MessageKind.TEMPLATE) {
       const variant = tenant.templates.get(gate.templateName);
