@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FileSearch, Gauge, Lock, MessageSquareText, ShieldCheck, TrendingDown, Wallet, Zap } from "lucide-react";
+import { ArrowRight, FileSearch, Gauge, Lock, ShieldCheck, TrendingDown, Wallet } from "lucide-react";
 import { Wordmark } from "@/components/brand";
-import { Calculator } from "@/components/landing/calculator";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { Parallax, ScrollStage, Tilt } from "@/components/landing/fx";
 import { HeroArt, TornEdge } from "@/components/landing/hero-art";
@@ -64,9 +63,7 @@ const FEATURES = [
   { icon: Wallet, title: "Fatura menor, todo mês", body: "A conta da Meta passa a ser só o que precisa ser. Você acompanha a economia no painel desde o primeiro dia." },
   { icon: TrendingDown, title: "Margem protegida", body: "Vender mais deixa de significar pagar proporcionalmente mais por mensagem. O custo por cliente fica sob controle." },
   { icon: Gauge, title: "Custo previsível", body: "Acompanhe o gasto do mês enquanto ele acontece, com alerta quando o volume passa do previsto no seu plano." },
-  { icon: Zap, title: "Urgente sai na hora", body: "Código de verificação e alerta crítico nunca esperam. Você define o que é prioridade para a sua operação." },
   { icon: FileSearch, title: "Auditoria de cada real", body: "Economia estimada e economia confirmada pela Meta lado a lado, nunca somadas. Cada envio fica registrado." },
-  { icon: MessageSquareText, title: "Comunicação mais limpa", body: "O seu cliente recebe o que importa, sem excesso de notificação. Menos ruído, mais atenção à sua marca." },
   { icon: Lock, title: "LGPD desde o primeiro dia", body: "Telefones cifrados, conteúdo das conversas não armazenado e pedidos de saída respeitados automaticamente." },
   { icon: ShieldCheck, title: "Só a API oficial", body: "O envio é feito pela Cloud API da Meta, com o número e a conta da sua empresa. Nada de atalho." },
 ];
@@ -95,10 +92,6 @@ const FAQ = [
   {
     q: "O que acontece se eu passar do limite do plano?",
     a: "Nada é bloqueado. O WCO avisa que você passou do volume incluído e continua funcionando normalmente.",
-  },
-  {
-    q: "Preciso de alguém de tecnologia para começar?",
-    a: "Só para a conexão inicial: uma integração simples e documentada, que o seu time faz uma vez. Depois disso, o dia a dia é acompanhar a economia no painel.",
   },
   {
     q: "E a LGPD?",
@@ -162,7 +155,6 @@ export default async function LandingPage() {
           <div className="hidden items-center lg:flex">
             {[
               ["#como-funciona", "Como funciona"],
-              ["#calculadora", "Calculadora"],
               ["#planos", "Planos"],
               ["#duvidas", "Dúvidas"],
             ].map(([href, label]) => (
@@ -202,17 +194,11 @@ export default async function LandingPage() {
 
             <p className="mt-4 font-mono text-[11px] uppercase tracking-wider text-muted">Plano Free com 1.000 avisos por mês · sem cartão · API oficial da Meta</p>
 
-            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="mt-8 grid max-w-[600px] grid-cols-1 gap-3 sm:grid-cols-2">
               <a href="#como-funciona" className="group rounded-2xl bg-[#dcf45b] p-4 text-[#14201b] transition hover:-translate-y-0.5">
                 <span className={`${eyebrow} block opacity-70`}>Em 1 minuto</span>
                 <span className="mt-2 flex items-center justify-between gap-2 font-display text-[17px] font-semibold leading-tight">
                   Entender como funciona <ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
-                </span>
-              </a>
-              <a href="#calculadora" className="group rounded-2xl bg-[#fdfcf8] p-4 text-[#14201b] transition hover:-translate-y-0.5">
-                <span className={`${eyebrow} block text-[#0e5a45]`}>Fazer a conta</span>
-                <span className="mt-2 flex items-center justify-between gap-2 font-display text-[17px] font-semibold leading-tight">
-                  Calcular minha economia <ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
                 </span>
               </a>
               <Link href="/signup" className="group rounded-2xl bg-[#fdfcf8] p-4 text-[#14201b] transition hover:-translate-y-0.5">
@@ -382,57 +368,47 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* Calculator */}
-        <section id="calculadora" className="scroll-mt-24 border-y border-dashed border-rule bg-surface-2/50">
-          <div className={`${wrap} py-16 sm:py-24`}>
-            <p className={`${eyebrow} text-accent`}>Calculadora</p>
-            <h2 className={`${h2} mt-4 max-w-3xl`}>Faça a conta com os seus números.</h2>
-            <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-ink-2">Três perguntas. O recibo ao lado mostra quanto ficaria no seu caixa e quanto sobra depois da assinatura.</p>
-            <div className="mt-10">
-              <Calculator />
-            </div>
-          </div>
-        </section>
-
         {/* Plans */}
-        <section id="planos" className={`${wrap} scroll-mt-24 py-16 sm:py-24`}>
-          <p className={`${eyebrow} text-accent`}>Planos</p>
-          <h2 className={`${h2} mt-4 max-w-3xl`}>Comece de graça. Mude de plano quando o volume pedir.</h2>
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PLANS.map((p) => (
-              <article key={p.code} className="flex">
-               <Tilt max={5} className={`flex w-full flex-col rounded-3xl border p-6 ${p.code === "FREE" ? "border-transparent bg-[#14201b] text-[#f4f1e6]" : "border-line bg-surface"}`}>
-                <h3 className="font-display text-[20px] font-semibold tracking-tight">{p.name}</h3>
-                <p className="mt-4 flex items-baseline gap-1.5">
-                  <span className={p.fee === null ? "font-display text-[26px] font-semibold leading-[30px]" : "figure text-[30px] font-semibold leading-none"}>{p.fee === null ? "Sob consulta" : p.fee === 0 ? "R$ 0" : money(p.fee, "BRL", 0)}</span>
-                  {p.fee ? <span className={`text-sm ${p.code === "FREE" ? "opacity-70" : "text-muted"}`}>/mês</span> : null}
-                </p>
-                <p className={`mt-4 text-[14.5px] font-medium ${p.code === "FREE" ? "" : "text-ink"}`}>
-                  {p.fee === null ? "Acima de 500.000 avisos por mês" : (
-                    <>
-                      Até <span className={p.code === "FREE" ? "marker figure" : "figure"}>{int(p.events)}</span> avisos por mês
-                    </>
+        <section id="planos" className={`${wrap} scroll-mt-24 pb-16 sm:pb-24`}>
+          <div className="border-t border-dashed border-rule pt-16 sm:pt-24">
+            <p className={`${eyebrow} text-accent`}>Planos</p>
+            <h2 className={`${h2} mt-4 max-w-3xl`}>Comece de graça. Mude de plano quando o volume pedir.</h2>
+            <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {PLANS.map((p) => (
+                <article key={p.code} className="flex">
+                 <Tilt max={5} className={`flex w-full flex-col rounded-3xl border p-6 ${p.code === "FREE" ? "border-transparent bg-[#14201b] text-[#f4f1e6]" : "border-line bg-surface"}`}>
+                  <h3 className="font-display text-[20px] font-semibold tracking-tight">{p.name}</h3>
+                  <p className="mt-4 flex items-baseline gap-1.5">
+                    <span className={p.fee === null ? "font-display text-[26px] font-semibold leading-[30px]" : "figure text-[30px] font-semibold leading-none"}>{p.fee === null ? "Sob consulta" : p.fee === 0 ? "R$ 0" : money(p.fee, "BRL", 0)}</span>
+                    {p.fee ? <span className={`text-sm ${p.code === "FREE" ? "opacity-70" : "text-muted"}`}>/mês</span> : null}
+                  </p>
+                  <p className={`mt-4 text-[14.5px] font-medium ${p.code === "FREE" ? "" : "text-ink"}`}>
+                    {p.fee === null ? "Acima de 500.000 avisos por mês" : (
+                      <>
+                        Até <span className={p.code === "FREE" ? "marker figure" : "figure"}>{int(p.events)}</span> avisos por mês
+                      </>
+                    )}
+                  </p>
+                  <p className={`mt-2 flex-1 text-[14px] leading-relaxed ${p.code === "FREE" ? "opacity-80" : "text-ink-2"}`}>{p.blurb}</p>
+                  {p.code === "FREE" ? (
+                    <Link href="/signup" className="lift mt-6 inline-flex h-11 items-center justify-center rounded-full bg-[#dcf45b] px-5 text-sm font-semibold text-[#14201b] hover:opacity-90">
+                      Criar conta grátis
+                    </Link>
+                  ) : (
+                    <Link href="/signup" className="lift mt-6 inline-flex h-11 items-center justify-center rounded-full border border-rule bg-surface px-5 text-sm font-semibold text-ink hover:bg-surface-2">
+                      Começar pelo Free
+                    </Link>
                   )}
-                </p>
-                <p className={`mt-2 flex-1 text-[14px] leading-relaxed ${p.code === "FREE" ? "opacity-80" : "text-ink-2"}`}>{p.blurb}</p>
-                {p.code === "FREE" ? (
-                  <Link href="/signup" className="lift mt-6 inline-flex h-11 items-center justify-center rounded-full bg-[#dcf45b] px-5 text-sm font-semibold text-[#14201b] hover:opacity-90">
-                    Criar conta grátis
-                  </Link>
-                ) : (
-                  <Link href="/signup" className="lift mt-6 inline-flex h-11 items-center justify-center rounded-full border border-rule bg-surface px-5 text-sm font-semibold text-ink hover:bg-surface-2">
-                    Começar pelo Free
-                  </Link>
-                )}
-               </Tilt>
-              </article>
-            ))}
+                 </Tilt>
+                </article>
+              ))}
+            </div>
+            <ul className="mt-7 grid grid-cols-1 gap-x-10 gap-y-2 text-[14px] leading-relaxed text-ink-2 md:grid-cols-3">
+              <li className="border-t border-dashed border-rule pt-3">As mensagens de WhatsApp continuam cobradas pela Meta, direto na sua conta.</li>
+              <li className="border-t border-dashed border-rule pt-3">Passar do volume incluído não bloqueia nenhuma mensagem.</li>
+              <li className="border-t border-dashed border-rule pt-3">Toda conta começa no Free. A mudança de plano é feita com a nossa equipe.</li>
+            </ul>
           </div>
-          <ul className="mt-7 grid grid-cols-1 gap-x-10 gap-y-2 text-[14px] leading-relaxed text-ink-2 md:grid-cols-3">
-            <li className="border-t border-dashed border-rule pt-3">As mensagens de WhatsApp continuam cobradas pela Meta, direto na sua conta.</li>
-            <li className="border-t border-dashed border-rule pt-3">Passar do volume incluído não bloqueia nenhuma mensagem.</li>
-            <li className="border-t border-dashed border-rule pt-3">Toda conta começa no Free. A mudança de plano é feita com a nossa equipe.</li>
-          </ul>
         </section>
 
         {/* FAQ */}
@@ -485,7 +461,6 @@ export default async function LandingPage() {
             <Wordmark compact />
             <nav aria-label="Rodapé" className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-2">
               <a href="#como-funciona" className="hover:text-ink">Como funciona</a>
-              <a href="#calculadora" className="hover:text-ink">Calculadora</a>
               <a href="#planos" className="hover:text-ink">Planos</a>
               <a href="#duvidas" className="hover:text-ink">Dúvidas</a>
               {process.env.TERMS_URL ? <a href={process.env.TERMS_URL} className="hover:text-ink">Termos de uso</a> : null}
