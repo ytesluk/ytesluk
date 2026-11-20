@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { use } from "react";
 import { ArrowLeft } from "lucide-react";
-import { Badge, Card, ConfidenceBadge, ErrorBox, KeyValue, Loading, PageHeader, ReceiptLine, StatusBadge, Table } from "@/components/ui";
+import { Badge, Card, ConfidenceBadge, ErrorBox, KeyValue, Loading, PageHeader, ReceiptLine, Table } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
 import { useApi } from "@/lib/api";
 import { STATUS_LABEL, dateTime, money, reason } from "@/lib/format";
 

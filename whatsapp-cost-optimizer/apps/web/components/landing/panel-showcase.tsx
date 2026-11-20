@@ -4,10 +4,10 @@ import { Badge, ConfidenceBadge, ReceiptLine } from "@/components/ui";
 
 /** The same example figures the printer in the hero prints. */
 const LINES: Array<[string, string]> = [
-  ["Duplicadas barradas", "R$ 148,20"],
-  ["Substituídas pela mais recente", "R$ 96,40"],
-  ["Juntadas em uma só mensagem", "R$ 71,05"],
-  ["Enviadas em janela grátis", "R$ 39,90"],
+  ["Avisos de pedido", "R$ 148,20"],
+  ["Pagamento e cobrança", "R$ 96,40"],
+  ["Entrega e rastreio", "R$ 71,05"],
+  ["Pós-venda", "R$ 39,90"],
 ];
 
 /**
@@ -78,7 +78,7 @@ export function PanelShowcase() {
 
             <div className="mt-6">
               <p className="text-[13px] leading-snug text-ink-2">
-                De cada <strong className="text-ink">100</strong> avisos recebidos, <strong className="text-ink">78</strong> viraram mensagem.
+                De cada <strong className="text-ink">R$ 100</strong> da fatura, <strong className="text-ink">R$ 22</strong> ficaram no caixa.
               </p>
               <div className="mt-2.5 flex h-3 gap-[2px]" aria-hidden>
                 <span className="rounded-l-[4px] bg-ink" style={{ width: "78%" }} />
@@ -87,11 +87,11 @@ export function PanelShowcase() {
               <ul className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-[11.5px] text-ink-2">
                 <li className="flex items-center gap-1.5">
                   <span className="inline-block size-2.5 rounded-[3px] bg-ink" aria-hidden />
-                  <span className="figure text-ink">78</span> viraram mensagem
+                  <span className="figure text-ink">R$ 78</span> pagos à Meta
                 </li>
                 <li className="flex items-center gap-1.5">
                   <span className="inline-block size-2.5 rounded-[3px] bg-marker ring-1 ring-inset ring-[var(--rule)]" aria-hidden />
-                  <span className="figure text-ink">22</span> não foram cobrados
+                  <span className="figure text-ink">R$ 22</span> economizados
                 </li>
               </ul>
             </div>
@@ -103,7 +103,7 @@ export function PanelShowcase() {
           <div className="receipt-slot theme-paper !bg-transparent">
             <div className="receipt px-5 pt-5">
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted">Extrato · 30 dias</p>
-              <p className="perf-b pb-3 pt-1 font-display text-[19px] font-semibold tracking-tight text-ink">O que o WCO evitou</p>
+              <p className="perf-b pb-3 pt-1 font-display text-[19px] font-semibold tracking-tight text-ink">Sua economia no mês</p>
               <div className="perf-b py-2">
                 {LINES.map(([label, value]) => (
                   <ReceiptLine key={label} label={label} value={value} />

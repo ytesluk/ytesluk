@@ -48,7 +48,7 @@ export function Kpi({ label, value, hint, tone, badge }: { label: string; value:
   );
 }
 
-type BadgeTone = "neutral" | "info" | "good" | "warning" | "critical" | "demo";
+export type BadgeTone = "neutral" | "info" | "good" | "warning" | "critical" | "demo";
 const BADGE: Record<BadgeTone, string> = {
   neutral: "bg-surface-2 text-ink-2 border-transparent",
   info: "bg-transparent text-ink-2 border-rule border-dashed",
@@ -79,22 +79,6 @@ export function ConfidenceBadge({ value }: { value: string | null | undefined })
   if (value === "REALIZED") return <Badge tone="good" title="Confirmado pela Meta nos webhooks de entrega">REALIZADO</Badge>;
   if (value === "UNKNOWN") return <Badge tone="warning">DESCONHECIDO</Badge>;
   return <Badge tone="info" title="Estimativa do WCO, ainda não confirmada pela Meta">ESTIMADO</Badge>;
-}
-
-const STATUS_TONE: Record<string, BadgeTone> = {
-  DELIVERED: "good",
-  READ: "good",
-  SENT: "info",
-  FAILED: "critical",
-  BLOCKED: "critical",
-  CANCELLED: "warning",
-  DEDUPLICATED: "neutral",
-  SUPERSEDED: "neutral",
-  CONSOLIDATED: "neutral",
-};
-
-export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  return <Badge tone={STATUS_TONE[status] ?? "info"}>{label ?? status}</Badge>;
 }
 
 export function Button({ variant = "secondary", className, loading, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" | "danger"; loading?: boolean }) {

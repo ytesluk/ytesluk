@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ReceiptLine } from "@/components/ui";
-import { int, money } from "@/lib/format";
+import { int, money } from "@/lib/numbers";
 import { PLANS } from "./plans";
 
 const VOLUMES = [1_000, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
@@ -45,11 +45,11 @@ export function Calculator() {
 
         <label className="block">
           <span className="flex items-baseline justify-between gap-3">
-            <span className="text-[15px] font-semibold text-ink">De cada 100, quantos são repetidos ou atualizam o mesmo assunto?</span>
-            <span className="figure text-lg font-semibold text-ink">{repeat}</span>
+            <span className="text-[15px] font-semibold text-ink">De cada R$ 100 da fatura, quanto você acha que dá para cortar?</span>
+            <span className="figure text-lg font-semibold text-ink">R$ {repeat}</span>
           </span>
-          <input type="range" min={0} max={60} step={1} value={repeat} onChange={(e) => setRepeat(Number(e.target.value))} className="mt-3 w-full accent-[var(--accent)]" aria-valuetext={`${repeat} de cada 100`} />
-          <span className="mt-1 block text-xs leading-relaxed text-muted">Não sabe? Pense em quantas vezes um pedido muda de status no mesmo dia. No plano Free o WCO mede isso para você.</span>
+          <input type="range" min={0} max={60} step={1} value={repeat} onChange={(e) => setRepeat(Number(e.target.value))} className="mt-3 w-full accent-[var(--accent)]" aria-valuetext={`R$ ${repeat} de cada R$ 100`} />
+          <span className="mt-1 block text-xs leading-relaxed text-muted">Não sabe? Comece com 20. No plano Free o WCO mede o número real com os seus próprios dados.</span>
         </label>
 
         <label className="block max-w-xs">
@@ -68,20 +68,20 @@ export function Calculator() {
           <h3 className="perf-b pb-3 pt-1 font-display text-xl font-semibold tracking-tight text-ink">Por mês</h3>
           <div className="perf-b py-2.5">
             <ReceiptLine label="Avisos disparados" value={int(events)} />
-            <ReceiptLine label="Não precisariam virar mensagem" value={int(avoided)} />
+            <ReceiptLine label="Envios fora da fatura" value={int(avoided)} />
             <ReceiptLine label="Preço por mensagem (seu)" value={money(unit, "BRL", 2)} />
           </div>
           <div className="perf-b py-2.5">
-            <ReceiptLine strong highlight label="Você deixaria de pagar" value={money(saved)} />
+            <ReceiptLine strong highlight label="Ficaria no seu caixa" value={money(saved)} />
             {plan && plan.fee !== null ? <ReceiptLine label={`Assinatura do WCO (${plan.name})`} value={plan.fee === 0 ? "grátis" : `− ${money(plan.fee)}`} /> : <ReceiptLine label="Assinatura do WCO (Enterprise)" value="sob consulta" />}
           </div>
           {net !== null ? (
             <div className="pt-2.5">
-              <ReceiptLine strong label="Saldo estimado" value={money(net)} />
-              {net < 0 ? <p className="mt-1 text-[11px] leading-snug text-muted">Com esses números a assinatura custaria mais do que o que você deixaria de pagar. Comece pelo Free e veja os números reais antes de decidir.</p> : null}
+              <ReceiptLine strong label="Ganho líquido estimado" value={money(net)} />
+              {net < 0 ? <p className="mt-1 text-[11px] leading-snug text-muted">Com esses números a assinatura custaria mais do que a economia. Comece pelo Free e veja os números reais antes de decidir.</p> : null}
             </div>
           ) : null}
-          <p className="mt-2 text-[11px] leading-snug text-muted">Conta simples, feita com o que você digitou. Não é promessa: o resultado real depende do seu tráfego e da tabela de preços da Meta.</p>
+          <p className="mt-2 text-[11px] leading-snug text-muted">Conta simples, feita com o que você digitou. O número real aparece no seu extrato, com os seus dados e a tabela de preços da Meta.</p>
         </section>
       </div>
     </div>
