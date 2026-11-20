@@ -147,7 +147,7 @@ export interface ReceiptData {
   lines: ReadonlyArray<readonly [string, string]>;
   total: string;
   confirmed: string;
-  /** Out of every R$ 100 the bill would have been, how much was paid (the rest stayed with the business). */
+  /** Out of every 100 sends of the operation, how many were billed (the rest were saved). */
   sent: number;
 }
 
@@ -158,10 +158,10 @@ export const RECEIPTS: ReadonlyArray<ReceiptData> = [
     period: "01/10/2026 A 31/10/2026",
     issued: "01/11/2026 09:41",
     lines: [
-      ["AVISOS DE PEDIDO", "R$ 148,20"],
-      ["PAGAMENTO E COBRANÇA", "R$ 96,40"],
-      ["ENTREGA E RASTREIO", "R$ 71,05"],
-      ["PÓS-VENDA", "R$ 39,90"],
+      ["OTIMIZAÇÃO DE FLUXO OPERACIONAL", "R$ 148,20"],
+      ["ELIMINAÇÃO DE DISPAROS REDUNDANTES", "R$ 96,40"],
+      ["CONSOLIDAÇÃO INTELIGENTE DE ENVIOS", "R$ 71,05"],
+      ["APROVEITAMENTO DE TARIFA ZERO", "R$ 39,90"],
     ],
     total: "R$ 355,55",
     confirmed: "R$ 212,40",
@@ -172,10 +172,10 @@ export const RECEIPTS: ReadonlyArray<ReceiptData> = [
     period: "01/10/2026 A 31/10/2026",
     issued: "01/11/2026 09:42",
     lines: [
-      ["AVISOS DE PEDIDO", "R$ 312,80"],
-      ["PAGAMENTO E COBRANÇA", "R$ 188,10"],
-      ["ENTREGA E RASTREIO", "R$ 97,45"],
-      ["OFERTAS E CAMPANHAS", "R$ 64,00"],
+      ["OTIMIZAÇÃO DE FLUXO OPERACIONAL", "R$ 312,80"],
+      ["ELIMINAÇÃO DE DISPAROS REDUNDANTES", "R$ 188,10"],
+      ["CONSOLIDAÇÃO INTELIGENTE DE ENVIOS", "R$ 97,45"],
+      ["APROVEITAMENTO DE TARIFA ZERO", "R$ 64,00"],
     ],
     total: "R$ 662,35",
     confirmed: "R$ 401,90",
@@ -186,10 +186,10 @@ export const RECEIPTS: ReadonlyArray<ReceiptData> = [
     period: "01/10/2026 A 31/10/2026",
     issued: "01/11/2026 09:43",
     lines: [
-      ["LEMBRETES DE CONSULTA", "R$ 58,60"],
-      ["CONFIRMAÇÕES DE AGENDA", "R$ 41,20"],
-      ["COBRANÇAS", "R$ 22,35"],
-      ["PÓS-ATENDIMENTO", "R$ 9,80"],
+      ["OTIMIZAÇÃO DE FLUXO OPERACIONAL", "R$ 58,60"],
+      ["ELIMINAÇÃO DE DISPAROS REDUNDANTES", "R$ 41,20"],
+      ["CONSOLIDAÇÃO INTELIGENTE DE ENVIOS", "R$ 22,35"],
+      ["APROVEITAMENTO DE TARIFA ZERO", "R$ 9,80"],
     ],
     total: "R$ 131,95",
     confirmed: "R$ 88,10",
@@ -270,7 +270,7 @@ function drawReceipt(data: ReceiptData, W: number, H: number, short: boolean): H
   }
   rule(y);
   y += LH;
-  put("ECONOMIA POR TIPO DE AVISO", 0, y, { bold: true });
+  put("ECONOMIA DO PERÍODO", 0, y, { bold: true });
   y += LH;
   for (const [l, r] of data.lines) {
     pair(l, r, y);
@@ -294,16 +294,16 @@ function drawReceipt(data: ReceiptData, W: number, H: number, short: boolean): H
     y += LH;
     rule(y);
     y += LH;
-    put("DE CADA R$ 100 DA FATURA", 0, y, { bold: true });
+    put("DE CADA 100 DISPAROS DA OPERAÇÃO", 0, y, { bold: true });
     y += 16;
-    // A bar printed the thermal way: solid blocks for what was paid, a hatch for what was kept.
+    // A bar printed the thermal way: solid blocks for what was billed, a hatch for what was saved.
     const bw = (DOTS - MARGIN * 2) * s;
     const bx = MARGIN * s;
     const split = (bw * data.sent) / 100;
     g.fillRect(bx, y * s, split - 3 * s, 24 * s);
     for (let x = bx + split; x < bx + bw; x += 6 * s) g.fillRect(x, y * s, 2.4 * s, 24 * s);
     y += 24 + LH;
-    pair(`R$ ${data.sent} PAGOS À META`, `R$ ${100 - data.sent} FICARAM NO CAIXA`, y);
+    pair(`${data.sent} FATURADOS`, `${100 - data.sent} ECONOMIZADOS`, y);
     y += LH;
     rule(y);
     y += LH - 8;

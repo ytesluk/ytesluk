@@ -44,10 +44,10 @@ export function Brand() {
 }
 
 const SAMPLE: Array<[string, string]> = [
-  ["Avisos de pedido", "R$ 148,20"],
-  ["Pagamento e cobrança", "R$ 96,40"],
-  ["Entrega e rastreio", "R$ 71,05"],
-  ["Pós-venda", "R$ 39,90"],
+  ["Otimização de fluxo operacional", "R$ 148,20"],
+  ["Eliminação de disparos redundantes", "R$ 96,40"],
+  ["Consolidação inteligente de envios", "R$ 71,05"],
+  ["Aproveitamento de tarifa zero", "R$ 39,90"],
 ];
 
 /** Public pages: the form on the left, an illustrative statement on the right (sample figures, labelled as such). */

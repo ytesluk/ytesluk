@@ -1,20 +1,12 @@
 import { ArrowRight } from "lucide-react";
 import { Mark } from "@/components/brand";
-import { Badge, ConfidenceBadge, ReceiptLine } from "@/components/ui";
-
-/** The same example figures the printer in the hero prints. */
-const LINES: Array<[string, string]> = [
-  ["Avisos de pedido", "R$ 148,20"],
-  ["Pagamento e cobrança", "R$ 96,40"],
-  ["Entrega e rastreio", "R$ 71,05"],
-  ["Pós-venda", "R$ 39,90"],
-];
+import { Badge, ConfidenceBadge } from "@/components/ui";
 
 /**
  * The dashboard's opening screen, rebuilt in HTML with the product's own pieces (so it is sharp at
- * any size and zoom, unlike a screenshot): the headline with the total, estimated and confirmed
- * side by side, the cost with and without the WCO, and the statement in front of the window.
- * Inside a `ScrollStage` the window tilts in as the section arrives and comes to rest flat.
+ * any size and zoom, unlike a screenshot): the month's saving, estimated and confirmed side by side,
+ * the cost with and without the WCO, and the meter in the corner. Example figures, labelled as such.
+ * Inside a `ScrollStage` the window rises into place as the section arrives.
  */
 export function PanelShowcase() {
   return (
@@ -44,11 +36,11 @@ export function PanelShowcase() {
             </div>
           </div>
 
-          <div className="px-5 pb-14 pt-6 sm:px-7 lg:pb-[92px] lg:pr-[300px]">
+          <div className="px-5 pb-14 pt-6 sm:px-7 lg:pb-[92px]">
             <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted">Últimos 30 dias</p>
             <p className="mt-2 font-display text-[30px] font-semibold leading-[1.05] tracking-tight text-ink">Você deixou de pagar</p>
             <p className="figure mt-2.5 text-[38px] font-semibold leading-none text-ink">
-              <span className="marker">R$ 355,55</span>
+              <span className="marker">R$ 5.526,00</span>
             </p>
             <ul className="mt-5 space-y-2 text-[13px] leading-snug text-ink-2">
               <li className="flex flex-wrap items-center gap-2">
@@ -57,7 +49,7 @@ export function PanelShowcase() {
               <li className="flex flex-wrap items-center gap-2">
                 <ConfidenceBadge value="REALIZED" />
                 <span>
-                  <span className="figure font-semibold text-ink">R$ 212,40</span> já confirmados pela Meta
+                  <span className="figure font-semibold text-ink">R$ 4.190,00</span> já confirmados pela Meta
                 </span>
               </li>
             </ul>
@@ -65,55 +57,35 @@ export function PanelShowcase() {
             <div className="mt-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-2">
               <div className="rounded-xl border border-dashed border-rule p-3">
                 <p className="text-[11.5px] leading-tight text-ink-2">Custo sem WCO</p>
-                <p className="figure struck mt-2 text-[17px]">R$ 1.615,00</p>
+                <p className="figure struck mt-2 whitespace-nowrap text-[14px] sm:text-[17px]">R$ 18.420,00</p>
                 <p className="mt-1.5 text-[10.5px] leading-tight text-muted">estimado</p>
               </div>
               <ArrowRight className="size-4 self-center text-muted" aria-hidden />
               <div className="rounded-xl border border-line bg-surface p-3">
                 <p className="text-[11.5px] leading-tight text-ink-2">Custo com WCO</p>
-                <p className="figure mt-2 text-[17px] font-semibold text-ink">R$ 1.259,45</p>
-                <p className="mt-1.5 text-[10.5px] leading-tight text-muted">22% a menos</p>
+                <p className="figure mt-2 whitespace-nowrap text-[14px] font-semibold text-ink sm:text-[17px]">R$ 12.894,00</p>
+                <p className="mt-1.5 text-[10.5px] leading-tight text-muted">30% a menos</p>
               </div>
             </div>
 
             <div className="mt-6">
               <p className="text-[13px] leading-snug text-ink-2">
-                De cada <strong className="text-ink">R$ 100</strong> da fatura, <strong className="text-ink">R$ 22</strong> ficaram no caixa.
+                De cada <strong className="text-ink">R$ 100</strong> da fatura, <strong className="text-ink">R$ 30</strong> ficaram no caixa.
               </p>
               <div className="mt-2.5 flex h-3 gap-[2px]" aria-hidden>
-                <span className="rounded-l-[4px] bg-ink" style={{ width: "78%" }} />
-                <span className="rounded-r-[4px] bg-marker ring-1 ring-inset ring-[var(--rule)]" style={{ width: "22%" }} />
+                <span className="rounded-l-[4px] bg-ink" style={{ width: "70%" }} />
+                <span className="rounded-r-[4px] bg-marker ring-1 ring-inset ring-[var(--rule)]" style={{ width: "30%" }} />
               </div>
               <ul className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-[11.5px] text-ink-2">
                 <li className="flex items-center gap-1.5">
                   <span className="inline-block size-2.5 rounded-[3px] bg-ink" aria-hidden />
-                  <span className="figure text-ink">R$ 78</span> pagos à Meta
+                  <span className="figure text-ink">R$ 70</span> pagos à Meta
                 </li>
                 <li className="flex items-center gap-1.5">
                   <span className="inline-block size-2.5 rounded-[3px] bg-marker ring-1 ring-inset ring-[var(--rule)]" aria-hidden />
-                  <span className="figure text-ink">R$ 22</span> economizados
+                  <span className="figure text-ink">R$ 30</span> economizados
                 </li>
               </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* The statement, in front of the window. */}
-        <div className="panel-receipt float-z" style={{ ["--z" as string]: "90px" }}>
-          <div className="receipt-slot theme-paper !bg-transparent">
-            <div className="receipt px-5 pt-5">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-muted">Extrato · 30 dias</p>
-              <p className="perf-b pb-3 pt-1 font-display text-[19px] font-semibold tracking-tight text-ink">Sua economia no mês</p>
-              <div className="perf-b py-2">
-                {LINES.map(([label, value]) => (
-                  <ReceiptLine key={label} label={label} value={value} />
-                ))}
-              </div>
-              <div className="pt-2.5">
-                <ReceiptLine strong highlight label="Você deixou de pagar" value="R$ 355,55" />
-                <ReceiptLine label="Já confirmado pela Meta" value="R$ 212,40" />
-              </div>
-              <p className="mt-2 text-[10.5px] leading-snug text-muted">Estimado e confirmado nunca são somados.</p>
             </div>
           </div>
         </div>
@@ -122,7 +94,7 @@ export function PanelShowcase() {
         <div className="panel-meter float-z theme-paper" style={{ ["--z" as string]: "55px" }} aria-hidden>
           <p className="font-mono text-[9.5px] uppercase tracking-widest text-muted">Economímetro · 30 dias</p>
           <p className="figure mt-1.5 text-[19px] font-semibold text-ink">
-            <span className="marker">R$ 355,55</span>
+            <span className="marker">R$ 5.526,00</span>
           </p>
           <p className="mt-1.5 text-[10.5px] leading-snug text-muted">deixou de ser pago (estimado)</p>
         </div>

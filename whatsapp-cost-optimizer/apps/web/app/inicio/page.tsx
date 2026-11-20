@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, FileSearch, Gauge, Lock, MessageSquareText, ShieldCheck, TrendingDown, Wallet, Zap } from "lucide-react";
 import { Wordmark } from "@/components/brand";
 import { Calculator } from "@/components/landing/calculator";
-import { Demo } from "@/components/landing/demo";
+import { HowItWorks } from "@/components/landing/how-it-works";
 import { Parallax, ScrollStage, Tilt } from "@/components/landing/fx";
 import { HeroArt, TornEdge } from "@/components/landing/hero-art";
 import heroPosterLiteNarrow from "@/components/landing/hero-poster-lite-narrow.webp";
@@ -52,11 +52,11 @@ const SITUATIONS = [
   },
   {
     n: "03",
-    title: "O cliente recebe mais notificação do que precisa.",
-    body: "Excesso de mensagem cansa, vira bloqueio e desgasta a reputação do número que a sua empresa construiu.",
-    label: "experiência",
-    before: "ruído",
-    after: "o essencial",
+    title: "O orçamento do mês nunca bate com a fatura.",
+    body: "O custo varia de um mês para o outro, e o financeiro só descobre o valor real quando a cobrança chega.",
+    label: "orçamento",
+    before: "estourado",
+    after: "previsível",
   },
 ];
 
@@ -110,10 +110,10 @@ const still = (img: { src: string; width: number; height: number }) => ({ src: i
 
 function SampleStatement() {
   const rows: Array<[string, string]> = [
-    ["Avisos de pedido", "R$ 148,20"],
-    ["Pagamento e cobrança", "R$ 96,40"],
-    ["Entrega e rastreio", "R$ 71,05"],
-    ["Pós-venda", "R$ 39,90"],
+    ["Otimização de fluxo operacional", "R$ 148,20"],
+    ["Eliminação de disparos redundantes", "R$ 96,40"],
+    ["Consolidação inteligente de envios", "R$ 71,05"],
+    ["Aproveitamento de tarifa zero", "R$ 39,90"],
   ];
   return (
     <div className="receipt-slot theme-paper !bg-transparent">
@@ -135,7 +135,8 @@ function SampleStatement() {
             <span className="marker">R$ 355,55</span>
           </span>
         </div>
-        <p className="mt-2 text-[11px] leading-snug text-muted">Valores de exemplo. No seu painel, cada linha vem da sua própria operação.</p>
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted">De cada 100 disparos da operação: 78 faturados · 22 economizados</p>
+        <p className="mt-1 text-[11px] leading-snug text-muted">Valores de exemplo. No seu painel, cada linha vem da sua própria operação.</p>
       </div>
     </div>
   );
@@ -160,7 +161,6 @@ export default async function LandingPage() {
           </Link>
           <div className="hidden items-center lg:flex">
             {[
-              ["#demo", "Demonstração"],
               ["#como-funciona", "Como funciona"],
               ["#calculadora", "Calculadora"],
               ["#planos", "Planos"],
@@ -197,16 +197,16 @@ export default async function LandingPage() {
               Corte a fatura do WhatsApp <span className="marker">sem mexer na operação.</span>
             </h1>
             <p className="mt-5 max-w-[600px] text-[17px] leading-relaxed text-ink-2 sm:text-[18px]">
-              O WCO é a camada de inteligência entre o seu sistema e o WhatsApp oficial. Você continua enviando como hoje, a fatura da Meta fica menor e o painel prova, real por real, quanto ficou no seu caixa.
+              O WCO se conecta ao seu WhatsApp oficial para cortar gastos desnecessários na sua fatura, sem mudar nada na sua operação. Chega de pagar caro pelo WhatsApp no fim do mês por mensagens enviadas.
             </p>
 
             <p className="mt-4 font-mono text-[11px] uppercase tracking-wider text-muted">Plano Free com 1.000 avisos por mês · sem cartão · API oficial da Meta</p>
 
             <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <a href="#demo" className="group rounded-2xl bg-[#dcf45b] p-4 text-[#14201b] transition hover:-translate-y-0.5">
-                <span className={`${eyebrow} block opacity-70`}>Ver funcionando</span>
+              <a href="#como-funciona" className="group rounded-2xl bg-[#dcf45b] p-4 text-[#14201b] transition hover:-translate-y-0.5">
+                <span className={`${eyebrow} block opacity-70`}>Em 1 minuto</span>
                 <span className="mt-2 flex items-center justify-between gap-2 font-display text-[17px] font-semibold leading-tight">
-                  Assistir à demonstração <ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
+                  Entender como funciona <ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
                 </span>
               </a>
               <a href="#calculadora" className="group rounded-2xl bg-[#fdfcf8] p-4 text-[#14201b] transition hover:-translate-y-0.5">
@@ -227,7 +227,7 @@ export default async function LandingPage() {
               <p className={`${eyebrow} text-[#dcf45b]`}>A prova</p>
               <h2 className="mt-4 max-w-[520px] font-display text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.1] tracking-tight text-ink">Cada real economizado sai impresso.</h2>
               <p className="mt-5 max-w-[500px] text-[17px] leading-relaxed text-ink-2">
-                O extrato mostra quanto a sua fatura encolheu e destaca o total do mês. A projeção do WCO aparece como estimado; o que a Meta já confirmou, como realizado. Os dois nunca são somados.
+                Acompanhe no extrato exatamente quanto sua operação deixou de gastar. O painel separa a economia projetada pelo WCO do valor já validado na fatura da Meta, sem números inflados.
               </p>
               <p className="mt-6 font-mono text-[11px] uppercase tracking-wider text-muted">Gire a impressora com o mouse. Clique nela para imprimir outro extrato.</p>
             </div>
@@ -294,20 +294,21 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* Live demonstration */}
-        <section id="demo" className="scroll-mt-24 border-y border-dashed border-rule bg-surface-2/50">
+        {/* How it works, in one picture */}
+        <section id="como-funciona" className="scroll-mt-24 border-y border-dashed border-rule bg-surface-2/50">
           <div className={`${wrap} py-16 sm:py-24`}>
-            <p className={`${eyebrow} text-accent`}>Demonstração</p>
-            <h2 className={`${h2} mt-4 max-w-3xl`}>Veja o resultado antes de assinar qualquer coisa.</h2>
-            <div className="mt-9">
-              <Demo />
+            <p className={`${eyebrow} text-accent`}>Como funciona</p>
+            <h2 className={`${h2} mt-4 max-w-3xl`}>Uma camada inteligente entre o seu sistema e a Meta.</h2>
+            <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-ink-2">Você não muda nada do que já faz. O WCO trabalha no meio do caminho e o resultado aparece na fatura.</p>
+            <div className="mt-10">
+              <HowItWorks />
             </div>
           </div>
         </section>
 
-        {/* How it works */}
-        <section id="como-funciona" className={`${wrap} scroll-mt-24 py-16 sm:py-24`}>
-          <p className={`${eyebrow} text-accent`}>Como funciona</p>
+        {/* Getting started */}
+        <section id="comecar" className={`${wrap} scroll-mt-24 py-16 sm:py-24`}>
+          <p className={`${eyebrow} text-accent`}>Para começar</p>
           <h2 className={`${h2} mt-4 max-w-3xl`}>Três passos. Nenhuma mudança na sua operação.</h2>
           <ol className="mt-12 grid grid-cols-1 gap-x-10 gap-y-12 lg:grid-cols-3">
             <li>
@@ -339,15 +340,15 @@ export default async function LandingPage() {
                 <div>
                   <p className={`${eyebrow} text-[#dcf45b]`}>O extrato</p>
                   <h2 className={`${h2} mt-4`}>Economia com prova, não com promessa.</h2>
-                  <p className="mt-5 text-[17px] leading-relaxed text-ink-2">O painel abre com um extrato: quanto saiu da sua fatura, em que tipo de aviso, e quanto disso a Meta já confirmou.</p>
+                  <p className="mt-5 text-[17px] leading-relaxed text-ink-2">Abra o painel e veja, em um número só, quanto a sua empresa deixou de pagar no mês, comparado com o que a mesma operação custaria sem o WCO.</p>
                   <ul className="mt-7 space-y-4 text-[15px] leading-relaxed text-ink-2">
                     <li className="flex gap-3">
                       <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full border border-dashed border-rule px-2.5 font-mono text-[10px] uppercase tracking-wide text-ink">Estimado</span>
-                      <span>É a projeção do WCO, comparando com o que você pagaria sem ele.</span>
+                      <span>A economia calculada pelo WCO no momento de cada envio.</span>
                     </li>
                     <li className="flex gap-3">
                       <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full bg-[#dcf45b] px-2.5 font-mono text-[10px] uppercase tracking-wide text-[#14201b]">Realizado</span>
-                      <span>É o que a própria Meta confirmou na entrega da mensagem.</span>
+                      <span>A economia que a própria Meta já confirmou na cobrança.</span>
                     </li>
                   </ul>
                   <p className="mt-6 text-[15px] leading-relaxed text-ink">Os dois aparecem lado a lado e nunca são somados. Você sabe o que é projeção e o que já é fato.</p>
@@ -483,8 +484,8 @@ export default async function LandingPage() {
           <div className="mt-16 flex flex-wrap items-start justify-between gap-8 border-t border-dashed border-rule pt-8">
             <Wordmark compact />
             <nav aria-label="Rodapé" className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-2">
-              <a href="#demo" className="hover:text-ink">Demonstração</a>
               <a href="#como-funciona" className="hover:text-ink">Como funciona</a>
+              <a href="#calculadora" className="hover:text-ink">Calculadora</a>
               <a href="#planos" className="hover:text-ink">Planos</a>
               <a href="#duvidas" className="hover:text-ink">Dúvidas</a>
               {process.env.TERMS_URL ? <a href={process.env.TERMS_URL} className="hover:text-ink">Termos de uso</a> : null}

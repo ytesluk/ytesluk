@@ -444,31 +444,16 @@ html[data-render="none"] .hero-stage > .scene-poster {
   transform: translateY(calc(var(--z, 60px) * var(--q) * 0.7));
 }
 
-/* The dashboard rebuilt for the product page: a window, the statement in front of it, the meter in the corner. */
+/* The dashboard rebuilt for the product page: a window and the meter in the corner. */
 .panel-window {
   overflow: hidden;
   border-radius: 18px;
   box-shadow: 0 0 0 1px rgba(244, 241, 230, 0.14), 0 50px 90px -40px rgba(0, 0, 0, 0.95);
 }
-.panel-receipt {
-  position: relative;
-  width: min(320px, 90%);
-  margin: -30px 12px 0 auto;
-}
-.panel-receipt .receipt-slot {
-  filter: drop-shadow(0 26px 30px rgba(0, 0, 0, 0.45));
-}
 .panel-meter {
   display: none;
 }
 @media (min-width: 1024px) {
-  .panel-receipt {
-    position: absolute;
-    top: 82px;
-    right: -18px;
-    width: 286px;
-    margin: 0;
-  }
   .panel-meter {
     display: block;
     position: absolute;
@@ -483,42 +468,8 @@ html[data-render="none"] .hero-stage > .scene-poster {
   }
 }
 
-/* The customer's phone, as an object with thickness. */
-.phone-stage {
-  perspective: 1100px;
-}
-.phone3d {
-  position: relative;
-  transform: rotateY(-18deg) rotateX(7deg) rotateZ(1.2deg);
-  transform-style: preserve-3d;
-  transition: transform 500ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-.phone-stage:hover .phone3d {
-  transform: rotateY(-7deg) rotateX(3deg) rotateZ(0.4deg);
-}
-.phone3d::before,
-.phone3d::after {
-  content: "";
-  position: absolute;
-  inset: -7px;
-  border-radius: 34px;
-  background: #0b120f;
-}
-.phone3d::before {
-  transform: translateZ(-9px);
-}
-.phone3d::after {
-  transform: translateZ(-18px);
-  box-shadow: 0 46px 60px -22px rgba(20, 32, 27, 0.6);
-}
-.phone3d .lift {
-  transform: translateZ(26px);
-  transform-style: preserve-3d;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion="full"]) .tilt,
-  html:not([data-motion="full"]) .phone3d {
+  html:not([data-motion="full"]) .tilt {
     transition: none;
   }
 }

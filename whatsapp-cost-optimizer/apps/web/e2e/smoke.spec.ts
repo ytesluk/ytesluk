@@ -16,8 +16,8 @@ test("anonymous visitors see the product page at / and are sent to login from th
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Corte a fatura do WhatsApp");
   await expect(page.getByRole("link", { name: "Criar conta grátis" }).first()).toBeVisible();
-  await page.getByRole("tab", { name: "Código de verificação" }).click();
-  await expect(page.getByText("urgente: sai na hora")).toBeVisible();
+  await page.getByRole("link", { name: "Como funciona" }).first().click();
+  await expect(page.getByRole("heading", { name: "O WCO", exact: true })).toBeVisible();
   await page.goto("/messages");
   await expect(page).toHaveURL(/\/login/);
 });
