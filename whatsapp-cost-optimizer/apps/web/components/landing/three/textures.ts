@@ -147,7 +147,7 @@ export interface ReceiptData {
   lines: ReadonlyArray<readonly [string, string]>;
   total: string;
   confirmed: string;
-  /** Out of 100 events, how many became a message. */
+  /** Out of every R$ 100 the bill would have been, how much was paid (the rest stayed with the business). */
   sent: number;
 }
 
@@ -158,10 +158,10 @@ export const RECEIPTS: ReadonlyArray<ReceiptData> = [
     period: "01/10/2026 A 31/10/2026",
     issued: "01/11/2026 09:41",
     lines: [
-      ["DUPLICADAS BARRADAS", "R$ 148,20"],
-      ["SUBSTITUÍDAS PELA MAIS RECENTE", "R$ 96,40"],
-      ["JUNTADAS EM UMA SÓ MENSAGEM", "R$ 71,05"],
-      ["ENVIADAS EM JANELA GRÁTIS", "R$ 39,90"],
+      ["AVISOS DE PEDIDO", "R$ 148,20"],
+      ["PAGAMENTO E COBRANÇA", "R$ 96,40"],
+      ["ENTREGA E RASTREIO", "R$ 71,05"],
+      ["PÓS-VENDA", "R$ 39,90"],
     ],
     total: "R$ 355,55",
     confirmed: "R$ 212,40",
@@ -172,10 +172,10 @@ export const RECEIPTS: ReadonlyArray<ReceiptData> = [
     period: "01/10/2026 A 31/10/2026",
     issued: "01/11/2026 09:42",
     lines: [
-      ["DUPLICADAS BARRADAS", "R$ 312,80"],
-      ["SUBSTITUÍDAS PELA MAIS RECENTE", "R$ 188,10"],
-      ["JUNTADAS EM UMA SÓ MENSAGEM", "R$ 97,45"],
-      ["ENVIADAS EM JANELA GRÁTIS", "R$ 64,00"],
+      ["AVISOS DE PEDIDO", "R$ 312,80"],
+      ["PAGAMENTO E COBRANÇA", "R$ 188,10"],
+      ["ENTREGA E RASTREIO", "R$ 97,45"],
+      ["OFERTAS E CAMPANHAS", "R$ 64,00"],
     ],
     total: "R$ 662,35",
     confirmed: "R$ 401,90",
@@ -186,10 +186,10 @@ export const RECEIPTS: ReadonlyArray<ReceiptData> = [
     period: "01/10/2026 A 31/10/2026",
     issued: "01/11/2026 09:43",
     lines: [
-      ["DUPLICADAS BARRADAS", "R$ 58,60"],
-      ["SUBSTITUÍDAS PELA MAIS RECENTE", "R$ 41,20"],
-      ["JUNTADAS EM UMA SÓ MENSAGEM", "R$ 22,35"],
-      ["ENVIADAS EM JANELA GRÁTIS", "R$ 9,80"],
+      ["LEMBRETES DE CONSULTA", "R$ 58,60"],
+      ["CONFIRMAÇÕES DE AGENDA", "R$ 41,20"],
+      ["COBRANÇAS", "R$ 22,35"],
+      ["PÓS-ATENDIMENTO", "R$ 9,80"],
     ],
     total: "R$ 131,95",
     confirmed: "R$ 88,10",
@@ -270,7 +270,7 @@ function drawReceipt(data: ReceiptData, W: number, H: number, short: boolean): H
   }
   rule(y);
   y += LH;
-  put("COBRANÇA DA META EVITADA", 0, y, { bold: true });
+  put("ECONOMIA POR TIPO DE AVISO", 0, y, { bold: true });
   y += LH;
   for (const [l, r] of data.lines) {
     pair(l, r, y);
@@ -286,24 +286,24 @@ function drawReceipt(data: ReceiptData, W: number, H: number, short: boolean): H
   rule(y);
   y += LH;
   if (!short) {
-    pair("CONTA DO WCO (ESTIMADO)", data.total, y);
+    pair("ECONOMIA ESTIMADA PELO WCO", data.total, y);
     y += LH;
-    pair("CONFIRMADO PELA META (REALIZADO)", data.confirmed, y);
+    pair("JÁ CONFIRMADA PELA META", data.confirmed, y);
     y += LH;
     put("OS DOIS VALORES NUNCA SÃO SOMADOS.", 0, y);
     y += LH;
     rule(y);
     y += LH;
-    put("DE CADA 100 AVISOS RECEBIDOS", 0, y, { bold: true });
+    put("DE CADA R$ 100 DA FATURA", 0, y, { bold: true });
     y += 16;
-    // A bar printed the thermal way: solid blocks for what was sent, a hatch for what was not charged.
+    // A bar printed the thermal way: solid blocks for what was paid, a hatch for what was kept.
     const bw = (DOTS - MARGIN * 2) * s;
     const bx = MARGIN * s;
     const split = (bw * data.sent) / 100;
     g.fillRect(bx, y * s, split - 3 * s, 24 * s);
     for (let x = bx + split; x < bx + bw; x += 6 * s) g.fillRect(x, y * s, 2.4 * s, 24 * s);
     y += 24 + LH;
-    pair(`${data.sent} VIRARAM MENSAGEM`, `${100 - data.sent} NÃO FORAM COBRADAS`, y);
+    pair(`R$ ${data.sent} PAGOS À META`, `R$ ${100 - data.sent} FICARAM NO CAIXA`, y);
     y += LH;
     rule(y);
     y += LH - 8;

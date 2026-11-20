@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BellOff, Copy, FileSearch, Layers, RefreshCw, ShieldCheck, Timer, Zap } from "lucide-react";
+import { ArrowRight, FileSearch, Gauge, Lock, MessageSquareText, ShieldCheck, TrendingDown, Wallet, Zap } from "lucide-react";
 import { Wordmark } from "@/components/brand";
 import { Calculator } from "@/components/landing/calculator";
 import { Demo } from "@/components/landing/demo";
@@ -16,14 +16,14 @@ import { PLANS } from "@/components/landing/plans";
 import { MotionSwitch } from "@/components/landing/motion-switch";
 import { PanelShowcase } from "@/components/landing/panel-showcase";
 import { Scene3D } from "@/components/landing/scene3d";
-import { int, money } from "@/lib/format";
+import { int, money } from "@/lib/numbers";
 import { sessionToken } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "WCO — pare de pagar por mensagem repetida no WhatsApp",
-  description: "O WCO fica entre o seu sistema e o WhatsApp oficial: barra avisos repetidos, junta atualizações do mesmo pedido e mostra, linha por linha, o que você deixou de pagar.",
+  title: "WCO — corte a fatura do WhatsApp sem mudar a sua operação",
+  description: "Inteligência financeira para o WhatsApp oficial da sua empresa: a fatura da Meta fica menor, as mensagens urgentes continuam saindo na hora e o painel prova cada real economizado.",
 };
 
 const INK = "#0c1712";
@@ -36,46 +36,53 @@ const btnPrimary = "inline-flex h-12 items-center justify-center gap-2 rounded-f
 const SITUATIONS = [
   {
     n: "01",
-    title: "O pedido mudou de status quatro vezes em doze minutos.",
-    body: "Pago, em separação, enviado, saiu para entrega. O sistema avisou a cada passo.",
-    paid: "4 mensagens",
-    needed: "1 bastava",
+    title: "A fatura do WhatsApp veio maior, e ninguém sabe explicar.",
+    body: "O custo subiu, mas não existe relatório que mostre para onde o dinheiro foi nem quanto dele era necessário.",
+    label: "visibilidade",
+    before: "nenhuma",
+    after: "linha a linha",
   },
   {
     n: "02",
-    title: "O mesmo aviso de pagamento foi disparado duas vezes.",
-    body: "Uma integração repetiu o envio. O cliente recebeu a mesma informação em dobro.",
-    paid: "2 mensagens",
-    needed: "1 bastava",
+    title: "Cada venda nova traz junto mais custo de mensagem.",
+    body: "O volume cresce, a conta da Meta cresce na mesma proporção e a margem de cada pedido encolhe sem alarde.",
+    label: "margem",
+    before: "corroída",
+    after: "protegida",
   },
   {
     n: "03",
-    title: "Três avisos do mesmo pedido saíram no mesmo minuto.",
-    body: "Pagamento aprovado, nota fiscal e separação. Três notificações para dizer uma coisa.",
-    paid: "3 mensagens",
-    needed: "1 bastava",
+    title: "O cliente recebe mais notificação do que precisa.",
+    body: "Excesso de mensagem cansa, vira bloqueio e desgasta a reputação do número que a sua empresa construiu.",
+    label: "experiência",
+    before: "ruído",
+    after: "o essencial",
   },
 ];
 
 const FEATURES = [
-  { icon: Copy, title: "Barra o que é repetido", body: "Se o mesmo aviso chegar duas vezes, só o primeiro segue. O segundo não vira mensagem nem cobrança." },
-  { icon: RefreshCw, title: "Fica com a informação mais recente", body: "Quando um pedido muda de status em sequência, o cliente recebe a situação atual, não o histórico inteiro." },
-  { icon: Layers, title: "Junta avisos do mesmo assunto", body: "Avisos que chegam quase juntos sobre o mesmo pedido saem em uma mensagem só." },
-  { icon: Timer, title: "Usa as janelas previstas pela Meta", body: "Quando existe uma janela em que a mensagem sai grátis ou mais barata pelas regras da Meta, o WCO envia dentro dela." },
-  { icon: Zap, title: "Nunca segura o que é urgente", body: "Código de verificação e alerta crítico saem na hora. Só espera o que pode esperar, pelo tempo que você definir." },
-  { icon: BellOff, title: "Respeita quem pediu para parar", body: "Quem responde pedindo para sair deixa de receber. Telefones ficam cifrados e o texto das conversas não é guardado." },
-  { icon: FileSearch, title: "Explica cada decisão", body: "Para qualquer mensagem, você abre a auditoria e lê por que foi enviada, segurada, juntada ou barrada." },
-  { icon: ShieldCheck, title: "Usa só a API oficial", body: "O envio é feito pela Cloud API da Meta, com o número e a conta da sua empresa." },
+  { icon: Wallet, title: "Fatura menor, todo mês", body: "A conta da Meta passa a ser só o que precisa ser. Você acompanha a economia no painel desde o primeiro dia." },
+  { icon: TrendingDown, title: "Margem protegida", body: "Vender mais deixa de significar pagar proporcionalmente mais por mensagem. O custo por cliente fica sob controle." },
+  { icon: Gauge, title: "Custo previsível", body: "Acompanhe o gasto do mês enquanto ele acontece, com alerta quando o volume passa do previsto no seu plano." },
+  { icon: Zap, title: "Urgente sai na hora", body: "Código de verificação e alerta crítico nunca esperam. Você define o que é prioridade para a sua operação." },
+  { icon: FileSearch, title: "Auditoria de cada real", body: "Economia estimada e economia confirmada pela Meta lado a lado, nunca somadas. Cada envio fica registrado." },
+  { icon: MessageSquareText, title: "Comunicação mais limpa", body: "O seu cliente recebe o que importa, sem excesso de notificação. Menos ruído, mais atenção à sua marca." },
+  { icon: Lock, title: "LGPD desde o primeiro dia", body: "Telefones cifrados, conteúdo das conversas não armazenado e pedidos de saída respeitados automaticamente." },
+  { icon: ShieldCheck, title: "Só a API oficial", body: "O envio é feito pela Cloud API da Meta, com o número e a conta da sua empresa. Nada de atalho." },
 ];
 
 const FAQ = [
   {
-    q: "A economia é garantida?",
-    a: "Não, e desconfie de quem garante. O que você deixa de pagar depende de quanto do seu tráfego é repetido ou pode ser juntado. Por isso existe o plano Free: você liga o seu sistema, o WCO mede e o extrato mostra o número real.",
+    q: "Quanto eu vou economizar?",
+    a: "Depende do seu volume e do perfil dos seus envios. Por isso existe o plano Free: você conecta o seu sistema e o extrato mostra, com os seus próprios dados, quanto saiu da fatura. Você decide com o número real na mão, não com promessa.",
   },
   {
-    q: "O WCO atrasa as minhas mensagens?",
-    a: "Só as que podem esperar, como atualização de status de pedido, e por um intervalo curto que você configura. Código de verificação e alerta crítico nunca esperam.",
+    q: "Como o WCO reduz a fatura?",
+    a: "Com uma camada de inteligência própria que avalia cada envio antes de ele chegar à Meta, sempre dentro das regras oficiais do WhatsApp. Você não precisa configurar estratégia nenhuma: o resultado aparece no extrato, linha a linha.",
+  },
+  {
+    q: "As mensagens urgentes ficam mais lentas?",
+    a: "Não. Código de verificação e alertas críticos saem na hora, sempre. Você define quais avisos são prioridade para a sua operação, e eles nunca esperam.",
   },
   {
     q: "Preciso trocar de número ou sair da API oficial?",
@@ -87,11 +94,11 @@ const FAQ = [
   },
   {
     q: "O que acontece se eu passar do limite do plano?",
-    a: "Nada é bloqueado. O WCO avisa que você passou do volume incluído e continua processando normalmente.",
+    a: "Nada é bloqueado. O WCO avisa que você passou do volume incluído e continua funcionando normalmente.",
   },
   {
     q: "Preciso de alguém de tecnologia para começar?",
-    a: "Para a integração, sim: o seu sistema passa a enviar os avisos para a API do WCO, em vez de enviar direto para o WhatsApp. É uma chamada REST, com documentação aberta.",
+    a: "Só para a conexão inicial: uma integração simples e documentada, que o seu time faz uma vez. Depois disso, o dia a dia é acompanhar a economia no painel.",
   },
   {
     q: "E a LGPD?",
@@ -103,16 +110,16 @@ const still = (img: { src: string; width: number; height: number }) => ({ src: i
 
 function SampleStatement() {
   const rows: Array<[string, string]> = [
-    ["Duplicadas barradas", "R$ 148,20"],
-    ["Substituídas pela mais recente", "R$ 96,40"],
-    ["Juntadas em uma só mensagem", "R$ 71,05"],
-    ["Enviadas em janela grátis", "R$ 39,90"],
+    ["Avisos de pedido", "R$ 148,20"],
+    ["Pagamento e cobrança", "R$ 96,40"],
+    ["Entrega e rastreio", "R$ 71,05"],
+    ["Pós-venda", "R$ 39,90"],
   ];
   return (
     <div className="receipt-slot theme-paper !bg-transparent">
       <div className="receipt receipt-print px-5 pt-5">
         <p className="font-mono text-[10px] uppercase tracking-widest text-muted">Extrato · exemplo ilustrativo</p>
-        <p className="perf-b pb-3 pt-1 font-display text-xl font-semibold tracking-tight text-ink">O que o WCO evitou</p>
+        <p className="perf-b pb-3 pt-1 font-display text-xl font-semibold tracking-tight text-ink">Sua economia no mês</p>
         <div className="perf-b py-2.5">
           {rows.map(([k, v]) => (
             <div key={k} className="flex items-baseline gap-2 py-1 text-[12.5px] text-ink-2">
@@ -128,7 +135,7 @@ function SampleStatement() {
             <span className="marker">R$ 355,55</span>
           </span>
         </div>
-        <p className="mt-2 text-[11px] leading-snug text-muted">Valores de exemplo. No seu painel, cada linha vem das suas próprias mensagens.</p>
+        <p className="mt-2 text-[11px] leading-snug text-muted">Valores de exemplo. No seu painel, cada linha vem da sua própria operação.</p>
       </div>
     </div>
   );
@@ -185,12 +192,12 @@ export default async function LandingPage() {
       <header className="theme-ink relative -mt-[70px] overflow-clip pt-[70px]" style={{ background: `linear-gradient(180deg, ${INK} 0%, #0f241c 62%, #153427 100%)` }}>
         <div className={`${wrap} relative z-10 grid grid-cols-1 items-start gap-10 pb-[clamp(130px,16vw,215px)] pt-10 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(380px,470px)] lg:items-stretch`}>
           <div>
-            <p className={`${eyebrow} text-[#dcf45b]`}>Custo de WhatsApp sob controle</p>
+            <p className={`${eyebrow} text-[#dcf45b]`}>Inteligência financeira para WhatsApp</p>
             <h1 className="mt-5 font-display text-[clamp(36px,5.1vw,62px)] font-semibold leading-[1.13] tracking-[-0.025em] text-ink">
-              Pare de pagar por mensagem que <span className="marker">ninguém precisava receber.</span>
+              Corte a fatura do WhatsApp <span className="marker">sem mexer na operação.</span>
             </h1>
             <p className="mt-5 max-w-[600px] text-[17px] leading-relaxed text-ink-2 sm:text-[18px]">
-              O WCO fica entre o seu sistema e o WhatsApp oficial. Ele barra avisos repetidos, junta atualizações do mesmo pedido e, no fim do mês, mostra linha por linha o que você deixou de pagar.
+              O WCO é a camada de inteligência entre o seu sistema e o WhatsApp oficial. Você continua enviando como hoje, a fatura da Meta fica menor e o painel prova, real por real, quanto ficou no seu caixa.
             </p>
 
             <p className="mt-4 font-mono text-[11px] uppercase tracking-wider text-muted">Plano Free com 1.000 avisos por mês · sem cartão · API oficial da Meta</p>
@@ -205,7 +212,7 @@ export default async function LandingPage() {
               <a href="#calculadora" className="group rounded-2xl bg-[#fdfcf8] p-4 text-[#14201b] transition hover:-translate-y-0.5">
                 <span className={`${eyebrow} block text-[#0e5a45]`}>Fazer a conta</span>
                 <span className="mt-2 flex items-center justify-between gap-2 font-display text-[17px] font-semibold leading-tight">
-                  Calcular com meus números <ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
+                  Calcular minha economia <ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
                 </span>
               </a>
               <Link href="/signup" className="group rounded-2xl bg-[#fdfcf8] p-4 text-[#14201b] transition hover:-translate-y-0.5">
@@ -217,10 +224,10 @@ export default async function LandingPage() {
             </div>
 
             <div id="hero-closeup" className="hidden pb-[24vh] pt-[44vh] lg:block">
-              <p className={`${eyebrow} text-[#dcf45b]`}>De perto</p>
-              <h2 className="mt-4 max-w-[520px] font-display text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.1] tracking-tight text-ink">A prova sai impressa, linha por linha.</h2>
+              <p className={`${eyebrow} text-[#dcf45b]`}>A prova</p>
+              <h2 className="mt-4 max-w-[520px] font-display text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.1] tracking-tight text-ink">Cada real economizado sai impresso.</h2>
               <p className="mt-5 max-w-[500px] text-[17px] leading-relaxed text-ink-2">
-                O extrato mostra o que cada decisão evitou e destaca o total. A conta do WCO aparece como estimado; o que a Meta já confirmou, como realizado. Os dois nunca são somados.
+                O extrato mostra quanto a sua fatura encolheu e destaca o total do mês. A projeção do WCO aparece como estimado; o que a Meta já confirmou, como realizado. Os dois nunca são somados.
               </p>
               <p className="mt-6 font-mono text-[11px] uppercase tracking-wider text-muted">Gire a impressora com o mouse. Clique nela para imprimir outro extrato.</p>
             </div>
@@ -238,7 +245,7 @@ export default async function LandingPage() {
                     lite: { wide: still(heroPosterLite), narrow: still(heroPosterLiteNarrow) },
                   }}
                   className="block h-full w-full"
-                  label="Cena em 3D: uma impressora térmica verde imprime o extrato do que o WCO evitou, com o total destacado em marca-texto. Ao redor, os contornos das mensagens que não precisaram ser enviadas."
+                  label="Cena em 3D: uma impressora térmica verde imprime o extrato de economia do mês, com o total destacado em marca-texto. Ao redor, os contornos dos custos que saíram da fatura."
                   hint="Arraste para girar · clique para imprimir"
                   fallback={
                     <div className="flex h-full items-start justify-center pt-10 lg:pl-24">
@@ -262,10 +269,10 @@ export default async function LandingPage() {
           <div className="grid grid-cols-1 gap-x-14 gap-y-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
             <div>
               <p className={`${eyebrow} text-accent`}>O problema</p>
-              <h2 className={`${h2} mt-4`}>O WhatsApp cobra por mensagem. O seu sistema dispara sem pensar.</h2>
+              <h2 className={`${h2} mt-4`}>A conta do WhatsApp cresce todo mês. E ninguém sabe dizer por quê.</h2>
             </div>
             <p className="self-end text-[17px] leading-relaxed text-ink-2">
-              ERP, loja virtual e sistema de logística avisam o cliente a cada mudança, cada um por conta própria. Ninguém confere se o aviso já foi dado, se já ficou velho ou se cabia junto com outro. A conta chega no fim do mês, e boa parte dela é repetição.
+              Cada sistema da empresa fala com o cliente por conta própria, e a Meta cobra por mensagem. O resultado é uma fatura que sobe com o volume, difícil de prever e impossível de auditar. E uma parte dela é dinheiro que não precisava sair do caixa.
             </p>
           </div>
           <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -276,9 +283,9 @@ export default async function LandingPage() {
                 <h3 className="mt-4 font-display text-[21px] font-semibold leading-snug tracking-tight text-ink">{s.title}</h3>
                 <p className="mt-3 flex-1 text-[15px] leading-relaxed text-ink-2">{s.body}</p>
                 <p className="lift perf-t mt-6 flex items-baseline justify-between gap-3 pt-4">
-                  <span className="text-xs text-muted">você pagou</span>
+                  <span className="text-xs text-muted">{s.label}</span>
                   <span className="figure text-[15px]">
-                    <span className="struck">{s.paid}</span> <span className="marker font-semibold">{s.needed}</span>
+                    <span className="struck">{s.before}</span> <span className="marker font-semibold">{s.after}</span>
                   </span>
                 </p>
                </Tilt>
@@ -291,7 +298,7 @@ export default async function LandingPage() {
         <section id="demo" className="scroll-mt-24 border-y border-dashed border-rule bg-surface-2/50">
           <div className={`${wrap} py-16 sm:py-24`}>
             <p className={`${eyebrow} text-accent`}>Demonstração</p>
-            <h2 className={`${h2} mt-4 max-w-3xl`}>Veja o que entra e o que realmente chega ao cliente.</h2>
+            <h2 className={`${h2} mt-4 max-w-3xl`}>Veja o resultado antes de assinar qualquer coisa.</h2>
             <div className="mt-9">
               <Demo />
             </div>
@@ -301,24 +308,24 @@ export default async function LandingPage() {
         {/* How it works */}
         <section id="como-funciona" className={`${wrap} scroll-mt-24 py-16 sm:py-24`}>
           <p className={`${eyebrow} text-accent`}>Como funciona</p>
-          <h2 className={`${h2} mt-4 max-w-3xl`}>Três passos. Nenhuma mudança para o seu cliente.</h2>
+          <h2 className={`${h2} mt-4 max-w-3xl`}>Três passos. Nenhuma mudança na sua operação.</h2>
           <ol className="mt-12 grid grid-cols-1 gap-x-10 gap-y-12 lg:grid-cols-3">
             <li>
               <p className="figure text-[44px] font-semibold leading-none text-ink">
                 01
               </p>
               <h3 className="mt-5 font-display text-[22px] font-semibold tracking-tight text-ink">Conecte o WhatsApp da empresa</h3>
-              <p className="mt-2 text-[15px] leading-relaxed text-ink-2">Você liga a conta comercial oficial da sua empresa ao WCO. O número continua sendo seu e a cobrança das mensagens continua na sua conta da Meta.</p>
+              <p className="mt-2 text-[15px] leading-relaxed text-ink-2">Você liga a conta comercial oficial da sua empresa ao WCO. O número continua sendo seu, e a cobrança das mensagens, na sua conta da Meta.</p>
             </li>
             <li>
               <p className="figure text-[44px] font-semibold leading-none text-ink">02</p>
-              <h3 className="mt-5 font-display text-[22px] font-semibold tracking-tight text-ink">Envie os avisos para o WCO</h3>
-              <p className="mt-2 text-[15px] leading-relaxed text-ink-2">O seu sistema manda o que aconteceu, em uma chamada simples. O WCO decide se aquilo vira mensagem agora, depois, junto com outra, ou não vira.</p>
+              <h3 className="mt-5 font-display text-[22px] font-semibold tracking-tight text-ink">Aponte os seus avisos para o WCO</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-ink-2">Uma integração simples, feita uma vez. O seu sistema continua disparando como hoje, e cada envio passa pela inteligência do WCO antes de chegar à Meta.</p>
             </li>
             <li>
               <p className="figure text-[44px] font-semibold leading-none text-ink">03</p>
-              <h3 className="mt-5 font-display text-[22px] font-semibold tracking-tight text-ink">Acompanhe o extrato</h3>
-              <p className="mt-2 text-[15px] leading-relaxed text-ink-2">No painel você vê quanto custaria sem o WCO, quanto custou com ele e de onde veio a diferença. Cada mensagem tem a explicação da decisão.</p>
+              <h3 className="mt-5 font-display text-[22px] font-semibold tracking-tight text-ink">Acompanhe a economia</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-ink-2">No painel você vê quanto custaria sem o WCO, quanto custou com ele e quanto a Meta já confirmou. Tudo registrado, pronto para auditoria.</p>
             </li>
           </ol>
         </section>
@@ -332,11 +339,11 @@ export default async function LandingPage() {
                 <div>
                   <p className={`${eyebrow} text-[#dcf45b]`}>O extrato</p>
                   <h2 className={`${h2} mt-4`}>Economia com prova, não com promessa.</h2>
-                  <p className="mt-5 text-[17px] leading-relaxed text-ink-2">O painel abre com um extrato: cada linha é um motivo pelo qual você deixou de pagar, e as linhas somam o total destacado.</p>
+                  <p className="mt-5 text-[17px] leading-relaxed text-ink-2">O painel abre com um extrato: quanto saiu da sua fatura, em que tipo de aviso, e quanto disso a Meta já confirmou.</p>
                   <ul className="mt-7 space-y-4 text-[15px] leading-relaxed text-ink-2">
                     <li className="flex gap-3">
                       <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full border border-dashed border-rule px-2.5 font-mono text-[10px] uppercase tracking-wide text-ink">Estimado</span>
-                      <span>É a conta do WCO, comparando com cada aviso virando uma mensagem.</span>
+                      <span>É a projeção do WCO, comparando com o que você pagaria sem ele.</span>
                     </li>
                     <li className="flex gap-3">
                       <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full bg-[#dcf45b] px-2.5 font-mono text-[10px] uppercase tracking-wide text-[#14201b]">Realizado</span>
@@ -358,9 +365,9 @@ export default async function LandingPage() {
         <section className={`${wrap} py-16 sm:py-24`}>
           <div className="grid grid-cols-1 gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
             <div className="lg:sticky lg:top-28 lg:self-start">
-              <p className={`${eyebrow} text-accent`}>O que ele faz</p>
-              <h2 className={`${h2} mt-4`}>Decide, mensagem por mensagem, o caminho mais barato dentro das regras.</h2>
-              <p className="mt-5 text-[15px] leading-relaxed text-ink-2">Sem mexer no texto que o seu cliente lê e sem tirar do ar o que é urgente.</p>
+              <p className={`${eyebrow} text-accent`}>O que você ganha</p>
+              <h2 className={`${h2} mt-4`}>Margem protegida, sem abrir mão da velocidade.</h2>
+              <p className="mt-5 text-[15px] leading-relaxed text-ink-2">Sem mexer no texto que o seu cliente lê, sem trocar de número e com o que é urgente saindo na hora.</p>
             </div>
             <ul className="grid grid-cols-1 sm:grid-cols-2">
               {FEATURES.map((f) => (
@@ -379,7 +386,7 @@ export default async function LandingPage() {
           <div className={`${wrap} py-16 sm:py-24`}>
             <p className={`${eyebrow} text-accent`}>Calculadora</p>
             <h2 className={`${h2} mt-4 max-w-3xl`}>Faça a conta com os seus números.</h2>
-            <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-ink-2">Três perguntas. O recibo ao lado mostra quanto você deixaria de pagar e se a assinatura se paga.</p>
+            <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-ink-2">Três perguntas. O recibo ao lado mostra quanto ficaria no seu caixa e quanto sobra depois da assinatura.</p>
             <div className="mt-10">
               <Calculator />
             </div>
@@ -459,9 +466,9 @@ export default async function LandingPage() {
         </div>
         <div className={`${wrap} relative py-16 sm:py-24`}>
           <h2 className="max-w-4xl font-display text-[clamp(32px,5vw,60px)] font-semibold leading-[1.14] tracking-[-0.02em] text-ink">
-            Descubra quanto da sua conta de WhatsApp é <span className="marker">mensagem repetida.</span>
+            Descubra quanto da sua fatura <span className="marker">pode ficar no seu caixa.</span>
           </h2>
-          <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-ink-2">Ligue o seu sistema no plano Free. Em poucos dias o extrato mostra o número, com os seus próprios dados.</p>
+          <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-ink-2">Conecte o seu sistema no plano Free. Em poucos dias o extrato mostra o número, com os seus próprios dados.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href={logged ? "/" : "/signup"} className={`${btnPrimary} !bg-[#dcf45b] !text-[#14201b]`}>
               {logged ? "Abrir o painel" : "Criar conta grátis"} <ArrowRight className="size-4" aria-hidden />

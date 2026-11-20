@@ -1,15 +1,7 @@
 /** Formatting helpers (pt-BR). Money arrives from the API as decimal strings — never floats in storage. */
-export function money(v: string | number | null | undefined, currency = "BRL", digits = 2): string {
-  if (v === null || v === undefined || v === "") return "—";
-  const n = typeof v === "number" ? v : Number(v);
-  if (!Number.isFinite(n)) return "—";
-  return n.toLocaleString("pt-BR", { style: "currency", currency, minimumFractionDigits: digits, maximumFractionDigits: Math.max(digits, n !== 0 && Math.abs(n) < 0.01 ? 4 : digits) });
-}
-
-export function int(v: number | string | null | undefined): string {
-  if (v === null || v === undefined) return "—";
-  return Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 0 });
-}
+// Re-exported so the dashboard keeps one import; the product page imports "@/lib/numbers" directly,
+// which keeps the labels below out of the code sent to its visitors.
+export { int, money } from "./numbers";
 
 export function pct(v: number | string | null | undefined, digits = 1): string {
   if (v === null || v === undefined || v === "") return "—";

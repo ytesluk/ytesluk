@@ -44,10 +44,10 @@ export function Brand() {
 }
 
 const SAMPLE: Array<[string, string]> = [
-  ["Duplicadas barradas", "R$ 148,20"],
-  ["Substituídas pela mais recente", "R$ 96,40"],
-  ["Juntadas em uma só", "R$ 71,05"],
-  ["Enviadas na janela grátis", "R$ 39,90"],
+  ["Avisos de pedido", "R$ 148,20"],
+  ["Pagamento e cobrança", "R$ 96,40"],
+  ["Entrega e rastreio", "R$ 71,05"],
+  ["Pós-venda", "R$ 39,90"],
 ];
 
 /** Public pages: the form on the left, an illustrative statement on the right (sample figures, labelled as such). */
@@ -65,12 +65,12 @@ export function AuthFrame({ title, lead, children }: { title: string; lead: stri
       <aside className="relative hidden items-center justify-center overflow-hidden bg-[#14201b] px-10 lg:flex" aria-label="Exemplo ilustrativo do extrato do WCO">
         <div className="w-full max-w-[360px]">
           <p className="font-display text-[34px] font-semibold leading-[1.08] tracking-tight text-[#f1f4ee]">
-            Veja, linha por linha, o que você <span className="marker">deixou de pagar</span> no WhatsApp.
+            Veja, real por real, quanto da fatura do WhatsApp <span className="marker">ficou no seu caixa.</span>
           </p>
           <div className="receipt-slot mt-9">
             <div className="receipt receipt-print px-5 pt-5 [color-scheme:light]" style={{ ["--receipt" as string]: "#fffefb", ["--ink-1" as string]: "#14201b", ["--ink-2" as string]: "#44514b", ["--ink-muted" as string]: "#5f6a64", ["--rule" as string]: "rgba(20,32,27,.28)" }}>
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted">Extrato · exemplo ilustrativo</p>
-              <p className="perf-b pb-3 font-display text-lg font-semibold text-ink">O que o WCO evitou</p>
+              <p className="perf-b pb-3 font-display text-lg font-semibold text-ink">Sua economia no mês</p>
               <div className="perf-b py-2.5">
                 {SAMPLE.map(([k, v]) => (
                   <div key={k} className="flex items-baseline gap-2 py-1 text-[12.5px] text-ink-2">
@@ -86,7 +86,7 @@ export function AuthFrame({ title, lead, children }: { title: string; lead: stri
                   <span className="marker">R$ 355,55</span>
                 </span>
               </div>
-              <p className="mt-2 text-[11px] leading-snug text-muted">Valores de exemplo. No seu painel, cada linha vem das suas mensagens e separa o que é estimado do que a Meta já confirmou.</p>
+              <p className="mt-2 text-[11px] leading-snug text-muted">Valores de exemplo. No seu painel, cada linha vem da sua operação e separa o que é estimado do que a Meta já confirmou.</p>
             </div>
           </div>
         </div>

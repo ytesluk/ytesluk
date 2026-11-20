@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button, Card, ConfidenceBadge, ErrorBox, Field, Input, Loading, Notice, PageHeader, PriceTag, Select, StatusBadge, Table, Textarea } from "@/components/ui";
+import { Button, Card, ConfidenceBadge, ErrorBox, Field, Input, Loading, Notice, PageHeader, PriceTag, Select, Table, Textarea } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
 import { ApiError, api, useApi } from "@/lib/api";
 import { STATUS_LABEL, dateTime, money, reason } from "@/lib/format";
 import type { IntentRow } from "@/lib/types";

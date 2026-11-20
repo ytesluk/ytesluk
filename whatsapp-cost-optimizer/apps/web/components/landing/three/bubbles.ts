@@ -18,9 +18,9 @@ interface Placed {
 }
 
 const MESSAGES: readonly Placed[] = [
-  { caption: "REPETIDA", at: [-2.2, 1.8, 0.7], turn: 0.36, narrowAt: [-2.2, 0.85, 0.4], narrowTurn: 0.36, scale: 0.6 },
-  { caption: "SUBSTITUÍDA", at: [2.0, -1.0, -0.3], turn: -0.32, narrowAt: [-2.2, -2.3, 0.5], narrowTurn: 0.4, scale: 0.6 },
-  { caption: "JUNTADA", at: [-2.3, -1.3, 0.9], turn: 0.42, narrowAt: [-2.2, -0.75, 0.6], narrowTurn: 0.4, scale: 0.54 },
+  { caption: "R$ 0,00", at: [-2.2, 1.8, 0.7], turn: 0.36, narrowAt: [-2.2, 0.85, 0.4], narrowTurn: 0.36, scale: 0.6 },
+  { caption: "FORA DA FATURA", at: [2.0, -1.0, -0.3], turn: -0.32, narrowAt: [-2.2, -2.3, 0.5], narrowTurn: 0.4, scale: 0.6 },
+  { caption: "NÃO COBRADA", at: [-2.3, -1.3, 0.9], turn: 0.42, narrowAt: [-2.2, -0.75, 0.6], narrowTurn: 0.4, scale: 0.54 },
 ];
 
 export interface BubbleFrame {

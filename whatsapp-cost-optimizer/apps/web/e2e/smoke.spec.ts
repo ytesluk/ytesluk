@@ -14,7 +14,7 @@ async function login(page: Page, email: string) {
 
 test("anonymous visitors see the product page at / and are sent to login from the dashboard", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Pare de pagar por mensagem");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Corte a fatura do WhatsApp");
   await expect(page.getByRole("link", { name: "Criar conta grátis" }).first()).toBeVisible();
   await page.getByRole("tab", { name: "Código de verificação" }).click();
   await expect(page.getByText("urgente: sai na hora")).toBeVisible();

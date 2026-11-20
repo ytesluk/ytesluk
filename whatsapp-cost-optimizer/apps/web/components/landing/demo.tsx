@@ -5,7 +5,7 @@ import { Check, CornerDownRight, RotateCcw, Zap } from "lucide-react";
 import { cx } from "@/components/ui";
 import { useCalmMotion } from "./motion";
 
-type Verdict = "hold" | "replaced" | "duplicate" | "joined" | "now";
+type Verdict = "billed" | "free" | "now";
 
 interface Step {
   event: string;
@@ -23,40 +23,39 @@ interface Scenario {
   lesson: string;
 }
 
+/** Only the outcome on the bill is shown, never how it was reached. */
 const VERDICT: Record<Verdict, { label: string; cls: string }> = {
-  hold: { label: "espera um instante: pode mudar", cls: "border-dashed border-rule text-ink-2" },
-  replaced: { label: "substitui o aviso anterior", cls: "border-dashed border-rule text-ink-2" },
-  duplicate: { label: "repetida: barrada", cls: "border-transparent bg-marker text-marker-ink" },
-  joined: { label: "entra no mesmo aviso", cls: "border-dashed border-rule text-ink-2" },
+  billed: { label: "na fatura", cls: "border-dashed border-rule text-ink-2" },
+  free: { label: "fora da fatura", cls: "border-transparent bg-marker text-marker-ink" },
   now: { label: "urgente: sai na hora", cls: "border-transparent bg-accent text-accent-ink" },
 };
 
 const SCENARIOS: Scenario[] = [
   {
-    key: "status",
-    tab: "Pedido que muda rápido",
-    intro: "Em poucos minutos o pedido muda de status quatro vezes, e o sistema ainda dispara o último aviso duas vezes.",
+    key: "store",
+    tab: "Pedido de loja virtual",
+    intro: "Um pedido comum. O seu sistema avisa o cliente a cada etapa, exatamente como faz hoje.",
     steps: [
-      { event: "Pedido #4812", detail: "pagamento aprovado", verdict: "hold" },
-      { event: "Pedido #4812", detail: "em separação", verdict: "replaced" },
-      { event: "Pedido #4812", detail: "enviado", verdict: "replaced" },
-      { event: "Pedido #4812", detail: "saiu para entrega", verdict: "replaced" },
-      { event: "Pedido #4812", detail: "saiu para entrega", verdict: "duplicate" },
+      { event: "Pedido #4812", detail: "pagamento aprovado", verdict: "free" },
+      { event: "Pedido #4812", detail: "nota fiscal emitida", verdict: "free" },
+      { event: "Pedido #4812", detail: "em separação", verdict: "free" },
+      { event: "Pedido #4812", detail: "enviado", verdict: "free" },
+      { event: "Pedido #4812", detail: "saiu para entrega", verdict: "billed" },
     ],
     delivered: ["Seu pedido #4812 saiu para entrega. Acompanhe pelo link do rastreio."],
-    lesson: "O cliente recebe só o que vale agora: a última situação do pedido.",
+    lesson: "O cliente recebe o essencial. A sua fatura, só o necessário.",
   },
   {
-    key: "join",
-    tab: "Vários avisos de uma vez",
-    intro: "Pagamento, nota fiscal e separação acontecem quase juntos. São três avisos sobre o mesmo pedido.",
+    key: "clinic",
+    tab: "Agenda de clínica",
+    intro: "Em poucos minutos a recepção marca e ajusta a mesma consulta. O sistema avisa o paciente a cada alteração.",
     steps: [
-      { event: "Pedido #5120", detail: "pagamento aprovado", verdict: "hold" },
-      { event: "Pedido #5120", detail: "nota fiscal emitida", verdict: "joined" },
-      { event: "Pedido #5120", detail: "pedido em separação", verdict: "joined" },
+      { event: "Consulta #208", detail: "marcada: qui, 10h", verdict: "free" },
+      { event: "Consulta #208", detail: "ajustada: sex, 9h", verdict: "free" },
+      { event: "Consulta #208", detail: "confirmada: sex, 15h", verdict: "billed" },
     ],
-    delivered: ["Pedido #5120: pagamento aprovado, nota fiscal emitida e pedido em separação."],
-    lesson: "Três avisos viram uma mensagem só, com tudo dentro.",
+    delivered: ["Sua consulta está marcada para sexta, às 15h. Até lá!"],
+    lesson: "Agenda certa para o paciente, fatura menor para a clínica.",
   },
   {
     key: "otp",
@@ -64,7 +63,7 @@ const SCENARIOS: Scenario[] = [
     intro: "Nem tudo pode esperar. Código de login e alerta crítico passam direto, sem nenhuma retenção.",
     steps: [{ event: "Login", detail: "código 481 516", verdict: "now" }],
     delivered: ["Seu código de verificação é 481 516. Ele vale por 5 minutos."],
-    lesson: "O que é urgente nunca fica esperando para economizar.",
+    lesson: "Urgente nunca espera. A economia nunca custa velocidade.",
   },
 ];
 
@@ -126,7 +125,7 @@ export function Demo() {
 
       <div className="mt-7 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
         <div className="rounded-3xl border border-line bg-surface p-5 sm:p-6">
-          <p className="perf-b pb-3 font-mono text-[10px] font-medium uppercase tracking-widest text-muted">O que o seu sistema manda → o que o WCO decide</p>
+          <p className="perf-b pb-3 font-mono text-[10px] font-medium uppercase tracking-widest text-muted">O que o sistema manda → o que é cobrado</p>
           <ol className="min-h-[268px]">
             {sc.steps.map((st, i) =>
               i < shown ? (
@@ -148,14 +147,14 @@ export function Demo() {
             <p className="text-sm text-ink-2" aria-live="polite">
               {done ? (
                 <>
-                  <span className="figure font-semibold text-ink">{sc.steps.length}</span> {sc.steps.length === 1 ? "evento" : "eventos"} → <span className="figure font-semibold text-ink">{sc.delivered.length}</span> mensagem
+                  <span className="figure font-semibold text-ink">{sc.steps.length}</span> {sc.steps.length === 1 ? "evento" : "eventos"} → <span className="figure font-semibold text-ink">{sc.delivered.length}</span> na fatura
                   {avoided > 0 ? (
                     <>
                       {" · "}
-                      <span className="marker font-semibold"><span className="figure">{avoided}</span> que você não pagou</span>
+                      <span className="marker font-semibold"><span className="figure">{avoided}</span> fora dela</span>
                     </>
                   ) : (
-                    " · nada retido"
+                    " · sem espera"
                   )}
                 </>
               ) : (
