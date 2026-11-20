@@ -319,6 +319,10 @@ html[data-motion="full"] {
     right: calc(-1 * max(0px, (100vw - 1180px) / 2) - 32px);
     height: min(820px, calc(100svh - 76px));
   }
+  /* The canvas runs on below the stage, over the hills (see `fit` in hero-scene.ts). */
+  .hero-stage > canvas {
+    height: calc(100% + clamp(190px, 25vw, 340px));
+  }
   .scene-hint {
     right: 3%;
     bottom: 6px;

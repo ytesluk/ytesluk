@@ -230,11 +230,17 @@ export async function createHeroScene(canvas: HTMLCanvasElement, opts: { calm: b
   function fit() {
     const w = Math.max(1, canvas.clientWidth);
     const h = Math.max(1, canvas.clientHeight);
+    // On large screens the canvas runs on below its stage (over the hills), so the long statement of
+    // the close-up hangs in front of them instead of being cut at the stage's edge. The picture is
+    // framed on the stage alone; the extra strip only shows more of what is below it.
+    const frameH = Math.max(1, Math.min(h, canvas.parentElement?.clientHeight ?? h));
     renderer.setSize(w, h, false);
-    camera.aspect = w / h;
+    camera.aspect = w / frameH;
     const visH = Math.max(DESIGN_H, DESIGN_W / camera.aspect);
     halfWidth = (visH * camera.aspect) / 2;
     baseDist = visH / 2 / Math.tan(THREE.MathUtils.degToRad(FOV / 2));
+    if (h > frameH) camera.setViewOffset(w, frameH, 0, 0, w, h);
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   }
 

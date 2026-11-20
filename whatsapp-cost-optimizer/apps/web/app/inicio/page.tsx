@@ -258,7 +258,7 @@ export default async function LandingPage() {
               <h2 className={`${h2} mt-4`}>A conta do WhatsApp cresce todo mês. E ninguém sabe dizer por quê.</h2>
             </div>
             <p className="self-end text-[17px] leading-relaxed text-ink-2">
-              Cada sistema da empresa fala com o cliente por conta própria, e a Meta cobra por mensagem. O resultado é uma fatura que sobe com o volume, difícil de prever e impossível de auditar. E uma parte dela é dinheiro que não precisava sair do caixa.
+              Cada WhatsApp da empresa fala com o cliente por conta própria, e a Meta cobra por mensagem. O resultado é uma fatura que sobe com o volume, difícil de prever e impossível de auditar. E uma parte dela é dinheiro que não precisava sair do caixa.
             </p>
           </div>
           <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
