@@ -1,5 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the FinOps integration
-import { runAdvancedFinOps, type AdvancedFinOpsInput } from "./advanced-finops-hook";
+import { runAdvancedFinOps, type AdvancedFinOpsInput } from './advanced-finops-hook';
 import { GlobalDeliverabilityCache } from './global-deliverability-cache';
 import {
   FinOpsCostOrchestrator,
@@ -29,23 +28,14 @@ export class FinOpsRuntimeBridge {
     this.orchestrator = new FinOpsCostOrchestrator(this.cache);
   }
 
-  /**
-   * 1. Chamar no webhook `statuses` da Meta quando status === 'failed'
-   */
   public async onMetaStatusFailed(recipientPhone: string, errorCode: number | string) {
     return this.cache.recordMetaFailure(recipientPhone, errorCode);
   }
 
-  /**
-   * 2. Chamar no webhook `messages` da Meta quando o cliente envia mensagem (inbound)
-   */
   public async onMetaInboundMessage(senderPhone: string): Promise<void> {
     await this.cache.clearOnInboundMessage(senderPhone);
   }
 
-  /**
-   * 3. Chamar no webhook `template_category_update` da Meta
-   */
   public async onTemplateCategoryUpdated(
     tenantId: string,
     metaTemplateName: string,
@@ -69,15 +59,14 @@ export class FinOpsRuntimeBridge {
     return result;
   }
 
-  /**
-   * 4. Chamar antes de disparar qualquer mensagem no worker/API de envio
-   */
   public async routeAndPersist(
-    input: Omit<FinOpsDispatchContext, 'monthlyFreeServiceQuotaUsed' | 'mirrorVariants'> & { advanced?: AdvancedFinOpsInput },
+    input: Omit<FinOpsDispatchContext, 'monthlyFreeServiceQuotaUsed' | 'mirrorVariants'> & {
+      advanced?: AdvancedFinOpsInput;
+    },
     now = new Date(),
   ): Promise<FinOpsRoutingDecision> {
     const [monthlyFreeServiceQuotaUsed, mirrorVariants] = await Promise.all([
-      this.repo.getMonthlyFreeServiceQuotaUsed((input.directRouteConfig?.phoneNumberId ?? "default"), now),
+      this.repo.getMonthlyFreeServiceQuotaUsed(input.directRouteConfig?.phoneNumberId ?? 'default', now),
       input.templateGroupKey
         ? this.repo.listMirrorVariants(input.tenantId, input.templateGroupKey)
         : Promise.resolve([]),
@@ -91,6 +80,18 @@ export class FinOpsRuntimeBridge {
       },
       now,
     );
+
+    if (input.advanced) {
+      const adv = runAdvancedFinOps(input.advanced);
+      if (adv.merge?.merged) decision.appliedStrategies.push('M7_DYNAMIC_TEMPLATE_MERGER');
+      if (adv.tier && adv.tier.unitSavedUsd > 0) decision.appliedStrategies.push('M8_VOLUME_TIER_ROUTER');
+      if (adv.flow && adv.flow.savedUsd > 0) decision.appliedStrategies.push('M9_WHATSAPP_FLOWS_ORCHESTRATOR');
+      if (adv.extraSavedUsd > 0) {
+        decision.baselineTotalCostUsd = Number((decision.baselineTotalCostUsd + adv.extraSavedUsd).toFixed(6));
+        decision.metaTariffSavingsUsd = Number((decision.metaTariffSavingsUsd + adv.extraSavedUsd).toFixed(6));
+        decision.totalSavingsUsd = Number((decision.totalSavingsUsd + adv.extraSavedUsd).toFixed(6));
+      }
+    }
 
     if (
       decision.status === 'DISPATCH' &&
