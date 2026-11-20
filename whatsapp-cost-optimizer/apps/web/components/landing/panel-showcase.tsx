@@ -44,7 +44,11 @@ export function PanelShowcase() {
             </p>
             <ul className="mt-5 space-y-2 text-[13px] leading-snug text-ink-2">
               <li className="flex flex-wrap items-center gap-2">
-                <ConfidenceBadge value="ESTIMATED" /> pela conta do WCO
+                <Badge tone="neutral" title="Estimativa do WCO, ainda não confirmada pela Meta">
+                  <span className="size-1.5 rounded-full bg-current opacity-50" aria-hidden />
+                  Estimado
+                </Badge>{" "}
+                pela conta do WCO
               </li>
               <li className="flex flex-wrap items-center gap-2">
                 <ConfidenceBadge value="REALIZED" />
@@ -55,7 +59,7 @@ export function PanelShowcase() {
             </ul>
 
             <div className="mt-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-2">
-              <div className="rounded-xl border border-dashed border-rule p-3">
+              <div className="rounded-xl border border-line bg-surface-2/60 p-3">
                 <p className="text-[11.5px] leading-tight text-ink-2">Custo sem WCO</p>
                 <p className="figure struck mt-2 whitespace-nowrap text-[14px] sm:text-[17px]">R$ 18.420,00</p>
                 <p className="mt-1.5 text-[10.5px] leading-tight text-muted">estimado</p>

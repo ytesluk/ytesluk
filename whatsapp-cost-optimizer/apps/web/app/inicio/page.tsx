@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FileSearch, Gauge, Lock, ShieldCheck, TrendingDown, Wallet } from "lucide-react";
+import { ArrowRight, Check, FileSearch, Gauge, Lock, ShieldCheck, TrendingDown, Wallet } from "lucide-react";
 import { Wordmark } from "@/components/brand";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { Parallax, ScrollStage, Tilt } from "@/components/landing/fx";
@@ -71,7 +71,7 @@ const FEATURES = [
 const FAQ = [
   {
     q: "Quanto eu vou economizar?",
-    a: "Depende do seu volume e do perfil dos seus envios. Por isso existe o plano Free: você conecta o seu sistema e o extrato mostra, com os seus próprios dados, quanto saiu da fatura. Você decide com o número real na mão, não com promessa.",
+    a: "Depende do seu volume e do perfil dos seus envios. Por isso existe o plano Free: você conecta o WhatsApp da empresa e o extrato mostra, com os seus próprios dados, quanto saiu da fatura. Você decide com o número real na mão, não com promessa.",
   },
   {
     q: "Como o WCO reduz a fatura?",
@@ -284,7 +284,7 @@ export default async function LandingPage() {
         <section id="como-funciona" className="scroll-mt-24 border-y border-dashed border-rule bg-surface-2/50">
           <div className={`${wrap} py-16 sm:py-24`}>
             <p className={`${eyebrow} text-accent`}>Como funciona</p>
-            <h2 className={`${h2} mt-4 max-w-3xl`}>Uma camada inteligente entre o seu sistema e a Meta.</h2>
+            <h2 className={`${h2} mt-4 max-w-3xl`}>Uma camada inteligente entre o seu WhatsApp e a Meta.</h2>
             <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-ink-2">Você não muda nada do que já faz. O WCO trabalha no meio do caminho e o resultado aparece na fatura.</p>
             <div className="mt-10">
               <HowItWorks />
@@ -306,8 +306,8 @@ export default async function LandingPage() {
             </li>
             <li>
               <p className="figure text-[44px] font-semibold leading-none text-ink">02</p>
-              <h3 className="mt-5 font-display text-[22px] font-semibold tracking-tight text-ink">Aponte os seus avisos para o WCO</h3>
-              <p className="mt-2 text-[15px] leading-relaxed text-ink-2">Uma integração simples, feita uma vez. O seu sistema continua disparando como hoje, e cada envio passa pela inteligência do WCO antes de chegar à Meta.</p>
+              <h3 className="mt-5 font-display text-[22px] font-semibold tracking-tight text-ink">O WCO entra em ação</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-ink-2">A partir daí, cada envio passa pela inteligência do WCO antes de chegar à Meta. Ninguém da sua equipe precisa mudar a rotina.</p>
             </li>
             <li>
               <p className="figure text-[44px] font-semibold leading-none text-ink">03</p>
@@ -329,11 +329,17 @@ export default async function LandingPage() {
                   <p className="mt-5 text-[17px] leading-relaxed text-ink-2">Abra o painel e veja, em um número só, quanto a sua empresa deixou de pagar no mês, comparado com o que a mesma operação custaria sem o WCO.</p>
                   <ul className="mt-7 space-y-4 text-[15px] leading-relaxed text-ink-2">
                     <li className="flex gap-3">
-                      <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full border border-dashed border-rule px-2.5 font-mono text-[10px] uppercase tracking-wide text-ink">Estimado</span>
+                      <span className="mt-0.5 inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-[#f4f1e6]/10 px-2.5 font-mono text-[10px] uppercase tracking-wide text-ink">
+                        <span className="size-1.5 rounded-full bg-[#f4f1e6]/60" aria-hidden />
+                        Estimado
+                      </span>
                       <span>A economia calculada pelo WCO no momento de cada envio.</span>
                     </li>
                     <li className="flex gap-3">
-                      <span className="mt-0.5 inline-flex h-6 shrink-0 items-center rounded-full bg-[#dcf45b] px-2.5 font-mono text-[10px] uppercase tracking-wide text-[#14201b]">Realizado</span>
+                      <span className="mt-0.5 inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-[#dcf45b] px-2.5 font-mono text-[10px] uppercase tracking-wide text-[#14201b]">
+                        <Check className="size-3" strokeWidth={3} aria-hidden />
+                        Realizado
+                      </span>
                       <span>A economia que a própria Meta já confirmou na cobrança.</span>
                     </li>
                   </ul>
@@ -354,7 +360,7 @@ export default async function LandingPage() {
             <div className="lg:sticky lg:top-28 lg:self-start">
               <p className={`${eyebrow} text-accent`}>O que você ganha</p>
               <h2 className={`${h2} mt-4`}>Margem protegida, sem abrir mão da velocidade.</h2>
-              <p className="mt-5 text-[15px] leading-relaxed text-ink-2">Sem mexer no texto que o seu cliente lê, sem trocar de número e com o que é urgente saindo na hora.</p>
+              <p className="mt-5 text-[15px] leading-relaxed text-ink-2">Sem mexer no texto que o seu cliente lê e sem trocar de número.</p>
             </div>
             <ul className="grid grid-cols-1 sm:grid-cols-2">
               {FEATURES.map((f) => (
@@ -445,7 +451,7 @@ export default async function LandingPage() {
           <h2 className="max-w-4xl font-display text-[clamp(32px,5vw,60px)] font-semibold leading-[1.14] tracking-[-0.02em] text-ink">
             Descubra quanto da sua fatura <span className="marker">pode ficar no seu caixa.</span>
           </h2>
-          <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-ink-2">Conecte o seu sistema no plano Free. Em poucos dias o extrato mostra o número, com os seus próprios dados.</p>
+          <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-ink-2">Conecte o WhatsApp da sua empresa no plano Free. Em poucos dias o extrato mostra o número, com os seus próprios dados.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href={logged ? "/" : "/signup"} className={`${btnPrimary} !bg-[#dcf45b] !text-[#14201b]`}>
               {logged ? "Abrir o painel" : "Criar conta grátis"} <ArrowRight className="size-4" aria-hidden />

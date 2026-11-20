@@ -384,7 +384,7 @@ html[data-render="none"] .hero-stage > .scene-poster {
   right: 7%;
   bottom: 18px;
   white-space: nowrap;
-  border: 1px dashed rgba(244, 241, 230, 0.32);
+  border: 1px solid rgba(244, 241, 230, 0.14);
   border-radius: 999px;
   padding: 5px 12px;
   font-family: var(--font-mono);
@@ -461,7 +461,7 @@ html[data-render="none"] .hero-stage > .scene-poster {
     bottom: -30px;
     width: 212px;
     border-radius: 14px;
-    border: 1px dashed var(--rule);
+    border: 1px solid var(--line);
     padding: 12px 14px;
     background: var(--surface-1);
     box-shadow: 0 26px 40px -18px rgba(0, 0, 0, 0.7);
