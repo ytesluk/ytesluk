@@ -12,6 +12,7 @@ import {
   FileText,
   FlaskConical,
   KeyRound,
+  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -55,6 +56,7 @@ const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: str
     section: "Administração",
     items: [
       { href: "/admin/templates", label: "Templates", icon: FileText, roles: ALL },
+      { href: "/admin/grouping", label: "Juntar avisos", icon: Layers, roles: CONFIG },
       { href: "/admin/providers", label: "Conectar WhatsApp", icon: Plug, roles: CONFIG },
       { href: "/admin/webhooks", label: "Webhooks", icon: Webhook, roles: ["OWNER", "ADMIN", "OPERATOR"] },
       { href: "/admin/tenant", label: "Tenant e acesso", icon: KeyRound, roles: ["OWNER"] },

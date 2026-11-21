@@ -119,3 +119,19 @@ test("templates can be imported from the connected account", async ({ page }) =>
   await expect(page.getByText(/template\(s\) importado\(s\)/)).toBeVisible();
   await expect(page.getByRole("cell", { name: "hello_world" }).first()).toBeVisible();
 });
+
+test("the company turns joining notices on and off itself, and the choice is kept", async ({ page }) => {
+  await login(page, "owner@loja-demo.wco.dev");
+  await page.getByRole("link", { name: "Juntar avisos" }).click();
+  await expect(page.getByRole("heading", { name: "Juntar avisos" })).toBeVisible();
+  await expect(page.getByText("Enviar só o mais recente")).toBeVisible();
+  const sw = page.getByRole("switch", { name: "Só o mais recente: Lembrete de agendamento" });
+  const was = (await sw.getAttribute("aria-checked")) === "true";
+  await sw.click();
+  await expect(page.getByText("salvo").first()).toBeVisible();
+  await page.reload();
+  await expect(sw).toHaveAttribute("aria-checked", String(!was));
+  await sw.click(); // back to how it was
+  await expect(page.getByText("salvo").first()).toBeVisible();
+  await expect(page.getByRole("switch", { name: /Código|OTP|authentication/i })).toHaveCount(0);
+});
