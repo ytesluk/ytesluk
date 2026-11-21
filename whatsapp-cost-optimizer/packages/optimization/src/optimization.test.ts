@@ -393,7 +393,7 @@ describe("Module 1 — template content as a free-form message inside the custom
   });
 
   it("keeps the paid template when the policy did not opt in, the window is closed or the template is not convertible", () => {
-    const off = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    const off = routing(policiesWith("marketing.campaign", { allowMarketingFreeFormInWindow: false }));
     off.inbound("cust-1", "pn-1", at(0));
     off.submit(campaign(), at(60));
     expect(off.decisions[0]!.messageKind).toBe(MessageKind.TEMPLATE);
@@ -406,6 +406,13 @@ describe("Module 1 — template content as a free-form message inside the custom
     notConvertible.inbound("cust-1", "pn-1", at(0));
     notConvertible.submit(campaign(), at(60));
     expect(notConvertible.decisions[0]!.messageKind).toBe(MessageKind.TEMPLATE);
+  });
+
+  it("is built in: with the default policies the content goes as a conversation message inside the window", () => {
+    const p = routing(DEFAULT_OPTIMIZATION_POLICIES);
+    p.inbound("cust-1", "pn-1", at(0));
+    p.submit(campaign(), at(60));
+    expect(p.decisions[0]!.messageKind).toBe(MessageKind.NON_TEMPLATE);
   });
 
   it("never converts authentication, and marketing consent still decides", () => {
@@ -507,7 +514,7 @@ describe("Module 3 — free entry point priority and inbound-first", () => {
     const immediate = routing(inboundFirst);
     immediate.submit(campaign({ mustSendImmediately: true }), at(0));
     expect(immediate.decisions[0]).toMatchObject({ action: DecisionAction.SEND_NOW, wakeUp: false });
-    const noAlternative = routing(policiesWith("marketing.campaign", { inboundFirstGraceMinutes: 30 }));
+    const noAlternative = routing(policiesWith("marketing.campaign", { inboundFirstGraceMinutes: 30, allowMarketingFreeFormInWindow: false }));
     noAlternative.submit(campaign(), at(0));
     expect(noAlternative.decisions[0]).toMatchObject({ action: DecisionAction.SEND_NOW, wakeUp: false });
   });

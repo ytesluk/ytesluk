@@ -135,7 +135,7 @@ function RuleSetEditor({ initial, onSaved }: { initial: unknown; onSaved: () => 
 export default function PoliciesPage() {
   const { data, error, loading, reload } = useApi<Data>("optimization/policies");
   const [editing, setEditing] = useState<Policy | null>(null);
-  const blank: Policy = { id: "", eventType: "", maxDelaySeconds: 60, debounceSeconds: 30, allowAggregation: false, allowSupersession: false, allowDeduplication: true, dedupWindowSeconds: 86400, priority: "NORMAL", requiresImmediateDelivery: false, supersessionGroup: null, consolidationTemplate: null, defaultTemplate: null, defaultLanguage: "pt_BR", category: null, allowFreeFormInWindow: false, allowMarketingFreeFormInWindow: false, inboundFirstGraceMinutes: 0, maxConsolidatedItems: 10, enabled: true };
+  const blank: Policy = { id: "", eventType: "", maxDelaySeconds: 60, debounceSeconds: 30, allowAggregation: false, allowSupersession: false, allowDeduplication: true, dedupWindowSeconds: 86400, priority: "NORMAL", requiresImmediateDelivery: false, supersessionGroup: null, consolidationTemplate: null, defaultTemplate: null, defaultLanguage: "pt_BR", category: null, allowFreeFormInWindow: true, allowMarketingFreeFormInWindow: true, inboundFirstGraceMinutes: 0, maxConsolidatedItems: 10, enabled: true };
   return (
     <>
       <PageHeader title="Políticas de otimização" description="Quanto cada tipo de evento pode esperar e quais técnicas podem ser aplicadas. Toda alteração é registrada na auditoria." actions={<Button onClick={() => setEditing(blank)}>Nova política</Button>} />

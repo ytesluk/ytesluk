@@ -2,6 +2,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { classifyMetaError, ProviderError } from "./errors";
 import type {
   BusinessAccountInfo,
+  CreateTemplateRequest,
+  CreateTemplateResult,
   CommonSendFields,
   MetaTemplateInfo,
   PhoneNumberInfo,
@@ -176,6 +178,11 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
 
   async getBusinessAccount(wabaId: string): Promise<BusinessAccountInfo> {
     return { id: wabaId, name: "WCO Mock WABA", timezoneId: "America/Sao_Paulo", currency: "BRL" };
+  }
+
+  /** Development: the template is accepted and approved at once (Meta reviews real ones first). */
+  async createTemplate(_wabaId: string, req: CreateTemplateRequest): Promise<CreateTemplateResult> {
+    return { id: `mock-template-${req.name}`, status: "APPROVED", category: req.category };
   }
 
   /** One approved template without variables, shaped like the Graph API response. */

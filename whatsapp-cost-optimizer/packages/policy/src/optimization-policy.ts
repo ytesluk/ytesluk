@@ -22,7 +22,7 @@ export interface OptimizationPolicyConfig {
   allowFreeFormInWindow: boolean;
   /**
    * Also send the content of MARKETING templates as a free-form (service) message while the customer
-   * service window is open, when that is cheaper. Marketing consent still applies. Off by default.
+   * service window is open, when that is cheaper. Marketing consent still applies. On by default.
    */
   allowMarketingFreeFormInWindow?: boolean;
   /**
@@ -48,8 +48,10 @@ export const DEFAULT_POLICY: OptimizationPolicyConfig = {
   dedupWindowSeconds: 86_400,
   priority: Priority.NORMAL,
   requiresImmediateDelivery: false,
-  allowFreeFormInWindow: false,
-  allowMarketingFreeFormInWindow: false,
+  // "Mandar como conversa" is built in: inside the 24 h window the content goes as a service message
+  // when that is cheaper (never for authentication; marketing consent still applies).
+  allowFreeFormInWindow: true,
+  allowMarketingFreeFormInWindow: true,
   inboundFirstGraceMinutes: 0,
   maxConsolidatedItems: 10,
   enabled: true,

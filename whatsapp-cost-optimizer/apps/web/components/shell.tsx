@@ -48,7 +48,7 @@ const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: str
   },
   {
     section: "Economias",
-    items: [{ href: "/savings", label: "Configurar economias", icon: PiggyBank, roles: CONFIG }],
+    items: [{ href: "/savings", label: "Economia de juntar mensagens", icon: PiggyBank, roles: CONFIG }],
   },
   {
     section: "Administração",

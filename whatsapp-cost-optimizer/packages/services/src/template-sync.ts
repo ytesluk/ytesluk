@@ -7,7 +7,8 @@ import { publishTenantChanged, type Actor, type AppContext } from "./context";
  * so intents can reference them by name. Meta is the authority: status and category come from Meta
  * and are kept current afterwards by the template webhooks. Nothing is created or edited on Meta.
  */
-const STATUS: Record<string, "APPROVED" | "PENDING" | "REJECTED" | "PAUSED" | "DISABLED"> = {
+/** Meta template status → the WCO's (IN_APPEAL is still pending; deleted or archived ones are disabled). */
+export const TEMPLATE_STATUS: Record<string, "APPROVED" | "PENDING" | "REJECTED" | "PAUSED" | "DISABLED"> = {
   APPROVED: "APPROVED",
   PENDING: "PENDING",
   IN_APPEAL: "PENDING",
@@ -56,7 +57,7 @@ export async function syncTemplates(ctx: AppContext, actor: Actor) {
         result.skipped.push(`${t.name || "?"} (${t.language || "?"}): categoria ${t.category || "ausente"}`);
         continue;
       }
-      const status = STATUS[t.status.toUpperCase()] ?? "PENDING";
+      const status = TEMPLATE_STATUS[t.status.toUpperCase()] ?? "PENDING";
       const local = toLocalComponents(t);
       if (local.unsupportedVariables) result.warnings.push(`${t.name}: variáveis fora do corpo (cabeçalho/botões) não são preenchidas pelo WCO`);
       const data = {

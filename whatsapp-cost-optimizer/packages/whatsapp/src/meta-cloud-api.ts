@@ -4,6 +4,8 @@ import { classifyMetaError, isProviderError, ProviderError } from "./errors";
 import { interactiveBody, mediaBody, templateBody, textBody } from "./payloads";
 import type {
   BusinessAccountInfo,
+  CreateTemplateRequest,
+  CreateTemplateResult,
   MetaTemplateInfo,
   PhoneNumberInfo,
   ProviderCredentials,
@@ -212,6 +214,30 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
       if (!data.paging?.next || !after) break;
     }
     return out;
+  }
+
+  /**
+   * POST /<WABA_ID>/message_templates with `parameter_format: "named"` and one example per body
+   * parameter (required by Meta when the body has parameters). Meta answers { id, status, category };
+   * the final status arrives later through the message_template_status_update webhook.
+   */
+  async createTemplate(wabaId: string, req: CreateTemplateRequest, creds: ProviderCredentials): Promise<CreateTemplateResult> {
+    const body = {
+      name: req.name,
+      language: req.language,
+      category: req.category,
+      parameter_format: "named",
+      components: [
+        {
+          type: "body",
+          text: req.body,
+          ...(req.namedParams.length ? { example: { body_text_named_params: req.namedParams.map((p) => ({ param_name: p.name, example: p.example })) } } : {}),
+        },
+      ],
+    };
+    const { data } = await this.call<{ id?: string; status?: string; category?: string }>("createTemplate", "POST", `${encodeURIComponent(wabaId)}/message_templates`, creds, body);
+    if (!data.id) throw new ProviderError({ message: "Meta did not return a template id", provider: this.kind, classification: { retryable: false, action: "TEMPLATE_ISSUE" } });
+    return { id: String(data.id), status: String(data.status ?? "PENDING"), category: String(data.category ?? req.category) };
   }
 
   async getBusinessAccount(wabaId: string, creds: ProviderCredentials): Promise<BusinessAccountInfo> {

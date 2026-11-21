@@ -982,10 +982,10 @@ model OptimizationPolicy {
   defaultLanguage           String    @default("pt_BR")
   category                  BillingCategory?
   /// Allow sending a free-form (service) message instead of a template while a CSW is open.
-  allowFreeFormInWindow     Boolean   @default(false)
+  allowFreeFormInWindow     Boolean   @default(true)
   /// Same, for MARKETING templates (the content goes as a service message while the window is open;
-  /// marketing consent still applies). Off by default.
-  allowMarketingFreeFormInWindow Boolean @default(false)
+  /// marketing consent still applies). On by default.
+  allowMarketingFreeFormInWindow Boolean @default(true)
   /// Inbound-first: wait up to N minutes (never past the intent deadline) for the customer to open the
   /// conversation after an INBOUND_WAKEUP_REQUESTED event, before sending the paid template. 0 = off.
   inboundFirstGraceMinutes  Int       @default(0)

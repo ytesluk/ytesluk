@@ -1,435 +1,276 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowRight, X } from "lucide-react";
-import { Button, Card, ErrorBox, Loading, Notice, PageHeader, Select } from "@/components/ui";
+import Link from "next/link";
+import { useRef, useState } from "react";
+import { Check, Clock3, X } from "lucide-react";
+import { Button, Card, ErrorBox, Loading, Notice, PageHeader } from "@/components/ui";
 import { ApiError, api, useApi } from "@/lib/api";
 
 /**
- * The savings a company has to switch on itself, in one place. Everything else the WCO does on its
- * own and is not listed. Per notice type: join related notices, send only the newest status, send
- * as a conversation message inside the 24 h window. Per template: a backup template for when Meta
- * reclassifies it (the FinOps mirror pool). It edits the existing policies and mirror variants
- * through the same API as the operator's screens and the overview panel (audited).
+ * "Economia de juntar mensagens": the company writes, here, the one message that carries several
+ * updates of the same order. The API sends it to Meta as a template and switches joining on; this
+ * page explains the idea with two wrong/right examples and shows Meta's answer.
+ * The company types the friendly marker [atualizações]; the API receives {{atualizacoes}}.
  */
 
-interface Policy {
-  id: string;
-  eventType: string;
-  maxDelaySeconds: number;
-  debounceSeconds: number;
-  allowAggregation: boolean;
-  allowSupersession: boolean;
-  allowDeduplication: boolean;
-  dedupWindowSeconds: number;
-  priority: string;
-  requiresImmediateDelivery: boolean;
-  supersessionGroup: string | null;
-  consolidationTemplate: string | null;
-  defaultTemplate: string | null;
-  defaultLanguage: string;
-  category: string | null;
-  allowFreeFormInWindow: boolean;
-  allowMarketingFreeFormInWindow: boolean;
-  inboundFirstGraceMinutes: number;
-  maxConsolidatedItems: number;
-  enabled: boolean;
+interface JoinMessage {
+  connected: boolean;
+  current: { name: string; status: string; text: string | null; writtenInWco: boolean } | null;
 }
 
-interface Template {
-  id: string;
-  name: string;
-  language: string;
-  declaredCategory: string;
-  metaCategory: string | null;
-  status: string;
+const MARK = "[atualizações]";
+const PARAM = "{{atualizacoes}}";
+const EXAMPLE = "pagamento aprovado; pedido separado; pedido enviado";
+const SUGGESTION = `Olá! Novidades do seu pedido: ${MARK}. Qualquer dúvida, é só responder esta mensagem.`;
+
+const toApi = (t: string) => t.split(MARK).join(PARAM);
+const fromApi = (t: string) => t.split(PARAM).join(MARK);
+
+/** The same rules the API applies (Meta refuses a body that starts or ends with a variable). */
+function problems(raw: string): string[] {
+  const text = raw.trim();
+  const out: string[] = [];
+  const marks = text.split(MARK).length - 1;
+  if (marks === 0) out.push(`Inclua ${MARK} onde as novidades devem aparecer.`);
+  if (marks > 1) out.push(`Use ${MARK} só uma vez.`);
+  if (/\{\{|\}\}/.test(text)) out.push("Tire as chaves {{ }}: use só o marcador das atualizações.");
+  if (marks === 1 && text.startsWith(MARK)) out.push(`Escreva algo antes de ${MARK}.`);
+  if (marks === 1 && text.endsWith(MARK)) out.push(`Escreva algo depois de ${MARK}.`);
+  if (marks >= 1 && text.split(MARK).join(" ").split(/\s+/).filter(Boolean).length < 4) out.push("Escreva um pouco mais de texto.");
+  if (toApi(text).length > 1024) out.push("A mensagem pode ter no máximo 1024 caracteres.");
+  return out;
 }
 
-interface Variant {
-  id: string;
-  groupKey: string;
-  metaTemplateName: string;
-  language: string;
-  category: string;
-  status: string;
-  priority: number;
-}
-
-const NAMES: Record<string, string> = {
-  "order.status": "Status do pedido",
-  "order.updated": "Atualização do pedido",
-  "payment.approved": "Pagamento aprovado",
-  "shipment.tracking": "Rastreio da entrega",
-  "stock.update": "Produto de volta ao estoque",
-  "appointment.reminder": "Lembrete de agendamento",
-  "marketing.campaign": "Campanha de marketing",
-  "cart.reminder": "Carrinho abandonado",
-};
-
-/** A notice type that never waited may wait up to 1 minute once joining or replacing is switched on. */
-const MIN_WAIT_S = 60;
-const MIN_PAUSE_S = 30;
-
-const listed = (p: Policy) => p.eventType !== "*" && !p.requiresImmediateDelivery && p.priority !== "CRITICAL" && p.category !== "SERVICE";
-const chatKey = (p: Policy): "allowFreeFormInWindow" | "allowMarketingFreeFormInWindow" => (p.category === "MARKETING" ? "allowMarketingFreeFormInWindow" : "allowFreeFormInWindow");
-
-function waitLabel(s: number): string {
-  if (s <= 0) return "sai na hora";
-  if (s % 3600 === 0) return `espera até ${s / 3600} h`;
-  if (s >= 60) return `espera até ${Math.round(s / 60)} min`;
-  return `espera até ${s} s`;
-}
-
-function errorOf(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError(0, String(e));
-}
-
-function Switch({ on, onChange, label, disabled }: { on: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
+function Bubble({ from, children }: { from: "client" | "company"; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-50 ${on ? "bg-accent" : "bg-surface-2 ring-1 ring-inset ring-[var(--rule)]"}`}
-    >
-      <span className={`inline-block size-5 rounded-full bg-[#fdfcf8] shadow transition ${on ? "translate-x-[22px]" : "translate-x-0.5"}`} />
-    </button>
-  );
-}
-
-function Example({ before, after }: { before: string[]; after: string }) {
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[12px]">
-      {before.map((b) => (
-        <span key={b} className="rounded-lg bg-surface-2 px-2 py-0.5 text-ink-2">
-          {b}
-        </span>
-      ))}
-      <ArrowRight className="size-3.5 text-muted" aria-hidden />
-      <span className="rounded-lg bg-accent px-2 py-0.5 font-medium text-accent-ink">{after}</span>
+    <div className={`flex ${from === "company" ? "justify-end" : "justify-start"}`}>
+      <p
+        className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-snug ${
+          from === "company" ? "rounded-br-md bg-[#d9fdd3] text-[#111b21]" : "rounded-bl-md bg-surface text-ink ring-1 ring-inset ring-[var(--line)]"
+        }`}
+      >
+        {children}
+      </p>
     </div>
   );
 }
 
-function Mode({ n, title, children, example }: { n: string; title: string; children: React.ReactNode; example: React.ReactNode }) {
+function Side({ right, count, children }: { right: boolean; count: string; children: React.ReactNode }) {
+  return (
+    <div className={`flex flex-col rounded-2xl p-4 ring-1 ring-inset ${right ? "bg-[#30a46c]/10 ring-[#30a46c]/35" : "bg-[#e5484d]/10 ring-[#e5484d]/35"}`}>
+      <p className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide ${right ? "text-[#2f9e65]" : "text-[#e5484d]"}`}>
+        {right ? <Check className="size-3.5" aria-hidden /> : <X className="size-3.5" aria-hidden />}
+        {right ? "Jeito certo" : "Jeito errado"}
+      </p>
+      <div className="mt-3 flex-1 space-y-1.5">{children}</div>
+      <p className={`mt-3 text-xs font-medium ${right ? "text-[#2f9e65]" : "text-[#e5484d]"}`}>{count}</p>
+    </div>
+  );
+}
+
+function ExampleBlock({ title, note, ask, wrong, right }: { title: string; note: string; ask?: string; wrong: string[]; right: string }) {
   return (
     <div>
-      <p className="font-mono text-[11px] text-muted">{n}</p>
-      <p className="mt-1 font-medium text-ink">{title}</p>
-      <p className="mt-1 text-sm leading-relaxed text-ink-2">{children}</p>
-      {example}
+      <p className="font-medium text-ink">{title}</p>
+      <p className="mt-0.5 text-xs text-muted">{note}</p>
+      {ask ? (
+        <div className="mt-3">
+          <Bubble from="client">{ask}</Bubble>
+        </div>
+      ) : null}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Side right={false} count={`${wrong.length} mensagens cobradas`}>
+          {wrong.map((w) => (
+            <Bubble key={w} from="company">
+              {w}
+            </Bubble>
+          ))}
+        </Side>
+        <Side right count="1 mensagem cobrada">
+          <Bubble from="company">{right}</Bubble>
+        </Side>
+      </div>
     </div>
   );
 }
 
-const COL = "flex w-12 justify-center sm:w-[92px]";
-
-function Row({ initial, approved }: { initial: Policy; approved: string[] }) {
-  const [p, setP] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<ApiError | null>(null);
-  const [picking, setPicking] = useState(false);
-
-  const save = async (next: Policy) => {
-    const before = p;
-    setP(next);
-    setBusy(true);
-    setSaved(false);
-    setError(null);
-    try {
-      const { id: _id, ...body } = next;
-      void _id;
-      await api("optimization/policies", { body });
-      setSaved(true);
-    } catch (e) {
-      setP(before);
-      setError(errorOf(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const turn = (k: "allowAggregation" | "allowSupersession" | "allowFreeFormInWindow" | "allowMarketingFreeFormInWindow") => (v: boolean) => {
-    const next = { ...p, [k]: v };
-    if (v && (k === "allowAggregation" || k === "allowSupersession") && next.maxDelaySeconds === 0) {
-      next.maxDelaySeconds = MIN_WAIT_S;
-      next.debounceSeconds = Math.max(next.debounceSeconds, MIN_PAUSE_S);
-    }
-    if (k === "allowAggregation" && v && !next.consolidationTemplate && approved.length === 1) next.consolidationTemplate = approved[0]!;
-    void save(next);
-  };
-
-  const name = NAMES[p.eventType] ?? p.eventType;
-  const chat = chatKey(p);
-  const templateOk = !!p.consolidationTemplate && approved.includes(p.consolidationTemplate);
-
-  return (
-    <li className="py-4">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-2 gap-y-1 sm:gap-x-6">
-        <div className="min-w-0">
-          <p className="font-medium leading-snug text-ink">{name}</p>
-          <p className="text-xs text-muted">
-            {waitLabel(p.maxDelaySeconds)}
-            {busy ? " · salvando…" : saved ? " · salvo" : ""}
-          </p>
-          {p.allowAggregation && templateOk && !picking ? (
-            <p className="mt-0.5 text-xs text-muted">
-              Mensagem junta: <span className="text-ink-2">{p.consolidationTemplate}</span>{" "}
-              {approved.length > 1 ? (
-                <button type="button" className="underline decoration-dotted underline-offset-2 hover:text-ink" onClick={() => setPicking(true)}>
-                  trocar
-                </button>
-              ) : null}
-            </p>
-          ) : null}
-        </div>
-        <div className={COL}>
-          <Switch on={p.allowAggregation} onChange={turn("allowAggregation")} label={`Juntar mensagens: ${name}`} disabled={busy} />
-        </div>
-        <div className={COL}>
-          <Switch on={p.allowSupersession} onChange={turn("allowSupersession")} label={`Só o mais recente: ${name}`} disabled={busy} />
-        </div>
-        <div className={COL}>
-          <Switch on={!!p[chat]} onChange={turn(chat)} label={`Como conversa: ${name}`} disabled={busy} />
-        </div>
+function Status({ current }: { current: NonNullable<JoinMessage["current"]> }) {
+  if (!current.writtenInWco) {
+    return current.status === "APPROVED" ? (
+      <Notice tone="good">
+        A junção já está ativa com o template <strong>{current.name}</strong>, aprovado pela Meta. Se quiser usar um texto seu, escreva abaixo.
+      </Notice>
+    ) : null;
+  }
+  if (current.status === "APPROVED")
+    return (
+      <Notice tone="good">
+        <strong>Economia ativa.</strong> A Meta aprovou a sua mensagem e o WCO já junta as novidades de um mesmo pedido.
+      </Notice>
+    );
+  if (current.status === "PENDING")
+    return (
+      <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-rule bg-surface px-4 py-3 text-sm leading-relaxed text-ink-2">
+        <Clock3 className="mt-0.5 size-4 shrink-0 text-serious" aria-hidden />
+        <p>
+          <strong className="text-ink">Em análise na Meta.</strong> Costuma levar de minutos a algumas horas. Enquanto isso, as mensagens saem separadas, como hoje.
+        </p>
       </div>
-
-      {p.allowAggregation && (!templateOk || picking) ? (
-        <div className="mt-3 max-w-xl rounded-xl bg-surface-2/60 p-3 text-sm">
-          <label className="block text-xs font-medium text-ink-2" htmlFor={`tpl-${p.id}`}>
-            Template da mensagem junta
-          </label>
-          {approved.length ? (
-            <Select
-              id={`tpl-${p.id}`}
-              value={p.consolidationTemplate ?? ""}
-              disabled={busy}
-              onChange={(e) => {
-                setPicking(false);
-                void save({ ...p, consolidationTemplate: e.target.value || null });
-              }}
-            >
-              <option value="">Escolha um template aprovado</option>
-              {approved.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-              {p.consolidationTemplate && !templateOk ? <option value={p.consolidationTemplate}>{p.consolidationTemplate} (não aprovado)</option> : null}
-            </Select>
-          ) : null}
-          {!templateOk ? (
-            <p className="mt-2 text-xs leading-relaxed text-ink-2">
-              {approved.length
-                ? "Enquanto nenhum template aprovado estiver escolhido, os avisos continuam saindo separados."
-                : "Você ainda não tem template aprovado. Crie na Meta um template de resumo (por exemplo: “Atualizações do seu pedido {{1}}: {{2}}”) e importe na tela Templates. Até lá, os avisos saem separados."}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {error ? (
-        <div className="mt-3">
-          <ErrorBox error={error} title="Não foi possível salvar" />
-        </div>
-      ) : null}
-    </li>
+    );
+  return (
+    <Notice tone="warning">
+      <strong>A Meta não aprovou esta mensagem.</strong> Ajuste o texto e envie de novo. Enquanto isso, as mensagens saem separadas.
+    </Notice>
   );
 }
 
-const metaCategory = (t: Template): "UTILITY" | "MARKETING" | "AUTHENTICATION" => {
-  const c = t.metaCategory ?? t.declaredCategory;
-  return c === "MARKETING" || c === "AUTHENTICATION" ? c : "UTILITY";
-};
-
-function Backups({ templates }: { templates: Template[] }) {
-  const variants = useApi<Variant[]>("templates/mirrors");
-  const approved = templates.filter((t) => t.status === "APPROVED");
-  const [main, setMain] = useState("");
-  const [backup, setBackup] = useState("");
+function Editor({ data, onSaved }: { data: JoinMessage; onSaved: (d: JoinMessage) => void }) {
+  const initial = data.current?.writtenInWco && data.current.text ? fromApi(data.current.text) : SUGGESTION;
+  const [text, setText] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
 
-  const rows = variants.data ?? [];
-  const groups = new Map<string, Variant[]>();
-  for (const v of rows) groups.set(v.groupKey, [...(groups.get(v.groupKey) ?? []), v]);
-  const ordered = [...groups.values()].map((g) => [...g].sort((a, b) => a.priority - b.priority));
+  const issues = problems(text);
+  const [before, after] = text.includes(MARK) ? [text.slice(0, text.indexOf(MARK)), text.slice(text.indexOf(MARK) + MARK.length)] : [text, ""];
+  const unchanged = !!data.current?.writtenInWco && data.current.status !== "REJECTED" && toApi(text.trim()) === (data.current.text ?? "");
 
-  const byName = (n: string) => approved.find((t) => t.name === n);
-  const variantBody = (t: Template, groupKey: string, priority: number) => ({ groupKey, metaTemplateName: t.name, language: t.language, category: metaCategory(t), status: "APPROVED", priority });
-
-  const add = async () => {
-    const m = byName(main);
-    const b = byName(backup);
-    if (!m || !b || m.name === b.name) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const existing = rows.find((v) => v.metaTemplateName === m.name);
-      const groupKey = existing?.groupKey ?? m.name;
-      if (!existing) await api("templates/mirrors", { body: variantBody(m, groupKey, 1) });
-      const top = Math.max(1, ...rows.filter((v) => v.groupKey === groupKey).map((v) => v.priority));
-      await api("templates/mirrors", { body: variantBody(b, groupKey, top + 1) });
-      setBackup("");
-      variants.reload();
-    } catch (e) {
-      setError(errorOf(e));
-    } finally {
-      setBusy(false);
-    }
+  const insert = () => {
+    const el = box.current;
+    const at = el ? el.selectionStart : text.length;
+    const next = text.slice(0, at) + MARK + text.slice(el ? el.selectionEnd : at);
+    setText(next);
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(at + MARK.length, at + MARK.length);
+    });
   };
 
-  const remove = async (id: string) => {
+  const submit = async () => {
     setBusy(true);
     setError(null);
     try {
-      await api(`templates/mirrors/${id}`, { method: "DELETE" });
-      // Without any backup left, the group means nothing: take its main template out too.
-      const gone = rows.find((v) => v.id === id);
-      const left = rows.filter((v) => v.id !== id && v.groupKey === gone?.groupKey);
-      if (left.length === 1) await api(`templates/mirrors/${left[0]!.id}`, { method: "DELETE" });
-      variants.reload();
+      const d = await api<JoinMessage>("optimization/join-message", { body: { text: toApi(text.trim()) } });
+      onSaved(d);
     } catch (e) {
-      setError(errorOf(e));
+      setError(e instanceof ApiError ? e : new ApiError(0, String(e)));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Card title="Template reserva" subtitle="Para cada template importante, cadastre uma reserva de utilidade já aprovada pela Meta.">
-      <p className="max-w-3xl text-sm leading-relaxed text-ink-2">
-        A Meta pode reclassificar um template de utilidade como marketing, que é mais caro. Se ele tiver uma reserva, o WCO passa a usar a reserva sozinho, sem você mexer em nada.
-      </p>
-      <Example before={["lembrete_consulta virou marketing"]} after="sai lembrete_consulta_b" />
+    <div className="space-y-4">
+      <div>
+        <label htmlFor="join-text" className="block text-sm font-medium text-ink">
+          Sua mensagem
+        </label>
+        <p className="mt-0.5 text-xs leading-relaxed text-muted">
+          Onde estiver <strong className="text-ink-2">{MARK}</strong>, o WCO coloca as novidades do pedido, todas juntas.
+        </p>
+        <textarea
+          id="join-text"
+          ref={box}
+          rows={4}
+          value={text}
+          maxLength={1100}
+          onChange={(e) => setText(e.target.value)}
+          className="mt-2 w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[15px] leading-relaxed text-ink outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button type="button" className="h-8 text-xs" onClick={insert}>
+            Inserir {MARK}
+          </Button>
+          <Button type="button" variant="ghost" className="h-8 text-xs" onClick={() => setText(SUGGESTION)}>
+            Usar a sugestão
+          </Button>
+        </div>
+      </div>
 
-      <div className="mt-6 border-t border-dashed border-rule pt-5">
-        {variants.error ? <ErrorBox error={variants.error} /> : null}
-        {variants.loading && !variants.data ? <Loading /> : null}
-        {ordered.length ? (
-          <ul className="mb-5 space-y-3">
-            {ordered.map((g) => (
-              <li key={g[0]!.groupKey} className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-medium text-ink">{g[0]!.metaTemplateName}</span>
-                {g.slice(1).length ? <ArrowRight className="size-3.5 text-muted" aria-hidden /> : null}
-                {g.slice(1).map((v) => (
-                  <span key={v.id} className="inline-flex items-center gap-1 rounded-lg bg-surface-2 py-0.5 pl-2 pr-1 text-ink-2">
-                    {v.metaTemplateName}
-                    <button type="button" aria-label={`Remover reserva ${v.metaTemplateName}`} disabled={busy} onClick={() => void remove(v.id)} className="grid size-5 place-items-center rounded hover:bg-surface hover:text-ink">
-                      <X className="size-3.5" aria-hidden />
-                    </button>
-                  </span>
-                ))}
-                {g.length === 1 ? <span className="text-xs text-muted">sem reserva</span> : null}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted">Como o cliente vai receber</p>
+        <div className="mt-2 rounded-2xl bg-surface-2 p-4">
+          <Bubble from="company">
+            {before}
+            {text.includes(MARK) ? <span className="rounded bg-[#fff3a3] px-0.5 text-[#111b21]">{EXAMPLE}</span> : null}
+            {after}
+          </Bubble>
+        </div>
+      </div>
 
-        {approved.length >= 2 ? (
-          <div className="grid max-w-3xl grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
-            <div>
-              <label htmlFor="backup-main" className="block text-xs font-medium text-ink-2">
-                Template
-              </label>
-              <Select id="backup-main" value={main} onChange={(e) => setMain(e.target.value)}>
-                <option value="">Escolha</option>
-                {approved.map((t) => (
-                  <option key={t.id} value={t.name}>
-                    {t.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <label htmlFor="backup-reserve" className="block text-xs font-medium text-ink-2">
-                Reserva
-              </label>
-              <Select id="backup-reserve" value={backup} onChange={(e) => setBackup(e.target.value)}>
-                <option value="">Escolha</option>
-                {approved
-                  .filter((t) => t.name !== main && metaCategory(t) === "UTILITY")
-                  .map((t) => (
-                    <option key={t.id} value={t.name}>
-                      {t.name}
-                    </option>
-                  ))}
-              </Select>
-            </div>
-            <Button variant="primary" onClick={() => void add()} loading={busy} disabled={!main || !backup}>
-              Adicionar reserva
-            </Button>
-          </div>
+      {issues.length ? (
+        <ul className="space-y-1 text-sm text-serious">
+          {issues.map((i) => (
+            <li key={i}>• {i}</li>
+          ))}
+        </ul>
+      ) : null}
+
+      {error ? <ErrorBox error={error} title="A mensagem não foi enviada" /> : null}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="primary" onClick={() => void submit()} loading={busy} disabled={!data.connected || issues.length > 0 || unchanged}>
+          Enviar para aprovação da Meta
+        </Button>
+        {!data.connected ? (
+          <span className="text-sm text-ink-2">
+            Primeiro, <Link href="/admin/providers" className="font-medium text-ink underline underline-offset-2">conecte o WhatsApp da empresa</Link>.
+          </span>
+        ) : unchanged ? (
+          <span className="text-xs text-muted">Esta é a mensagem que já está em uso.</span>
         ) : (
-          <Notice>Para cadastrar uma reserva, você precisa de pelo menos dois templates aprovados. Importe os seus na tela Templates.</Notice>
+          <span className="text-xs text-muted">A Meta analisa todo modelo de mensagem antes de liberar o envio.</span>
         )}
-        {error ? (
-          <div className="mt-3">
-            <ErrorBox error={error} title="Não foi possível salvar" />
-          </div>
-        ) : null}
       </div>
-    </Card>
+    </div>
   );
 }
 
-export default function SavingsPage() {
-  const policies = useApi<{ policies: Policy[] }>("optimization/policies");
-  const templates = useApi<Template[]>("templates");
-  const rows = (policies.data?.policies ?? []).filter(listed);
-  const approved = (templates.data ?? []).filter((t) => t.status === "APPROVED").map((t) => t.name);
+export default function JoinSavingsPage() {
+  const { data, error, loading } = useApi<JoinMessage>("optimization/join-message");
+  const [state, setState] = useState<JoinMessage | null>(null);
+  const current = state ?? data;
 
   return (
     <>
       <PageHeader
-        title="Configurar economias"
-        description="Estas economias dependem de uma escolha da sua empresa. Ligue as que fizerem sentido. As demais o WCO já faz sozinho, sem configurar nada."
+        title="Economia de juntar mensagens"
+        description="Juntar mensagens é uma das formas de a sua empresa economizar dinheiro. Configure agora, se fizer sentido para a sua empresa. As demais economias o WCO já faz sozinho, sem você configurar nada."
       />
 
-      <div className="space-y-6">
-        <Card title="Avisos">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <Mode n="1" title="Juntar mensagens parecidas" example={<Example before={["Pagamento aprovado", "Pedido separado"]} after="1 mensagem" />}>
-              Várias mensagens sobre o mesmo pedido, em poucos minutos, chegam ao cliente numa mensagem só.
-            </Mode>
-            <Mode n="2" title="Enviar só o mais recente" example={<Example before={["Separado", "Enviado"]} after="Enviado" />}>
-              Se o status muda antes de o aviso sair, o cliente recebe só o status atual.
-            </Mode>
-            <Mode n="3" title="Mandar como conversa" example={<Example before={["Template"]} after="Mensagem de conversa" />}>
-              Se o cliente falou com você nas últimas 24 horas, o aviso vai como mensagem de conversa, quando isso sair mais barato. Promoções só para quem aceitou receber.
-            </Mode>
-          </div>
-          <p className="mt-6 border-t border-dashed border-rule pt-4 text-xs leading-relaxed text-muted">
-            Códigos de verificação e alertas críticos sempre saem na hora e não aparecem aqui. Nenhum aviso espera mais do que o tempo mostrado em cada linha.
+      <div className="max-w-4xl space-y-6">
+        <Card title="Como funciona">
+          <p className="text-[15px] leading-relaxed text-ink-2">
+            Em vez de mandar uma mensagem de cada vez para o cliente, você manda tudo o que for necessário em <strong className="text-ink">uma mensagem só</strong>. Cada mensagem enviada é cobrada, então menos mensagens significa uma fatura menor.
           </p>
-
-          <div className="mt-6">
-            {policies.error ? <ErrorBox error={policies.error} /> : null}
-            {policies.loading && !policies.data ? <Loading /> : null}
-            {policies.data && rows.length === 0 ? <Notice>Nenhum tipo de aviso configurado ainda.</Notice> : null}
-            {rows.length ? (
-              <>
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-end gap-x-2 border-b border-dashed border-rule pb-2 text-[11px] font-medium uppercase leading-tight tracking-wide text-muted sm:gap-x-6">
-                  <span>Tipo de aviso</span>
-                  <span className="w-12 text-center sm:w-[92px]">1. Juntar</span>
-                  <span className="w-12 text-center sm:w-[92px]">2. Só o mais recente</span>
-                  <span className="w-12 text-center sm:w-[92px]">3. Como conversa</span>
-                </div>
-                <ul className="divide-y divide-dashed divide-[var(--rule)]">
-                  {rows.map((p) => (
-                    <Row key={p.id} initial={p} approved={approved} />
-                  ))}
-                </ul>
-              </>
-            ) : null}
+          <p className="mt-4 text-sm font-medium text-ink">Veja como funcionaria:</p>
+          <div className="mt-4 space-y-8">
+            <ExampleBlock
+              title="Respondendo um orçamento"
+              note="O cliente pediu o preço ontem e a empresa responde hoje (passadas 24 horas, cada mensagem é cobrada)."
+              ask="Oi! Quanto custa o serviço?"
+              wrong={["O serviço custa R$ 300.", "Ficamos na Rua das Flores, 120, no Centro.", "Posso agendar um horário para você?"]}
+              right="Olá! O serviço custa R$ 300. Ficamos na Rua das Flores, 120, no Centro. Posso agendar um horário para você?"
+            />
+            <ExampleBlock
+              title="Loja atualizando um pedido"
+              note="Três novidades do mesmo pedido em poucos minutos."
+              wrong={["Pedido #4521: pagamento aprovado.", "Pedido #4521: pedido separado.", "Pedido #4521: pedido enviado."]}
+              right="Olá! Novidades do seu pedido #4521: pagamento aprovado; pedido separado; pedido enviado. Qualquer dúvida, é só responder esta mensagem."
+            />
           </div>
         </Card>
 
-        {templates.data ? <Backups templates={templates.data} /> : null}
+        <Card title="Escreva a mensagem que junta tudo" subtitle="Quando houver mais de uma novidade sobre o mesmo pedido, o cliente recebe esta mensagem no lugar de várias.">
+          {error ? <ErrorBox error={error} /> : null}
+          {loading && !current ? <Loading /> : null}
+          {current ? (
+            <div className="space-y-5">
+              {current.current ? <Status current={current.current} /> : null}
+              <Editor key={current.current?.name ?? "new"} data={current} onSaved={setState} />
+            </div>
+          ) : null}
+        </Card>
       </div>
     </>
   );

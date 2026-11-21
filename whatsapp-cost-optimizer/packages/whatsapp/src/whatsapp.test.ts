@@ -186,6 +186,28 @@ describe("MetaCloudApiProvider (no real network)", () => {
     expect(urls).toHaveLength(2);
   });
 
+  it("submits a new template with named parameters and their examples (documented body)", async () => {
+    let sent: { url: string; method?: string; body: unknown } | null = null;
+    const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      sent = { url: String(url), method: init?.method, body: JSON.parse(String(init?.body)) };
+      return new Response(JSON.stringify({ id: "546151681022936", status: "PENDING", category: "UTILITY" }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const p = new MetaCloudApiProvider({ graphApiVersion: "v26.0", fetchImpl });
+    const r = await p.createTemplate("W1", { name: "wco_juntar_1", language: "pt_BR", category: "UTILITY", body: "Olá! {{atualizacoes}}. Até logo.", namedParams: [{ name: "atualizacoes", example: "pagamento aprovado; pedido enviado" }] }, { accessToken: "T" });
+    expect(r).toEqual({ id: "546151681022936", status: "PENDING", category: "UTILITY" });
+    expect(sent).toEqual({
+      url: "https://graph.facebook.com/v26.0/W1/message_templates",
+      method: "POST",
+      body: {
+        name: "wco_juntar_1",
+        language: "pt_BR",
+        category: "UTILITY",
+        parameter_format: "named",
+        components: [{ type: "body", text: "Olá! {{atualizacoes}}. Até logo.", example: { body_text_named_params: [{ param_name: "atualizacoes", example: "pagamento aprovado; pedido enviado" }] } }],
+      },
+    });
+  });
+
   it("sets a WABA webhook override with the documented body", async () => {
     let sent: { url: string; body: unknown } | null = null;
     const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {

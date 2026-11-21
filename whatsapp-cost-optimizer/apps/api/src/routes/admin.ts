@@ -7,6 +7,7 @@ import {
   ManualConnectSchema,
   WebhookOverrideSchema,
   OptimizationPolicySchema,
+  JoinMessageSchema,
   PricingImportSchema,
   RateCardSimulationSchema,
   ResearchSchema,
@@ -32,6 +33,8 @@ import {
   historyImport,
   importPricing,
   listOptimizationPolicies,
+  getJoinMessage,
+  submitJoinMessage,
   listPricing,
   listResearchRuns,
   deleteMirrorVariant,
@@ -93,6 +96,13 @@ export async function adminRoutes(app: FastifyInstance, ctx: AppContext) {
   // ---------------------------------------------------------------- optimization policies (spec §9, §60)
   app.get("/api/v1/optimization/policies", { schema: { tags: ["optimization"] }, preHandler: guard(ctx, Permission.POLICIES_READ) }, async (req) => listOptimizationPolicies(ctx, t(req)));
   app.post("/api/v1/optimization/policies", { schema: { tags: ["optimization"], body: doc(OptimizationPolicySchema) }, preHandler: guard(ctx, Permission.POLICIES_WRITE) }, async (req) => upsertOptimizationPolicy(ctx, actorOf(req), req.body));
+  // "Economia de juntar mensagens": the company's own message that carries several updates at once.
+  app.get("/api/v1/optimization/join-message", { schema: { tags: ["optimization"], summary: "The company's combined message (consolidation template) and its Meta status" }, preHandler: guard(ctx, Permission.POLICIES_READ) }, async (req) => getJoinMessage(ctx, t(req)));
+  app.post(
+    "/api/v1/optimization/join-message",
+    { schema: { tags: ["optimization"], summary: "Submit the combined message to Meta as a UTILITY template and turn joining on for utility notices", body: doc(JoinMessageSchema) }, preHandler: guard(ctx, Permission.POLICIES_WRITE) },
+    async (req) => submitJoinMessage(ctx, actorOf(req), req.body),
+  );
   app.put("/api/v1/optimization/rules", { schema: { tags: ["optimization"], summary: "Declarative rule set (PolicyEngine)", body: doc(RuleSetSchema) }, preHandler: guard(ctx, Permission.POLICIES_WRITE) }, async (req) => upsertRuleSet(ctx, actorOf(req), req.body));
 
   // ---------------------------------------------------------------- tenant

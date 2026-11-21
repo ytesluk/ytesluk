@@ -132,6 +132,25 @@ export interface MetaTemplateInfo {
   components: TemplateComponent[];
 }
 
+/**
+ * A new template submitted for Meta's review (POST /<WABA_ID>/message_templates): a body with
+ * named parameters, each with the example value Meta requires.
+ */
+export interface CreateTemplateRequest {
+  name: string;
+  language: string;
+  category: "UTILITY" | "MARKETING";
+  body: string;
+  namedParams: Array<{ name: string; example: string }>;
+}
+
+/** What Meta answers: the template id, its review status (usually PENDING) and the category it assigned. */
+export interface CreateTemplateResult {
+  id: string;
+  status: string;
+  category: string;
+}
+
 export interface WebhookVerificationInput {
   rawBody: Buffer | string;
   signatureHeader: string | undefined;
@@ -160,4 +179,6 @@ export interface WhatsAppProvider {
   setWebhookOverride(wabaId: string, callbackUrl: string, verifyToken: string, creds: ProviderCredentials): Promise<{ success: boolean }>;
   /** Templates of a WABA, all pages (GET /<WABA_ID>/message_templates). */
   listTemplates(wabaId: string, creds: ProviderCredentials): Promise<MetaTemplateInfo[]>;
+  /** Submits a new template for Meta's review (POST /<WABA_ID>/message_templates, named parameters). */
+  createTemplate(wabaId: string, req: CreateTemplateRequest, creds: ProviderCredentials): Promise<CreateTemplateResult>;
 }
