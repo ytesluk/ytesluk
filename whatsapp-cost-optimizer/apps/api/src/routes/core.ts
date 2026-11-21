@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Permission } from "@wco/domain";
 import { metricsContentType, metricsText } from "@wco/logging";
 import {
+  BulkSendSchema,
   CreateApiKeySchema,
   CreateIntentSchema,
   CreateUserSchema,
@@ -23,6 +24,7 @@ import {
   login,
   signup,
   revokeApiKey,
+  sendBulk,
   upsertOutboundWebhook,
   type AppContext,
 } from "@wco/services";
@@ -84,6 +86,12 @@ export async function coreRoutes(app: FastifyInstance, ctx: AppContext) {
       const r = await createIntent(ctx, actorOf(req), { ...(req.body as object), mustSendImmediately: true }, { requestId: req.id });
       return reply.status(r.idempotent ? 200 : 202).send(r);
     },
+  );
+  // "Enviar mensagens" in the dashboard: one approved template to a list of customers (one intent each).
+  app.post(
+    "/api/v1/messages/bulk",
+    { schema: { tags: ["messages"], summary: "Send an approved template to up to 1000 customers (one intent each; every saving applies)", body: doc(BulkSendSchema) }, preHandler: guard(ctx, Permission.MESSAGES_WRITE), bodyLimit: 1024 * 1024 },
+    async (req, reply) => reply.status(202).send(await sendBulk(ctx, actorOf(req), req.body)),
   );
   app.get("/api/v1/messages", { schema: { tags: ["messages"], querystring: doc(ListIntentsQuery) }, preHandler: guard(ctx, Permission.MESSAGES_READ) }, async (req) => listIntents(ctx, actorOf(req).tenantId, ListIntentsQuery.parse(req.query)));
   app.get("/api/v1/messages/:id", { schema: { tags: ["messages"], summary: "Message audit: events, decisions, policy, pricing, delivery, savings" }, preHandler: guard(ctx, Permission.MESSAGES_READ) }, async (req) =>

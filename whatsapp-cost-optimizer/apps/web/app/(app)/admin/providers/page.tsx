@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, Copy, KeyRound, Plug } from "lucide-react";
+import { ArrowRight, CheckCircle2, Code2, Copy, KeyRound, Plug, Send } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge, Button, Card, ErrorBox, Field, Input, Loading, Notice, PageHeader } from "@/components/ui";
 import { useApiBase } from "@/components/shell";
@@ -166,6 +167,55 @@ Content-Type: application/json
   );
 }
 
+/**
+ * After the number is connected: how will the company's notices leave? Through its own system (a key)
+ * or from the WCO itself ("Enviar mensagens", for companies without a system or on a paid platform).
+ */
+function HowYouSend() {
+  const keys = useApi<ApiKey[]>("api-keys");
+  const [picked, setWay] = useState<"system" | "panel" | null>(null);
+  // A company that already has a key has chosen its own system: open on that step.
+  const way = picked ?? ((keys.data ?? []).some((k) => !k.revokedAt) ? "system" : null);
+  const option = (id: "system" | "panel", Icon: typeof Code2, title: string, text: string) => (
+    <button
+      type="button"
+      aria-pressed={way === id}
+      onClick={() => setWay(id)}
+      className={`flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition ${way === id ? "border-[var(--accent)] bg-surface ring-2 ring-[var(--accent)]/25" : "border-line bg-surface hover:border-[var(--accent)]"}`}
+    >
+      <Icon className="size-5 text-accent" aria-hidden />
+      <span className="font-medium text-ink">{title}</span>
+      <span className="text-sm leading-relaxed text-ink-2">{text}</span>
+    </button>
+  );
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="font-display text-[20px] font-semibold tracking-tight text-ink">Como a sua empresa manda os avisos?</p>
+        <p className="mt-1 text-sm leading-relaxed text-ink-2">A economia acontece nas mensagens que saem pelo WCO. Escolha o seu caso.</p>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {option("system", Code2, "Tenho um sistema próprio", "A loja virtual ou o sistema da empresa manda os avisos sozinho. Basta ligar ele ao WCO com uma chave.")}
+        {option("panel", Send, "Uso uma plataforma ou não tenho sistema", "Você manda os avisos e as campanhas por aqui mesmo, no WCO, em vez da plataforma que paga hoje.")}
+      </div>
+      {way === "system" ? <ConnectSystem /> : null}
+      {way === "panel" ? (
+        <Card>
+          <p className="text-sm leading-relaxed text-ink-2">
+            Em <strong className="text-ink">Enviar mensagens</strong> você escolhe um modelo aprovado, cola os números dos clientes e envia. O WCO entrega cada mensagem do jeito mais barato.
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            Se você só conversa pelo app WhatsApp Business no celular, essas mensagens já são grátis e continuam assim. O WCO ajuda quando você precisa mandar avisos ou campanhas para muitos clientes.
+          </p>
+          <Link href="/send" className="mt-4 inline-flex h-11 items-center gap-2 rounded-full bg-accent px-6 text-sm font-semibold text-accent-ink hover:opacity-90">
+            Ir para Enviar mensagens <ArrowRight className="size-4" aria-hidden />
+          </Link>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
 /** A collapsed block: what most companies never need stays one click away instead of on the page. */
 function More({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -281,7 +331,7 @@ export default function ProvidersPage() {
             ) : null}
           </Card>
 
-          {connected ? <ConnectSystem /> : null}
+          {connected ? <HowYouSend /> : null}
         </div>
       ) : null}
     </>

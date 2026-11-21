@@ -16,6 +16,7 @@ import {
   Monitor,
   Moon,
   Plug,
+  Send,
   SlidersHorizontal,
   Sun,
   Tags,
@@ -39,6 +40,7 @@ const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: str
     section: "Operação",
     items: [
       { href: "/", label: "Visão geral", icon: LayoutDashboard, roles: ANALYTICS },
+      { href: "/send", label: "Enviar mensagens", icon: Send, roles: ["OWNER", "OPERATOR"] },
       { href: "/admin/providers", label: "Conectar WhatsApp", icon: Plug, roles: CONFIG },
       { href: "/alerts", label: "Alertas", icon: Bell, roles: ANALYTICS },
     ],

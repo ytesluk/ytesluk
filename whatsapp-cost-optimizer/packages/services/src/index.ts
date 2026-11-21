@@ -20,6 +20,7 @@ export * from "./admin";
 export * from "./onboarding";
 export * from "./template-sync";
 export * from "./join-message";
+export * from "./bulk-send";
 export * from "./simulation";
 export * from "./seed";
 export * from "./deliverability";

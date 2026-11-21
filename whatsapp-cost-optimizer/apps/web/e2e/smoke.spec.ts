@@ -142,6 +142,8 @@ test("a company that connects its WhatsApp gets the combined message ready, then
   await expect(page.getByText("Conta de teste conectada.")).toBeVisible();
 
   // Step 2 on the same page: a key for the company's system, shown once, that really sends through the WCO.
+  await expect(page.getByText("Como a sua empresa manda os avisos?")).toBeVisible();
+  await page.getByRole("button", { name: /Tenho um sistema próprio/ }).click();
   await expect(page.getByText("Conecte o seu sistema")).toBeVisible();
   await page.getByRole("button", { name: "Gerar chave" }).click();
   const key = (await page.locator("code", { hasText: /^wco_/ }).innerText()).trim();
@@ -156,4 +158,24 @@ test("a company that connects its WhatsApp gets the combined message ready, then
 
   await page.goto("/admin/templates");
   await expect(page.getByRole("cell", { name: /^wco_juntar_/ }).first()).toBeVisible(); // the mock approves at once; Meta reviews real ones
+});
+
+test("a company without a system sends a campaign from the WCO itself", async ({ page }) => {
+  await login(page, "owner@loja-demo.wco.dev");
+  await page.goto("/admin/providers");
+  await page.getByRole("button", { name: /Uso uma plataforma ou não tenho sistema/ }).click();
+  await page.getByRole("link", { name: /Ir para Enviar mensagens/ }).click();
+  await expect(page.getByRole("heading", { name: "Enviar mensagens" })).toBeVisible();
+
+  await page.getByLabel("1. Mensagem").selectOption({ label: "order_status_update" });
+  await page.getByLabel(/orderId/).fill("4521");
+  await page.getByLabel(/statusLabel/).fill("pedido enviado");
+  await page.getByLabel("2. Para quem").fill("(11) 95000-9101\n11 95000-9102\n(11) 95000-9101\nnão é número");
+  await expect(page.getByText("1 linha não parece número")).toBeVisible();
+  const send = page.getByRole("button", { name: "Enviar para 3 clientes" });
+  await expect(send).toBeDisabled(); // consent not confirmed yet
+  await page.getByText("Essas pessoas autorizaram receber mensagens").click();
+  await send.click();
+  await expect(page.getByText("2 mensagens a caminho.")).toBeVisible();
+  await expect(page.getByText(/repetido/)).toBeVisible();
 });
