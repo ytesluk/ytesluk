@@ -1,8 +1,9 @@
 "use client";
 
-import { CheckCircle2, Plug } from "lucide-react";
+import { CheckCircle2, Copy, KeyRound, Plug } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge, Button, Card, ErrorBox, Field, Input, Loading, Notice, PageHeader } from "@/components/ui";
+import { useApiBase } from "@/components/shell";
 import { ApiError, api, useApi } from "@/lib/api";
 
 interface Status {
@@ -34,6 +35,135 @@ function useAction() {
     }
   };
   return { busy, error, done, run };
+}
+
+interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+}
+
+/**
+ * Step 2: the company's system sends its notices through the WCO (that is where the savings happen).
+ * The owner creates a key here and hands it to whoever maintains the system; the key is shown once.
+ */
+function ConnectSystem() {
+  const keys = useApi<ApiKey[]>("api-keys");
+  const base = useApiBase() || "https://<endereço do WCO>";
+  const [key, setKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+  const active = (keys.data ?? []).filter((k) => !k.revokedAt);
+  const used = active.some((k) => k.lastUsedAt);
+  const ownerOnly = keys.error?.status === 403;
+
+  const create = async () => {
+    setBusy(true);
+    setError(null);
+    setCopied(false);
+    try {
+      const r = await api<{ key: string }>("api-keys", { body: { name: "Sistema da empresa", role: "OPERATOR" } });
+      setKey(r.key);
+      keys.reload();
+    } catch (e) {
+      setError(e instanceof ApiError ? e : new ApiError(0, String(e)));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const copy = async () => {
+    if (!key) return;
+    try {
+      await navigator.clipboard.writeText(key);
+      setCopied(true);
+    } catch {
+      /* the key stays on screen to copy by hand */
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-start gap-4">
+        <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${used ? "bg-accent text-accent-ink" : "bg-surface-2 text-ink"}`} aria-hidden>
+          {used ? <CheckCircle2 className="size-5" /> : <KeyRound className="size-5" />}
+        </span>
+        <div className="min-w-0">
+          <p className="font-display text-[20px] font-semibold tracking-tight text-ink">
+            {used ? "Seu sistema já envia pelo WCO" : active.length ? "Chave criada, falta o seu sistema usar" : "Conecte o seu sistema"}
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-ink-2">
+            Para a economia acontecer, os avisos automáticos da sua empresa (pedidos, entregas, agenda, cobranças) precisam sair pelo WCO. Gere uma chave e entregue para quem cuida do sistema da sua empresa. É feito uma vez só.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-4 border-t border-dashed border-rule pt-5">
+        {ownerOnly ? (
+          <p className="text-sm text-ink-2">Só o dono da conta pode gerar a chave. Peça a ele para abrir esta tela.</p>
+        ) : (
+          <>
+            {key ? (
+              <div className="rounded-xl border border-[var(--warning)] bg-surface p-4">
+                <p className="text-sm font-medium text-ink">Copie a chave agora: ela não aparece de novo.</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <code className="min-w-0 flex-1 break-all rounded-lg bg-surface-2 px-3 py-2 text-xs text-ink">{key}</code>
+                  <Button type="button" onClick={() => void copy()} className="h-9">
+                    <Copy className="size-3.5" aria-hidden /> {copied ? "Copiada" : "Copiar"}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant={active.length ? "secondary" : "primary"} onClick={() => void create()} loading={busy}>
+                {active.length ? "Gerar outra chave" : "Gerar chave"}
+              </Button>
+              {active.length ? (
+                <span className="text-xs text-muted">
+                  {active.length} chave{active.length > 1 ? "s" : ""} ativa{active.length > 1 ? "s" : ""}
+                  {used ? " · em uso" : " · ainda não usada"}
+                </span>
+              ) : null}
+            </div>
+            {error ? <ErrorBox error={error} title="A chave não foi criada" /> : null}
+          </>
+        )}
+
+        <details className="group rounded-xl bg-surface-2/60">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">
+            Instruções para o técnico
+            <span className="text-lg leading-none text-muted transition group-open:rotate-45" aria-hidden>
+              +
+            </span>
+          </summary>
+          <div className="space-y-3 px-4 pb-4 text-sm leading-relaxed text-ink-2">
+            <p>
+              Em vez de enviar o aviso direto para a Meta, o sistema envia para o WCO, com a chave no cabeçalho <code className="text-xs text-ink">X-API-Key</code>. O WCO decide o melhor jeito de enviar e repassa à Meta pelo mesmo número.
+            </p>
+            <pre className="overflow-x-auto rounded-lg bg-surface p-3 text-xs leading-relaxed text-ink">{`POST ${base}/api/v1/messages/intents
+X-API-Key: <a chave>
+Content-Type: application/json
+
+{
+  "customer": "+5511999999999",
+  "eventType": "order.status",
+  "entityId": "PED-4521",
+  "data": { "orderId": "4521", "statusLabel": "pedido enviado" },
+  "consent": { "optIn": true }
+}`}</pre>
+            <p>
+              <strong className="text-ink">customer</strong>: telefone do cliente · <strong className="text-ink">eventType</strong>: tipo do aviso · <strong className="text-ink">entityId</strong>: número do pedido (é o que permite juntar e atualizar avisos do mesmo pedido).
+            </p>
+            <p>
+              Para o que é urgente, como código de verificação, use <code className="text-xs text-ink">/api/v1/messages/send</code>, que sai na hora. A documentação completa fica no link <strong className="text-ink">API</strong>, no topo da tela.
+            </p>
+          </div>
+        </details>
+      </div>
+    </Card>
+  );
 }
 
 /** A collapsed block: what most companies never need stays one click away instead of on the page. */
@@ -132,7 +262,7 @@ export default function ProvidersPage() {
                 <p className="mt-1 text-sm leading-relaxed text-ink-2">
                   {connected
                     ? ready
-                      ? "Os envios da sua empresa já passam pelo WCO."
+                      ? "O número da sua empresa está ligado ao WCO."
                       : "O número está ligado. Faltam alguns ajustes para começar a enviar."
                     : data.embeddedSignup
                       ? "Clique no botão abaixo, entre com a conta do Facebook da empresa e escolha o número."
@@ -151,6 +281,7 @@ export default function ProvidersPage() {
             ) : null}
           </Card>
 
+          {connected ? <ConnectSystem /> : null}
         </div>
       ) : null}
     </>

@@ -120,7 +120,7 @@ test("templates can be imported from the connected account", async ({ page }) =>
   await expect(page.getByRole("cell", { name: "hello_world" }).first()).toBeVisible();
 });
 
-test("a company that connects its WhatsApp gets the combined message ready, with no screen to set up", async ({ page }) => {
+test("a company that connects its WhatsApp gets the combined message ready, then connects its system with a key", async ({ page, request }) => {
   await page.goto("/login");
   await page.getByRole("link", { name: "Criar conta grátis" }).click();
   await page.getByLabel("Nome da empresa").fill("Loja Junta Playwright");
@@ -140,6 +140,20 @@ test("a company that connects its WhatsApp gets the combined message ready, with
   await page.locator("summary", { hasText: "Conecte agora" }).click();
   await page.getByRole("button", { name: "Usar conta de teste" }).click();
   await expect(page.getByText("Conta de teste conectada.")).toBeVisible();
+
+  // Step 2 on the same page: a key for the company's system, shown once, that really sends through the WCO.
+  await expect(page.getByText("Conecte o seu sistema")).toBeVisible();
+  await page.getByRole("button", { name: "Gerar chave" }).click();
+  const key = (await page.locator("code", { hasText: /^wco_/ }).innerText()).trim();
+  expect(key).toMatch(/^wco_/);
+  const sent = await request.post(`${process.env.API_URL ?? "http://localhost:4000"}/api/v1/messages/intents`, {
+    headers: { "X-API-Key": key },
+    data: { customer: "+5511950008001", eventType: "order.status", entityId: "PED-E2E-1", data: { orderId: "1", statusLabel: "pedido enviado" }, consent: { optIn: true, source: "e2e" } },
+  });
+  expect(sent.status()).toBeLessThan(300);
+  await page.reload();
+  await expect(page.getByText("Seu sistema já envia pelo WCO")).toBeVisible();
+
   await page.goto("/admin/templates");
   await expect(page.getByRole("cell", { name: /^wco_juntar_/ }).first()).toBeVisible(); // the mock approves at once; Meta reviews real ones
 });

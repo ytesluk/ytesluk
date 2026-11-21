@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import {
   Activity,
   Bell,
@@ -100,6 +100,10 @@ function ThemeToggle() {
     </div>
   );
 }
+
+/** Public address of the WCO API (what a company's system calls), from the server's API_PUBLIC_URL. */
+const ApiBase = createContext("");
+export const useApiBase = () => useContext(ApiBase);
 
 export function Shell({ me, mode, apiDocsUrl, children }: { me: Me; mode: { mock: boolean; appMode: string } | null; apiDocsUrl: string; children: React.ReactNode }) {
   const pathname = usePathname();
@@ -202,7 +206,9 @@ export function Shell({ me, mode, apiDocsUrl, children }: { me: Me; mode: { mock
             <LogOut className="size-3.5" aria-hidden /> Sair
           </button>
         </header>
-        <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 pb-16 pt-4 sm:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 pb-16 pt-4 sm:px-8">
+          <ApiBase.Provider value={apiDocsUrl.replace(/\/api\/docs$/, "")}>{children}</ApiBase.Provider>
+        </main>
       </div>
     </div>
   );
