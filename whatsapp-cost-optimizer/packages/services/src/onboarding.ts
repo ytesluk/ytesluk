@@ -4,6 +4,7 @@ import { Errors, isValidTimeZone, localDate } from "@wco/domain";
 import { MetaCloudApiProvider, buildInboundPayload, computeSignature } from "@wco/whatsapp";
 import { audit } from "./audit";
 import { publishTenantChanged, type Actor, type AppContext } from "./context";
+import { ensureJoinMessage } from "./join-message";
 import { syncTemplates } from "./template-sync";
 import { ingestWebhook } from "./webhooks";
 
@@ -85,7 +86,7 @@ export async function connectManual(ctx: AppContext, actor: Actor, raw: unknown)
   const [waba, phone] = await Promise.all([provider.getBusinessAccount(input.wabaId, creds), provider.getPhoneNumber(input.phoneNumberId, creds)]);
   const sub = await provider.registerWebhook(input.wabaId, creds);
   const connected = await persistConnection(ctx, actor, { ...input, wabaName: waba.name ?? input.businessName, display: phone.displayPhoneNumber, verifiedName: phone.verifiedName, quality: phone.qualityRating, provider: "META_CLOUD_API", webhookSubscribed: sub.success, mode: "MANUAL" });
-  return { ...connected, templates: await syncAfterConnect(ctx, actor) };
+  return { ...connected, templates: await syncAfterConnect(ctx, actor), joinMessage: await ensureJoinMessage(ctx, actor) };
 }
 
 /** Best effort: a template-listing failure must not undo a successful connection. */
@@ -128,14 +129,14 @@ export async function completeEmbeddedSignup(ctx: AppContext, actor: Actor, raw:
   await meta.registerPhoneNumber(input.phoneNumberId, input.pin, creds);
   const [waba, phone] = await Promise.all([meta.getBusinessAccount(input.wabaId, creds), meta.getPhoneNumber(input.phoneNumberId, creds)]);
   const connected = await persistConnection(ctx, actor, { ...input, currency: waba.currency ?? input.currency, accessToken, wabaName: waba.name ?? input.businessName, display: phone.displayPhoneNumber, verifiedName: phone.verifiedName, quality: phone.qualityRating, provider: "META_CLOUD_API", webhookSubscribed: sub.success, mode: "EMBEDDED_SIGNUP" });
-  return { ...connected, templates: await syncAfterConnect(ctx, actor) };
+  return { ...connected, templates: await syncAfterConnect(ctx, actor), joinMessage: await ensureJoinMessage(ctx, actor) };
 }
 
 /** Development: connect a mock WABA/phone so the full pipeline runs without Meta credentials. */
 export async function connectMock(ctx: AppContext, actor: Actor) {
   if (ctx.config.isProduction && !ctx.config.env.ALLOW_MOCK_IN_PRODUCTION) throw Errors.forbidden("Mock connection is not available in production");
   const suffix = actor.tenantId.slice(0, 8);
-  return persistConnection(ctx, actor, {
+  const connected = await persistConnection(ctx, actor, {
     businessName: "Mock Business",
     wabaId: `mock-waba-${suffix}`,
     phoneNumberId: `mock-pn-${suffix}`,
@@ -150,6 +151,7 @@ export async function connectMock(ctx: AppContext, actor: Actor) {
     webhookSubscribed: true,
     mode: "MOCK",
   });
+  return { ...connected, joinMessage: await ensureJoinMessage(ctx, actor) };
 }
 
 async function persistConnection(

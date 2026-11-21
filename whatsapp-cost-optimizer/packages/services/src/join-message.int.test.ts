@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Role } from "@wco/domain";
 import { migrateTestDatabase, truncateAll, useTestEnv } from "@wco/testing";
-import { createAppContext, createIntent, flushGroup, getJoinMessage, joinMessageProblems, optimizeIntent, seedAll, submitJoinMessage, type Actor, type AppContext } from "./index";
+import { authenticateBearer, connectMock, createAppContext, createIntent, DEFAULT_JOIN_TEXT, flushGroup, getJoinMessage, joinMessageProblems, optimizeIntent, seedAll, signup, submitJoinMessage, type Actor, type AppContext } from "./index";
 
 /**
  * Integration tests (PostgreSQL + Redis, mock WhatsApp) of "Economia de juntar mensagens": the
@@ -26,6 +26,25 @@ afterAll(async () => {
 });
 
 const GOOD = "Olá! Novidades do seu pedido: {{atualizacoes}}. Qualquer dúvida, é só responder esta mensagem.";
+
+describe("Joining messages, built in", () => {
+  it("a company that connects its WhatsApp gets the standard combined message and joining, with nothing to write", async () => {
+    const s = await signup(ctx, { companyName: "Loja Nova Junta", name: "Bia", email: "bia@lojanova.test", password: "senha-forte-123", acceptTerms: true });
+    const owner = await authenticateBearer(ctx, s.token);
+    expect((await getJoinMessage(ctx, owner.tenantId)).current).toBeNull();
+
+    const r = await connectMock(ctx, owner);
+    expect(r.joinMessage).toMatchObject({ created: true });
+    const now = await getJoinMessage(ctx, owner.tenantId);
+    expect(now).toMatchObject({ connected: true, current: { status: "APPROVED", writtenInWco: true, text: DEFAULT_JOIN_TEXT } });
+    const order = await ctx.db.optimizationPolicy.findFirstOrThrow({ where: { tenantId: owner.tenantId, eventType: "order.status" } });
+    expect(order).toMatchObject({ allowAggregation: true, consolidationTemplate: now.current!.name });
+
+    // Connecting again does not submit a second one.
+    expect((await connectMock(ctx, owner)).joinMessage).toMatchObject({ created: false, name: now.current!.name });
+    expect(await ctx.db.template.count({ where: { tenantId: owner.tenantId, name: { startsWith: "wco_juntar_" } } })).toBe(1);
+  });
+});
 
 describe("Economia de juntar mensagens", () => {
   it("explains what Meta would refuse before sending anything", () => {

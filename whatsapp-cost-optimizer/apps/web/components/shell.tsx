@@ -17,7 +17,6 @@ import {
   Menu,
   Monitor,
   Moon,
-  PiggyBank,
   Plug,
   SlidersHorizontal,
   Sun,
@@ -45,10 +44,6 @@ const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: str
       { href: "/admin/providers", label: "Conectar WhatsApp", icon: Plug, roles: CONFIG },
       { href: "/alerts", label: "Alertas", icon: Bell, roles: ANALYTICS },
     ],
-  },
-  {
-    section: "Economias",
-    items: [{ href: "/savings", label: "Economia de juntar mensagens", icon: PiggyBank, roles: CONFIG }],
   },
   {
     section: "Administração",

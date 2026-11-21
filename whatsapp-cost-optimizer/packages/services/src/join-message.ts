@@ -6,10 +6,10 @@ import { publishTenantChanged, type Actor, type AppContext } from "./context";
 import { TEMPLATE_STATUS } from "./template-sync";
 
 /**
- * "Economia de juntar mensagens": the company writes, inside the WCO, the one message that carries
- * several updates of the same order. The WCO submits it to Meta as a UTILITY template (named
- * parameter {{atualizacoes}}), stores it as the consolidation template and switches joining on for
- * the company's utility notices. Until Meta approves it the notices keep going out one by one.
+ * Joining messages, built in: when the company connects its WhatsApp, the WCO submits a standard
+ * combined message to Meta as a UTILITY template (named parameter {{atualizacoes}}), stores it as the
+ * consolidation template and switches joining on for the company's utility notices. Nobody has to
+ * write it; the API can still replace the text. Until Meta approves it the notices go out one by one.
  */
 export const JOIN_PARAM = "atualizacoes";
 export const JOIN_MARKER = `{{${JOIN_PARAM}}}`;
@@ -21,6 +21,9 @@ const MIN_WAIT_S = 60;
 const MIN_PAUSE_S = 30;
 
 export const JoinMessageSchema = z.object({ text: z.string().min(1).max(1024) });
+
+/** The standard combined message, generic enough for orders, appointments and deliveries. */
+export const DEFAULT_JOIN_TEXT = `Olá! Temos novidades para você: ${JOIN_MARKER}. Qualquer dúvida, é só responder esta mensagem.`;
 
 /**
  * What would make Meta reject the body, in the words shown to the company: the updates slot exactly
@@ -59,6 +62,22 @@ export async function getJoinMessage(ctx: AppContext, tenantId: string) {
       ? { name: template.name, status: template.status, text, writtenInWco: template.name.startsWith(NAME_PREFIX) && template.consolidationParam === JOIN_PARAM }
       : null,
   };
+}
+
+/**
+ * After a connection: submits the standard combined message unless joining already has a template
+ * that is approved or under review. Best effort: it never undoes a connection.
+ */
+export async function ensureJoinMessage(ctx: AppContext, actor: Actor): Promise<{ created: boolean; name?: string; error?: string }> {
+  try {
+    const { current } = await getJoinMessage(ctx, actor.tenantId);
+    if (current && (current.status === "APPROVED" || current.status === "PENDING")) return { created: false, name: current.name };
+    const r = await submitJoinMessage(ctx, actor, { text: DEFAULT_JOIN_TEXT });
+    return { created: true, name: r.current?.name };
+  } catch (e) {
+    ctx.log.warn({ err: (e as Error).message, tenantId: actor.tenantId }, "standard combined message not submitted");
+    return { created: false, error: (e as Error).message };
+  }
 }
 
 export async function submitJoinMessage(ctx: AppContext, actor: Actor, raw: unknown) {

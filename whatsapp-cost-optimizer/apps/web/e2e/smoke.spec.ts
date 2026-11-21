@@ -120,27 +120,26 @@ test("templates can be imported from the connected account", async ({ page }) =>
   await expect(page.getByRole("cell", { name: "hello_world" }).first()).toBeVisible();
 });
 
-test("the company writes its combined message in the WCO and, once Meta approves it, joining is on", async ({ page }) => {
-  await login(page, "owner@loja-demo.wco.dev");
+test("a company that connects its WhatsApp gets the combined message ready, with no screen to set up", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("link", { name: "Criar conta grátis" }).click();
+  await page.getByLabel("Nome da empresa").fill("Loja Junta Playwright");
+  await page.getByLabel("Seu nome").fill("Teste");
+  await page.getByLabel("E-mail de trabalho").fill(`pw-junta-${Date.now()}@example.test`);
+  await page.getByLabel("Senha").fill("senha-forte-123");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Criar conta" }).click();
+  await page.waitForURL(/\/admin\/providers/);
+
   const nav = page.getByRole("navigation", { name: "Navegação principal" }).first();
   for (const name of ["Mensagens", "Conversas e janelas", "Webhooks", "Privacidade (LGPD)", "Auditoria"]) {
     await expect(nav.getByRole("link", { name, exact: true })).toHaveCount(0);
   }
-  await nav.getByRole("link", { name: "Economia de juntar mensagens" }).click();
-  await expect(page.getByRole("heading", { name: "Economia de juntar mensagens" })).toBeVisible();
-  await expect(page.getByText("Jeito errado").first()).toBeVisible();
-  await expect(page.getByText("Como conversa")).toHaveCount(0); // the conversation mode is built in: nothing to switch
+  await expect(nav.getByRole("link", { name: /juntar|economias/i })).toHaveCount(0);
 
-  const box = page.getByLabel("Sua mensagem");
-  const send = page.getByRole("button", { name: "Enviar para aprovação da Meta" });
-  await box.fill("As novidades do seu pedido são: [atualizações]");
-  await expect(page.getByText("Escreva algo depois de [atualizações].")).toBeVisible();
-  await expect(send).toBeDisabled();
-
-  const text = `Olá! Novidades do seu pedido: [atualizações]. Teste ${Date.now()}, qualquer dúvida responda aqui.`;
-  await box.fill(text);
-  await send.click();
-  await expect(page.getByText("Economia ativa.")).toBeVisible(); // the mock approves at once; Meta reviews real ones
-  await page.reload();
-  await expect(page.getByLabel("Sua mensagem")).toHaveValue(text);
+  await page.locator("summary", { hasText: "Conecte agora" }).click();
+  await page.getByRole("button", { name: "Usar conta de teste" }).click();
+  await expect(page.getByText("Conta de teste conectada.")).toBeVisible();
+  await page.goto("/admin/templates");
+  await expect(page.getByRole("cell", { name: /^wco_juntar_/ }).first()).toBeVisible(); // the mock approves at once; Meta reviews real ones
 });
