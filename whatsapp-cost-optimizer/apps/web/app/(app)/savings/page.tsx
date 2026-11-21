@@ -188,7 +188,7 @@ function Row({ initial, approved }: { initial: Policy; approved: string[] }) {
           ) : null}
         </div>
         <div className={COL}>
-          <Switch on={p.allowAggregation} onChange={turn("allowAggregation")} label={`Juntar avisos: ${name}`} disabled={busy} />
+          <Switch on={p.allowAggregation} onChange={turn("allowAggregation")} label={`Juntar mensagens: ${name}`} disabled={busy} />
         </div>
         <div className={COL}>
           <Switch on={p.allowSupersession} onChange={turn("allowSupersession")} label={`Só o mais recente: ${name}`} disabled={busy} />
@@ -393,8 +393,8 @@ export default function SavingsPage() {
       <div className="space-y-6">
         <Card title="Avisos">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <Mode n="1" title="Juntar avisos parecidos" example={<Example before={["Pagamento aprovado", "Pedido separado"]} after="1 mensagem" />}>
-              Vários avisos sobre o mesmo pedido, em poucos minutos, chegam ao cliente numa mensagem só.
+            <Mode n="1" title="Juntar mensagens parecidas" example={<Example before={["Pagamento aprovado", "Pedido separado"]} after="1 mensagem" />}>
+              Várias mensagens sobre o mesmo pedido, em poucos minutos, chegam ao cliente numa mensagem só.
             </Mode>
             <Mode n="2" title="Enviar só o mais recente" example={<Example before={["Separado", "Enviado"]} after="Enviado" />}>
               Se o status muda antes de o aviso sair, o cliente recebe só o status atual.

@@ -1,8 +1,8 @@
 "use client";
 
-import { CheckCircle2, CircleDashed, Lock, Plug } from "lucide-react";
+import { CheckCircle2, Plug } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Badge, Button, Card, ErrorBox, Field, Input, KeyValue, Loading, Notice, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, ErrorBox, Field, Input, Loading, Notice, PageHeader } from "@/components/ui";
 import { ApiError, api, useApi } from "@/lib/api";
 
 interface Status {
@@ -15,18 +15,6 @@ interface Status {
   pricingDemoOnly: boolean;
   notes: string[];
 }
-
-const STEP: Record<string, string> = {
-  META_ACCOUNT: "Conta Meta",
-  BUSINESS_ACCOUNT: "Business Account",
-  WABA: "WhatsApp Business Account (WABA)",
-  PHONE_NUMBER: "Número de telefone",
-  PERMISSIONS: "Permissões / token",
-  WEBHOOK: "Webhook inscrito",
-  VALIDATION: "Validação",
-  PRICING_SNAPSHOT: "Política e rate card",
-  READY: "Pronto",
-};
 
 function useAction() {
   const [busy, setBusy] = useState(false);
@@ -87,61 +75,24 @@ export default function ProvidersPage() {
       {loading && !data ? <Loading /> : null}
       {data ? (
         <div className="max-w-3xl space-y-4">
-          <Card>
-            <div className="flex items-start gap-4">
-              <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${connected ? "bg-accent text-accent-ink" : "bg-surface-2 text-ink"}`} aria-hidden>
-                {connected ? <CheckCircle2 className="size-5" /> : <Plug className="size-5" />}
-              </span>
-              <div className="min-w-0">
-                <p className="font-display text-[20px] font-semibold tracking-tight text-ink">
-                  {connected ? (ready ? "WhatsApp conectado" : "Quase pronto") : "WhatsApp ainda não conectado"}
-                  {connected && test ? (
-                    <span className="ml-2 align-middle">
-                      <Badge tone="warning">conta de teste</Badge>
-                    </span>
-                  ) : null}
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-ink-2">
-                  {connected
-                    ? ready
-                      ? "Os envios da sua empresa já passam pelo WCO."
-                      : "O número está ligado. Faltam alguns ajustes, que aparecem em “Detalhes técnicos”."
-                    : "Clique no botão abaixo, entre com a conta do Facebook da empresa e escolha o número."}
-                </p>
-              </div>
-            </div>
-
-            {!connected || test ? (
-              <div className="mt-5 border-t border-dashed border-rule pt-5">
-                {data.embeddedSignup ? (
-                  // Full page load (not <Link>): the route's own CSP, which allows Meta's SDK, applies only to a fresh document.
-                  <a href="/admin/providers/embedded-signup" className="inline-flex h-11 items-center rounded-full bg-accent px-6 text-sm font-semibold text-accent-ink hover:opacity-90">
-                    Conectar com o Facebook
-                  </a>
-                ) : (
-                  <p className="text-sm text-ink-2">A conexão pelo Facebook ainda não está disponível neste servidor. Use uma das outras formas abaixo.</p>
-                )}
-              </div>
-            ) : null}
-          </Card>
-
-          <More title="Outras formas de conectar">
+          <More title="Conecte agora">
             <div>
               <p className="text-sm font-medium text-ink">Com os dados da sua conta na Meta</p>
               <p className="mt-1 text-xs leading-relaxed text-muted">
                 Para quem já tem a conta configurada: o ID da conta, o ID do número e um token de acesso. O token é validado na Meta e guardado criptografado.
               </p>
               <form
+                autoComplete="off"
                 onSubmit={(ev) => {
                   ev.preventDefault();
                   void manual.run(() => api("onboarding/manual", { body: m }).then(reload), "WhatsApp conectado.");
                 }}
                 className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2"
               >
-                <Field label="Nome da empresa"><Input value={m.businessName} onChange={(x) => setM({ ...m, businessName: x.target.value })} required /></Field>
-                <Field label="ID da conta (WABA ID)"><Input value={m.wabaId} onChange={(x) => setM({ ...m, wabaId: x.target.value })} required /></Field>
-                <Field label="ID do número (Phone Number ID)"><Input value={m.phoneNumberId} onChange={(x) => setM({ ...m, phoneNumberId: x.target.value })} required /></Field>
-                <Field label="Token de acesso"><Input type="password" autoComplete="off" value={m.accessToken} onChange={(x) => setM({ ...m, accessToken: x.target.value })} required /></Field>
+                <Field label="Nome da empresa"><Input autoComplete="organization" value={m.businessName} onChange={(x) => setM({ ...m, businessName: x.target.value })} required /></Field>
+                <Field label="ID da conta (WABA ID)"><Input name="waba-id" autoComplete="off" value={m.wabaId} onChange={(x) => setM({ ...m, wabaId: x.target.value })} required /></Field>
+                <Field label="ID do número (Phone Number ID)"><Input name="phone-number-id" autoComplete="off" value={m.phoneNumberId} onChange={(x) => setM({ ...m, phoneNumberId: x.target.value })} required /></Field>
+                <Field label="Token de acesso"><Input type="password" name="meta-access-token" autoComplete="new-password" value={m.accessToken} onChange={(x) => setM({ ...m, accessToken: x.target.value })} required /></Field>
                 <Field label="Fuso horário"><Input value={m.timezone} onChange={(x) => setM({ ...m, timezone: x.target.value })} /></Field>
                 <div className="flex items-end">
                   <Button type="submit" variant="primary" loading={manual.busy}>Conectar</Button>
@@ -164,40 +115,42 @@ export default function ProvidersPage() {
             </div>
           </More>
 
-          <More title="Detalhes técnicos">
-            <KeyValue
-              cols={2}
-              items={[
-                ["Modo", <Badge key="m" tone={data.mode === "MOCK" ? "warning" : "good"}>{data.mode}</Badge>],
-                ["Ambiente", data.appMode],
-                ["Graph API", data.graphApiVersion ?? "não configurada"],
-                ["Onboarding comercial", data.commercialOnboarding.allowed ? "permitido" : "bloqueado"],
-              ]}
-            />
-            <ol className="space-y-2">
-              {Object.entries(data.steps).map(([k, v]) => (
-                <li key={k} className="flex items-center gap-2 text-sm">
-                  {v === "DONE" ? <CheckCircle2 className="size-4 text-good" aria-hidden /> : v === "BLOCKED" ? <Lock className="size-4 text-critical" aria-hidden /> : <CircleDashed className="size-4 text-muted" aria-hidden />}
-                  <span className="flex-1">{STEP[k] ?? k}</span>
-                  <span className="text-xs text-muted">{v === "DONE" ? "concluído" : v === "BLOCKED" ? "bloqueado" : "pendente"}</span>
-                </li>
-              ))}
-            </ol>
-            {!data.commercialOnboarding.allowed ? (
-              <Notice tone="warning">Produção sem credenciais de parceiro: o onboarding de outras empresas está bloqueado. Faltam: {data.commercialOnboarding.missing.join(", ")}.</Notice>
+          <Card>
+            <div className="flex items-start gap-4">
+              <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${connected ? "bg-accent text-accent-ink" : "bg-surface-2 text-ink"}`} aria-hidden>
+                {connected ? <CheckCircle2 className="size-5" /> : <Plug className="size-5" />}
+              </span>
+              <div className="min-w-0">
+                <p className="font-display text-[20px] font-semibold tracking-tight text-ink">
+                  {connected ? (ready ? "WhatsApp conectado" : "Quase pronto") : "WhatsApp ainda não conectado"}
+                  {connected && test ? (
+                    <span className="ml-2 align-middle">
+                      <Badge tone="warning">conta de teste</Badge>
+                    </span>
+                  ) : null}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-ink-2">
+                  {connected
+                    ? ready
+                      ? "Os envios da sua empresa já passam pelo WCO."
+                      : "O número está ligado. Faltam alguns ajustes para começar a enviar."
+                    : data.embeddedSignup
+                      ? "Clique no botão abaixo, entre com a conta do Facebook da empresa e escolha o número."
+                      : "Conecte o número da sua empresa em “Conecte agora”, logo acima."}
+                </p>
+              </div>
+            </div>
+
+            {data.embeddedSignup && (!connected || test) ? (
+              <div className="mt-5 border-t border-dashed border-rule pt-5">
+                {/* Full page load (not <Link>): the route's own CSP, which allows Meta's SDK, applies only to a fresh document. */}
+                <a href="/admin/providers/embedded-signup" className="inline-flex h-11 items-center rounded-full bg-accent px-6 text-sm font-semibold text-accent-ink hover:opacity-90">
+                  Conectar com o Facebook
+                </a>
+              </div>
             ) : null}
-            {data.pricingDemoOnly ? <Notice tone="warning">Só há rate cards DEMO (valores fictícios): os custos reais aparecem quando o rate card oficial da Meta for carregado na plataforma (Plataforma › Preços).</Notice> : null}
-            {data.notes.map((n) => (
-              <Notice key={n}>{n}</Notice>
-            ))}
-            {data.embeddedSignup ? (
-              <p className="text-xs text-muted">
-                Embedded Signup: app {data.embeddedSignup.appId} · config {data.embeddedSignup.configId} · Graph {data.embeddedSignup.graphApiVersion}
-              </p>
-            ) : (
-              <Notice tone="warning">Embedded Signup não configurado: defina META_PARTNER_TYPE, META_APP_ID, META_APP_SECRET, META_EMBEDDED_SIGNUP_CONFIG_ID e META_GRAPH_API_VERSION (ver docs/SETUP-META.md).</Notice>
-            )}
-          </More>
+          </Card>
+
         </div>
       ) : null}
     </>
