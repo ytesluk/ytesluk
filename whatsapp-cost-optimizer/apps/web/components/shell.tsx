@@ -9,7 +9,6 @@ import {
   BookOpenCheck,
   Calculator,
   CreditCard,
-  FileText,
   FlaskConical,
   KeyRound,
   LayoutDashboard,
@@ -48,7 +47,6 @@ const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: str
   {
     section: "Administração",
     items: [
-      { href: "/admin/templates", label: "Templates", icon: FileText, roles: ALL },
       { href: "/admin/tenant", label: "Tenant e acesso", icon: KeyRound, roles: ["OWNER"] },
       { href: "/admin/billing", label: "Plano e uso", icon: CreditCard, roles: ANALYTICS },
     ],

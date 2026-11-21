@@ -132,7 +132,7 @@ test("a company that connects its WhatsApp gets the combined message ready, with
   await page.waitForURL(/\/admin\/providers/);
 
   const nav = page.getByRole("navigation", { name: "Navegação principal" }).first();
-  for (const name of ["Mensagens", "Conversas e janelas", "Webhooks", "Privacidade (LGPD)", "Auditoria"]) {
+  for (const name of ["Mensagens", "Conversas e janelas", "Webhooks", "Privacidade (LGPD)", "Auditoria", "Templates"]) {
     await expect(nav.getByRole("link", { name, exact: true })).toHaveCount(0);
   }
   await expect(nav.getByRole("link", { name: /juntar|economias/i })).toHaveCount(0);
