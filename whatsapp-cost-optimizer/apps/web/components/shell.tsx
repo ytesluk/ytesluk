@@ -10,7 +10,6 @@ import {
   Calculator,
   CreditCard,
   FlaskConical,
-  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -47,7 +46,6 @@ const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: str
   {
     section: "Administração",
     items: [
-      { href: "/admin/tenant", label: "Tenant e acesso", icon: KeyRound, roles: ["OWNER"] },
       { href: "/admin/billing", label: "Plano e uso", icon: CreditCard, roles: ANALYTICS },
     ],
   },
@@ -175,7 +173,14 @@ export function Shell({ me, mode, apiDocsUrl, children }: { me: Me; mode: { mock
             <Menu className="size-4" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-[15px] font-semibold text-ink">{me.tenant.name}</p>
+            {/* The company's account (users, API keys, settings) is one click away for the owner, off the menu. */}
+            {role === "OWNER" ? (
+              <Link href="/admin/tenant" title="Minha empresa: usuários, chaves de API e configurações" className="block truncate font-display text-[15px] font-semibold text-ink underline-offset-4 hover:underline">
+                {me.tenant.name}
+              </Link>
+            ) : (
+              <p className="truncate font-display text-[15px] font-semibold text-ink">{me.tenant.name}</p>
+            )}
             <p className="truncate text-[11px] text-muted">
               {me.actor.email ?? "API key"} · {role}
             </p>
