@@ -167,9 +167,11 @@ test("a company without a system sends a campaign from the WCO itself", async ({
   await page.getByRole("link", { name: /Ir para Enviar mensagens/ }).click();
   await expect(page.getByRole("heading", { name: "Enviar mensagens" })).toBeVisible();
 
-  await page.getByLabel("1. Mensagem").selectOption({ label: "order_status_update" });
-  await page.getByLabel(/orderId/).fill("4521");
-  await page.getByLabel(/statusLabel/).fill("pedido enviado");
+  // The company picks by the text it reads, not by the template's technical name; codes are not offered.
+  await expect(page.getByRole("radio", { name: /otp_code/ })).toHaveCount(0);
+  await page.getByRole("radio", { name: /order_status_update/ }).click();
+  await page.getByLabel("Número do pedido").fill("4521");
+  await page.getByLabel("Situação do pedido").fill("pedido enviado");
   await page.getByLabel("2. Para quem").fill("(11) 95000-9101\n11 95000-9102\n(11) 95000-9101\nnão é número");
   await expect(page.getByText("1 linha não parece número")).toBeVisible();
   const send = page.getByRole("button", { name: "Enviar para 3 clientes" });

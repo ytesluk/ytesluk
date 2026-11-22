@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Button, Card, ErrorBox, Loading, Notice, PageHeader, Select } from "@/components/ui";
+import { Button, Card, ErrorBox, Loading, Notice, PageHeader } from "@/components/ui";
 import { ApiError, api, useApi } from "@/lib/api";
 
 /**
@@ -16,6 +16,9 @@ interface Template {
   name: string;
   language: string;
   status: string;
+  declaredCategory: string;
+  metaCategory: string | null;
+  consolidationParam: string | null;
   body: string | null;
   components: Array<{ type: string; text?: string; params?: string[] }>;
 }
@@ -27,6 +30,35 @@ interface BulkResult {
 }
 
 const MAX = 1000;
+
+/** What each kind of template is for, in the company's words (the category Meta assigned decides the price). */
+const KIND: Record<string, { label: string; hint: string }> = {
+  UTILITY: { label: "Aviso", hint: "pedidos, agenda, pagamentos" },
+  MARKETING: { label: "Promoção", hint: "ofertas e campanhas · custa mais" },
+};
+const kindOf = (t: Template) => t.metaCategory ?? t.declaredCategory;
+
+/** Friendly names for the variables most templates use; anything else is shown as it is. */
+const FIELD: Record<string, string> = {
+  orderId: "Número do pedido",
+  statusLabel: "Situação do pedido",
+  status: "Situação",
+  amount: "Valor",
+  tracking: "Código de rastreio",
+  date: "Data",
+  time: "Horário",
+  product: "Produto",
+  offer: "Oferta",
+  items: "Itens",
+  merchant: "Loja",
+  event: "O que aconteceu",
+  name: "Nome",
+  first_name: "Nome",
+  updates: "Novidades",
+  atualizacoes: "Novidades",
+};
+const fieldName = (p: string) => FIELD[p] ?? (/^\d+$/.test(p) ? `Espaço ${p}` : p.replace(/_/g, " "));
+const bodyOf = (t: Template) => t.body ?? t.components.find((c) => c.type?.toUpperCase() === "BODY")?.text ?? "";
 
 /** "(11) 98888-7777" → "+5511988887777"; numbers already with + stay as they are. */
 function toPhone(line: string): string | null {
@@ -56,7 +88,7 @@ function Preview({ text, values }: { text: string; values: Record<string, string
           const v = values[m[1]!];
           return (
             <span key={i} className={v ? "rounded bg-[#fff3a3] px-0.5" : "rounded bg-[#ffd7d3] px-0.5"}>
-              {v || `{{${m[1]}}}`}
+              {v || fieldName(m[1]!)}
             </span>
           );
         })}
@@ -68,7 +100,8 @@ function Preview({ text, values }: { text: string; values: Record<string, string
 export default function SendPage() {
   const templates = useApi<Template[]>("templates");
   const onboarding = useApi<{ steps: Record<string, string> }>("onboarding");
-  const approved = useMemo(() => (templates.data ?? []).filter((t) => t.status === "APPROVED" && !t.name.startsWith("wco_juntar_")), [templates.data]);
+  // Verification codes are never sent to a list, and combined messages (joining) are the WCO's own.
+  const approved = useMemo(() => (templates.data ?? []).filter((t) => t.status === "APPROVED" && !t.consolidationParam && !t.name.startsWith("wco_juntar_") && kindOf(t) in KIND), [templates.data]);
   const [chosen, setChosen] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
   const [numbers, setNumbers] = useState("");
@@ -114,7 +147,7 @@ export default function SendPage() {
         <Card title="Como funciona">
           <ol className="space-y-2 text-sm leading-relaxed text-ink-2">
             <li>
-              <strong className="text-ink">1. Escolha a mensagem.</strong> Só aparecem modelos já aprovados pela Meta para a sua empresa.
+              <strong className="text-ink">1. Escolha a mensagem</strong> entre os textos já aprovados pela Meta para a sua empresa.
             </li>
             <li>
               <strong className="text-ink">2. Cole os números</strong> dos clientes, um por linha.
@@ -143,25 +176,59 @@ export default function SendPage() {
           {approved.length ? (
             <div className="space-y-6">
               <div>
-                <label htmlFor="send-template" className="block text-sm font-medium text-ink">
-                  1. Mensagem
-                </label>
-                <Select
-                  id="send-template"
-                  value={chosen}
-                  onChange={(e) => {
-                    setChosen(e.target.value);
-                    setValues({});
-                    setResult(null);
-                  }}
-                >
-                  <option value="">Escolha um modelo aprovado</option>
-                  {approved.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </Select>
+                <p id="send-template" className="text-sm font-medium text-ink">
+                  1. Escolha a mensagem
+                </p>
+                <p className="mt-0.5 text-xs text-muted">Estes são os textos que a Meta já aprovou para a sua empresa. Os espaços em destaque você preenche no próximo passo.</p>
+                <div role="radiogroup" aria-labelledby="send-template" className="mt-3 space-y-4">
+                  {Object.entries(KIND).map(([kind, k]) => {
+                    const list = approved.filter((t) => kindOf(t) === kind);
+                    if (!list.length) return null;
+                    return (
+                      <div key={kind}>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted">
+                          {k.label === "Aviso" ? "Avisos" : "Promoções"} <span className="normal-case tracking-normal">· {k.hint}</span>
+                        </p>
+                        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          {list.map((t) => {
+                            const on = t.id === chosen;
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                role="radio"
+                                aria-checked={on}
+                                aria-label={`${k.label}: ${bodyOf(t)} (${t.name})`}
+                                onClick={() => {
+                                  setChosen(t.id);
+                                  setValues({});
+                                  setResult(null);
+                                }}
+                                className={`rounded-xl border p-3 text-left transition ${on ? "border-[var(--accent)] bg-surface ring-2 ring-[var(--accent)]/25" : "border-line bg-surface hover:border-[var(--accent)]"}`}
+                              >
+                                <span className="block text-[13px] leading-snug text-ink">
+                                  {bodyOf(t)
+                                    .split(/(\{\{\s*[A-Za-z0-9_]+\s*\}\})/g)
+                                    .map((part, i) => {
+                                      const m = /^\{\{\s*([A-Za-z0-9_]+)\s*\}\}$/.exec(part);
+                                      return m ? (
+                                        <span key={i} className="rounded bg-[#fff3a3] px-0.5 text-[#111b21]">
+                                          {fieldName(m[1]!)}
+                                        </span>
+                                      ) : (
+                                        <span key={i}>{part}</span>
+                                      );
+                                    })}
+                                </span>
+                                <span className="mt-1.5 block font-mono text-[10.5px] text-muted">{t.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {template ? (
@@ -171,7 +238,7 @@ export default function SendPage() {
                       {params.map((p) => (
                         <div key={p}>
                           <label htmlFor={`param-${p}`} className="block text-xs font-medium text-ink-2">
-                            Preencha <code className="text-ink">{`{{${p}}}`}</code>
+                            {fieldName(p)}
                           </label>
                           <input
                             id={`param-${p}`}
@@ -186,7 +253,7 @@ export default function SendPage() {
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wide text-muted">Como o cliente vai receber</p>
                     <div className="mt-2">
-                      <Preview text={template.body ?? template.components.find((c) => c.type?.toUpperCase() === "BODY")?.text ?? ""} values={values} />
+                      <Preview text={bodyOf(template)} values={values} />
                     </div>
                     {params.length ? <p className="mt-2 text-xs text-muted">O mesmo texto vai para todos os números desta lista.</p> : null}
                   </div>
