@@ -37,6 +37,10 @@ test("owner sees overview KPIs, DEMO label and charts with table view", async ({
   await expect(page.getByText("TARIFAS DEMO").first()).toBeVisible();
   await page.getByRole("tab", { name: "Tabela" }).first().click();
   await expect(page.getByRole("columnheader", { name: "Dia" }).first()).toBeVisible();
+  // The detailed numbers stay one click away.
+  await expect(page.getByRole("heading", { name: "Onde a economia acontece" })).toBeHidden();
+  await page.getByText("Ver todos os números").click();
+  await expect(page.getByRole("heading", { name: "Onde a economia acontece" })).toBeVisible();
 });
 
 test("company users don't see the operator's internal tools; the optimization breakdown is on the overview", async ({ page }) => {
@@ -46,10 +50,12 @@ test("company users don't see the operator's internal tools; the optimization br
   for (const name of ["Preços", "Políticas", "Simular economia", "Experimento A–F", "Observabilidade", "Otimização"]) {
     await expect(nav.getByRole("link", { name })).toHaveCount(0);
   }
+  await page.getByText("Ver todos os números").click();
   await expect(page.getByRole("heading", { name: "Onde a economia acontece" })).toBeVisible();
   await page.goto("/simulator");
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/optimization");
+  await page.getByText("Ver todos os números").click();
   await expect(page.getByRole("heading", { name: "Onde a economia acontece" })).toBeVisible();
 });
 
@@ -203,11 +209,12 @@ test("Conversas: the company sees a customer's message and answers inside the WC
   await page.getByRole("link", { name: "Conversas", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Conversas" })).toBeVisible();
   await page.getByRole("button", { name: "Simular cliente" }).click();
-  await page.getByLabel("Telefone do cliente").fill("+5541999990077");
-  await page.getByLabel("Mensagem").fill("Oi, vocês abrem sábado?");
+  const n = String(Date.now()).slice(-4); // a new chat on every run
+  await page.getByLabel("Telefone do cliente").fill(`+55419999${n}`);
+  await page.getByLabel("Mensagem").fill(`Oi, vocês abrem sábado? (${n})`);
   await page.getByRole("button", { name: "Cliente envia" }).click();
-  await page.getByRole("button", { name: /Oi, vocês abrem sábado\?/ }).first().click();
-  await page.getByPlaceholder("Digite uma mensagem").fill("Abrimos sim, das 9h às 13h!");
+  await page.getByRole("button", { name: new RegExp(`Oi, vocês abrem sábado\\? \\(${n}\\)`) }).click();
+  await page.getByPlaceholder("Digite uma mensagem").fill(`Abrimos sim, das 9h às 13h! (${n})`);
   await page.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expect(page.getByText("Abrimos sim, das 9h às 13h!")).toBeVisible();
+  await expect(page.locator("p", { hasText: `Abrimos sim, das 9h às 13h! (${n})` })).toBeVisible();
 });
