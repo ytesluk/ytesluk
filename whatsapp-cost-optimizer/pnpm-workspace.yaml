@@ -9,3 +9,12 @@ onlyBuiltDependencies:
   - "msgpackr-extract"
   - "sharp"
   - "unrs-resolver"
+
+# Security patches for transitive dependencies (same major version as what the parents ask for).
+overrides:
+  "fast-uri@>=3.0.0 <3.1.9": "^3.1.9"
+  "fast-uri@>=4.0.0 <4.2.3": "^4.2.3"
+  "ip-address@<10.7.4": "^10.7.4"
+  "effect@<3.22.1": "^3.22.1"
+  "glob@>=13.0.0 <14.0.2": "^14.0.2"
+  "minimatch@>=10.0.0 <11.0.1": "^11.0.1"

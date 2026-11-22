@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { Permission } from "@wco/domain";
 import { metricsContentType, metricsText } from "@wco/logging";
@@ -51,15 +51,16 @@ export async function coreRoutes(app: FastifyInstance, ctx: AppContext) {
 
   app.get("/api/v1/metrics", { schema: { tags: ["system"], summary: "Prometheus metrics" } }, async (req, reply) => {
     const token = process.env.METRICS_TOKEN;
+    if (!token && ctx.config.isProduction) return reply.status(404).send({ error: { code: "NOT_FOUND", message: "metrics disabled (set METRICS_TOKEN)" } });
     if (token && req.headers.authorization !== `Bearer ${token}`) return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "metrics token required" } });
     return reply.header("Content-Type", metricsContentType()).send(await metricsText());
   });
 
   // ---------------------------------------------------------------- auth
-  app.post("/api/v1/auth/login", { schema: { tags: ["auth"], body: doc(LoginSchema) }, config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => login(ctx, req.body));
+  app.post("/api/v1/auth/login", { schema: { tags: ["auth"], body: doc(LoginSchema) }, config: { rateLimit: { max: 20, timeWindow: "1 minute", keyGenerator: (req: FastifyRequest) => `login:${req.ip}` } } }, async (req) => login(ctx, req.body));
   app.post(
     "/api/v1/auth/signup",
-    { schema: { tags: ["auth"], summary: "Self-service account: creates a tenant (FREE plan) and its OWNER user", body: doc(SignupSchema) }, config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
+    { schema: { tags: ["auth"], summary: "Self-service account: creates a tenant (FREE plan) and its OWNER user", body: doc(SignupSchema) }, config: { rateLimit: { max: 5, timeWindow: "1 minute", keyGenerator: (req: FastifyRequest) => `signup:${req.ip}` } } },
     async (req, reply) => reply.status(201).send(await signup(ctx, req.body)),
   );
   app.get("/api/v1/auth/me", { schema: { tags: ["auth"] } }, async (req) => {

@@ -30,6 +30,19 @@ export function guard(ctx: AppContext, permission: Permission) {
   };
 }
 
+/**
+ * Platform tools (global rate cards, simulators, research): they act on data shared by every company
+ * or are heavy, so only the WCO operators listed in PLATFORM_ADMIN_EMAILS may call them, on top of
+ * the role permission. A company's own OWNER/ADMIN is not enough.
+ */
+export function platformGuard(ctx: AppContext, permission: Permission) {
+  return async (req: FastifyRequest) => {
+    const actor = await authenticate(ctx, req);
+    requirePermission(actor, permission);
+    if (!actor.platformAdmin) throw Errors.forbidden("Platform administrators only");
+  };
+}
+
 export function actorOf(req: FastifyRequest): AuthenticatedActor {
   if (!req.actor) throw Errors.unauthorized();
   return req.actor;

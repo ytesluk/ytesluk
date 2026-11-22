@@ -29,11 +29,20 @@ export async function serverApi<T>(path: string, init: RequestInit = {}): Promis
 }
 
 /**
+ * The visitor's address chain, passed on to the API (which trusts it only from the private network)
+ * so its per-IP limits apply per visitor instead of to the dashboard server as a whole.
+ */
+export function forwardedFor(from?: { get(name: string): string | null }): Record<string, string> {
+  const xff = from?.get("x-forwarded-for")?.trim();
+  return xff ? { "x-forwarded-for": xff.slice(0, 500) } : {};
+}
+
+/**
  * Calls an API endpoint that returns `{ token, expiresIn, user }` (login, signup) and moves the JWT
  * into the httpOnly session cookie; the browser only receives `user`.
  */
-export async function startSession(path: "auth/login" | "auth/signup", body: string): Promise<NextResponse> {
-  const res = await fetch(`${apiBase()}/api/v1/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body, cache: "no-store" });
+export async function startSession(path: "auth/login" | "auth/signup", body: string, from?: { get(name: string): string | null }): Promise<NextResponse> {
+  const res = await fetch(`${apiBase()}/api/v1/${path}`, { method: "POST", headers: { "content-type": "application/json", ...forwardedFor(from) }, body, cache: "no-store" });
   const json = (await res.json().catch(() => ({}))) as { token?: string; expiresIn?: number; user?: unknown; error?: unknown };
   if (!res.ok || !json.token) return NextResponse.json({ error: json.error ?? { message: "Falha na autenticação" } }, { status: res.ok ? 401 : res.status });
   const out = NextResponse.json({ user: json.user ?? null }, { status: res.status });

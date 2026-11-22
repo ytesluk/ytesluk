@@ -60,17 +60,17 @@ import {
 } from "@wco/services";
 import { RuleSetSchema } from "@wco/policy";
 import { z } from "zod";
-import { actorOf, doc, guard } from "../http";
+import { actorOf, doc, guard, platformGuard } from "../http";
 
 export async function adminRoutes(app: FastifyInstance, ctx: AppContext) {
   const t = (req: Parameters<typeof actorOf>[0]) => actorOf(req).tenantId;
 
   // ---------------------------------------------------------------- pricing (spec §15)
   app.get("/api/v1/pricing", { schema: { tags: ["pricing"], summary: "Versioned pricing policies and rate cards" }, preHandler: guard(ctx, Permission.PRICING_READ) }, async () => listPricing(ctx));
-  app.post("/api/v1/pricing/import", { schema: { tags: ["pricing"], summary: "Administrative rate-card import (CSV/JSON)", body: doc(PricingImportSchema) }, preHandler: guard(ctx, Permission.PRICING_WRITE), bodyLimit: 12 * 1024 * 1024 }, async (req) =>
+  app.post("/api/v1/pricing/import", { schema: { tags: ["pricing"], summary: "Administrative rate-card import (CSV/JSON)", body: doc(PricingImportSchema) }, preHandler: platformGuard(ctx, Permission.PRICING_WRITE), bodyLimit: 12 * 1024 * 1024 }, async (req) =>
     importPricing(ctx, actorOf(req), req.body),
   );
-  app.patch("/api/v1/pricing/rate-cards/:id", { schema: { tags: ["pricing"] }, preHandler: guard(ctx, Permission.PRICING_WRITE) }, async (req) =>
+  app.patch("/api/v1/pricing/rate-cards/:id", { schema: { tags: ["pricing"] }, preHandler: platformGuard(ctx, Permission.PRICING_WRITE) }, async (req) =>
     setRateCardStatus(ctx, actorOf(req), (req.params as { id: string }).id, z.object({ status: z.enum(["ACTIVE", "RETIRED"]) }).parse(req.body).status),
   );
 
@@ -132,12 +132,12 @@ export async function adminRoutes(app: FastifyInstance, ctx: AppContext) {
   app.put("/api/v1/privacy/retention", { schema: { tags: ["privacy"], body: doc(RetentionSchema) }, preHandler: guard(ctx, Permission.PRIVACY_MANAGE) }, async (req) => setRetention(ctx, actorOf(req), req.body));
 
   // ---------------------------------------------------------------- simulators (spec §16, §37, §38, §39, §66)
-  app.post("/api/v1/simulate/savings", { schema: { tags: ["simulation"], summary: "Simular Economia — Resultado estimado", body: doc(SavingsSimulationSchema) }, preHandler: guard(ctx, Permission.SIMULATOR_USE) }, async (req) => savingsSimulation(ctx, req.body));
-  app.post("/api/v1/simulate/rate-card", { schema: { tags: ["simulation"], body: doc(RateCardSimulationSchema) }, preHandler: guard(ctx, Permission.SIMULATOR_USE) }, async (req) => rateCardSimulation(ctx, req.body));
-  app.post("/api/v1/simulate/bsp", { schema: { tags: ["simulation"], summary: "Direct Cloud API vs BSP", body: doc(BspComparisonSchema) }, preHandler: guard(ctx, Permission.SIMULATOR_USE) }, async (req) => bspComparison(req.body));
-  app.post("/api/v1/import/history", { schema: { tags: ["simulation"], summary: "Historical CSV import → baseline + WCO simulation", body: doc(HistoryImportSchema) }, preHandler: guard(ctx, Permission.SIMULATOR_USE), bodyLimit: 60 * 1024 * 1024 }, async (req) =>
+  app.post("/api/v1/simulate/savings", { schema: { tags: ["simulation"], summary: "Simular Economia — Resultado estimado", body: doc(SavingsSimulationSchema) }, preHandler: platformGuard(ctx, Permission.SIMULATOR_USE) }, async (req) => savingsSimulation(ctx, req.body));
+  app.post("/api/v1/simulate/rate-card", { schema: { tags: ["simulation"], body: doc(RateCardSimulationSchema) }, preHandler: platformGuard(ctx, Permission.SIMULATOR_USE) }, async (req) => rateCardSimulation(ctx, req.body));
+  app.post("/api/v1/simulate/bsp", { schema: { tags: ["simulation"], summary: "Direct Cloud API vs BSP", body: doc(BspComparisonSchema) }, preHandler: platformGuard(ctx, Permission.SIMULATOR_USE) }, async (req) => bspComparison(req.body));
+  app.post("/api/v1/import/history", { schema: { tags: ["simulation"], summary: "Historical CSV import → baseline + WCO simulation", body: doc(HistoryImportSchema) }, preHandler: platformGuard(ctx, Permission.SIMULATOR_USE), bodyLimit: 60 * 1024 * 1024 }, async (req) =>
     historyImport(ctx, actorOf(req), req.body),
   );
-  app.post("/api/v1/research/run", { schema: { tags: ["simulation"], summary: "Academic experiment A–F (small runs)", body: doc(ResearchSchema) }, preHandler: guard(ctx, Permission.SIMULATOR_USE) }, async (req) => runResearch(ctx, actorOf(req), req.body));
-  app.get("/api/v1/research/runs", { schema: { tags: ["simulation"] }, preHandler: guard(ctx, Permission.SIMULATOR_USE) }, async (req) => listResearchRuns(ctx, t(req)));
+  app.post("/api/v1/research/run", { schema: { tags: ["simulation"], summary: "Academic experiment A–F (small runs)", body: doc(ResearchSchema) }, preHandler: platformGuard(ctx, Permission.SIMULATOR_USE) }, async (req) => runResearch(ctx, actorOf(req), req.body));
+  app.get("/api/v1/research/runs", { schema: { tags: ["simulation"] }, preHandler: platformGuard(ctx, Permission.SIMULATOR_USE) }, async (req) => listResearchRuns(ctx, t(req)));
 }

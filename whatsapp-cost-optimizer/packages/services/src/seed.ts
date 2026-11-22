@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { hashPassword } from "@wco/config";
 import { saveRateCardObject, upsertPolicyDefinition } from "@wco/database";
 import {
@@ -63,9 +63,12 @@ export async function seedTenant(ctx: AppContext, slug: string, name: string, op
       inboxEnabled: true,
     }),
   );
-  const pw = hashPassword(DEMO_PASSWORD);
+  // The demo password is public (it is in this repository): in production the demo users are created
+  // disabled, with a random password nobody knows, so a forgotten SEED=true never opens a door.
+  const prod = ctx.config.isProduction;
+  const pw = hashPassword(prod ? randomBytes(32).toString("base64url") : DEMO_PASSWORD);
   await ctx.db.user.createMany({
-    data: (["OWNER", "ADMIN", "ANALYST", "OPERATOR"] as const).map((role) => ({ tenantId: tenant.id, email: `${role.toLowerCase()}@${slug}.wco.dev`, name: `${role[0]}${role.slice(1).toLowerCase()} ${name}`, passwordHash: pw, role })),
+    data: (["OWNER", "ADMIN", "ANALYST", "OPERATOR"] as const).map((role) => ({ tenantId: tenant.id, email: `${role.toLowerCase()}@${slug}.wco.dev`, name: `${role[0]}${role.slice(1).toLowerCase()} ${name}`, passwordHash: pw, role, active: !prod })),
   });
   if (!ctx.config.isProduction) {
     await ctx.db.apiKey.create({ data: { tenantId: tenant.id, name: "Dev key (seed)", prefix: DEMO_API_KEYS[slug]!.slice(0, 10), keyHash: hashApiKey(DEMO_API_KEYS[slug]!), role: "OPERATOR" } });
@@ -306,5 +309,5 @@ export async function seedAll(ctx: AppContext, opts: { demoHistory?: boolean } =
   const acme = await seedTenant(ctx, "acme", "ACME Indústria", { usesBsp: false });
   let history = { intents: 0 };
   if (opts.demoHistory !== false) history = await seedDemoHistory(ctx, demo.tenantId);
-  return { demoTenantId: demo.tenantId, acmeTenantId: acme.tenantId, demoIntents: history.intents, password: DEMO_PASSWORD, apiKeys: ctx.config.isProduction ? {} : DEMO_API_KEYS, categories: Object.values(BillingCategory).length };
+  return { demoTenantId: demo.tenantId, acmeTenantId: acme.tenantId, demoIntents: history.intents, password: ctx.config.isProduction ? null : DEMO_PASSWORD, apiKeys: ctx.config.isProduction ? {} : DEMO_API_KEYS, categories: Object.values(BillingCategory).length };
 }

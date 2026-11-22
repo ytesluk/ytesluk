@@ -5,7 +5,7 @@ import { sameOrigin } from "@/lib/origin";
 /** POST: login (stores the API JWT in an httpOnly cookie). DELETE: logout. */
 export async function POST(req: NextRequest) {
   if (!sameOrigin(req)) return NextResponse.json({ error: { code: "FORBIDDEN", message: "Origem inválida" } }, { status: 403 });
-  return startSession("auth/login", await req.text());
+  return startSession("auth/login", await req.text(), req.headers);
 }
 
 export async function DELETE(req: NextRequest) {

@@ -17,7 +17,9 @@ export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {})
     logger: opts.logger === false ? false : { level: ctx.config.env.LOG_LEVEL, redact: { paths: [...PINO_REDACT_PATHS, "req.headers['x-hub-signature-256']"], censor: "[REDACTED]" } },
     genReqId: (req) => (typeof req.headers["x-request-id"] === "string" && req.headers["x-request-id"].length < 100 ? req.headers["x-request-id"] : randomUUID()),
     bodyLimit: 2 * 1024 * 1024,
-    trustProxy: true,
+    // Only proxies on the private network (the dashboard's BFF, an ingress) may set X-Forwarded-For;
+    // a client calling the API directly cannot pick its own IP to dodge the rate limits.
+    trustProxy: process.env.TRUST_PROXY || "loopback,linklocal,uniquelocal",
   });
 
   // Validation is done by zod in handlers; JSON Schemas are used only to document the API (OpenAPI).
@@ -68,7 +70,8 @@ export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {})
       security: [{ bearer: [] }, { apiKey: [] }],
     },
   });
-  await app.register(swaggerUi, { routePrefix: "/api/docs" });
+  // The interactive docs are for development; in production the OpenAPI JSON stays for integrators.
+  if (!ctx.config.isProduction) await app.register(swaggerUi, { routePrefix: "/api/docs" });
 
   app.addHook("onRequest", async (req, reply) => {
     void reply.header("x-request-id", req.id);

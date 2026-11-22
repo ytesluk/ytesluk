@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, apiBase } from "@/lib/server";
+import { SESSION_COOKIE, apiBase, forwardedFor } from "@/lib/server";
 import { sameOrigin } from "@/lib/origin";
 
 /**
@@ -14,7 +14,7 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   if (!token) return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Sessão expirada" } }, { status: 401 });
   const url = `${apiBase()}/api/v1/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
   const method = req.method.toUpperCase();
-  const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+  const headers: Record<string, string> = { authorization: `Bearer ${token}`, ...forwardedFor(req.headers) };
   const reqId = req.headers.get("x-request-id");
   if (reqId) headers["x-request-id"] = reqId;
   let body: string | undefined;

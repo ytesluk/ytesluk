@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import { z } from "zod";
 import { hashPassword, verifyPassword } from "@wco/config";
-import { Errors, ROLES, hasPermission, type Permission, type Role } from "@wco/domain";
+import { AppError, Errors, ROLES, hasPermission, type Permission, type Role } from "@wco/domain";
 import { audit } from "./audit";
 import type { Actor, AppContext } from "./context";
 
@@ -23,15 +23,35 @@ export function isPlatformAdmin(email: string): boolean {
     .includes(email.toLowerCase());
 }
 
+/**
+ * Brute-force guard per account (on top of the per-IP limit of the route): after LOGIN_MAX_FAILURES
+ * wrong passwords for the same e-mail, that e-mail is locked for LOGIN_LOCK_SECONDS, whatever the IP.
+ * Keyed by a hash of the e-mail (no address in Redis).
+ */
+const LOGIN_MAX_FAILURES = 10;
+const LOGIN_LOCK_SECONDS = 15 * 60;
+const failKey = (email: string) => `wco-login-fail:${createHash("sha256").update(email).digest("hex").slice(0, 32)}`;
+
+/** E-mails of the WCO operators: they cannot be claimed by a sign-up or by a company's user list. */
+export function assertNotPlatformAdminEmail(email: string): void {
+  if (isPlatformAdmin(email)) throw Errors.forbidden("Este e-mail não pode ser usado aqui");
+}
+
 export async function login(ctx: AppContext, raw: unknown) {
   const input = LoginSchema.parse(raw);
+  const key = failKey(input.email.toLowerCase());
+  if (Number(await ctx.redis.get(key)) >= LOGIN_MAX_FAILURES) {
+    throw new AppError({ code: "RATE_LIMITED", message: "Muitas tentativas com este e-mail. Tente de novo em 15 minutos.", httpStatus: 429, retryable: true });
+  }
   const user = await ctx.db.user.findUnique({ where: { email: input.email.toLowerCase() } });
   // Constant-ish time: always verify a hash.
   const ok = user ? verifyPassword(input.password, user.passwordHash) : verifyPassword(input.password, "scrypt:16384:AAAA:AAAA");
   if (!user || !ok || !user.active) {
+    await ctx.redis.multi().incr(key).expire(key, LOGIN_LOCK_SECONDS).exec();
     await audit(ctx.db, { tenantId: user?.tenantId ?? null, action: "auth.login_failed", entityType: "User", entityId: user?.id ?? null, data: { email: input.email.replace(/(.).+(@.*)/, "$1***$2") } });
     throw Errors.unauthorized("Invalid credentials");
   }
+  await ctx.redis.del(key);
   await ctx.db.user.update({ where: { id: user.id }, data: { lastLoginAt: ctx.now() } });
   await audit(ctx.db, { tenantId: user.tenantId, actor: { type: "USER", id: user.id, tenantId: user.tenantId, role: user.role }, action: "auth.login", entityType: "User", entityId: user.id });
   return issueSession(ctx, user);
@@ -107,6 +127,7 @@ export const CreateUserSchema = z.object({ email: z.string().email(), name: z.st
 
 export async function createUser(ctx: AppContext, actor: Actor, raw: unknown) {
   const input = CreateUserSchema.parse(raw);
+  assertNotPlatformAdminEmail(input.email);
   try {
     const user = await ctx.db.user.create({ data: { tenantId: actor.tenantId, email: input.email.toLowerCase(), name: input.name, passwordHash: hashPassword(input.password), role: input.role } });
     await audit(ctx.db, { tenantId: actor.tenantId, actor, action: "user.created", entityType: "User", entityId: user.id, data: { role: input.role } });

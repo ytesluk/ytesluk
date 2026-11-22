@@ -5,7 +5,7 @@ import type { Db } from "@wco/database";
 import { Errors, isValidTimeZone } from "@wco/domain";
 import { DEFAULT_OPTIMIZATION_POLICIES, DEFAULT_RULESET } from "@wco/policy";
 import { audit } from "./audit";
-import { issueSession } from "./auth";
+import { assertNotPlatformAdminEmail, issueSession } from "./auth";
 import type { AppContext } from "./context";
 
 type Tx = Parameters<Parameters<Db["$transaction"]>[0]>[0];
@@ -80,6 +80,9 @@ export async function signup(ctx: AppContext, raw: unknown) {
   const input = SignupSchema.parse(raw);
   if (!isValidTimeZone(input.timezone)) throw Errors.validation("Invalid IANA timezone");
   const email = input.email.toLowerCase();
+  // Platform rights come from PLATFORM_ADMIN_EMAILS and e-mails are not verified: an operator e-mail
+  // not registered yet must not be claimable by whoever signs up with it first.
+  assertNotPlatformAdminEmail(email);
   if (await ctx.db.user.findUnique({ where: { email } })) throw Errors.conflict("Email already in use");
 
   const base = slugify(input.companyName);

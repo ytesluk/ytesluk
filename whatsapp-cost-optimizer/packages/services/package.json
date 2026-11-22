@@ -24,7 +24,7 @@
     "bullmq": "^5.81.5",
     "ioredis": "^5.10.1",
     "jose": "^6.2.12",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@wco/testing": "workspace:*"

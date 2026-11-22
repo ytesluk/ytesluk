@@ -7,5 +7,5 @@
   "types": "./src/index.ts",
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc -p tsconfig.json" },
-  "dependencies": { "@wco/domain": "workspace:*", "@wco/pricing": "workspace:*", "@wco/policy": "workspace:*", "@wco/optimization": "workspace:*", "csv-parse": "^7.0.3", "csv-stringify": "^6.9.0", "zod": "^4.6.5" }
+  "dependencies": { "@wco/domain": "workspace:*", "@wco/pricing": "workspace:*", "@wco/policy": "workspace:*", "@wco/optimization": "workspace:*", "csv-parse": "^7.0.3", "csv-stringify": "^6.9.0", "zod": "^4.6.7" }
 }
