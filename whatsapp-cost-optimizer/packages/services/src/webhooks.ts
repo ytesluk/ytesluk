@@ -42,6 +42,7 @@ import { createIntent } from "./intents";
 import { fanOutMetaWebhook } from "./outbound-webhooks";
 import { QUEUE } from "./queues";
 import { convertHeldForInbound, prioritizeForFreeEntryPoint } from "./routing";
+import { cancelPendingSends, flushPendingSends } from "./drafts";
 import { recordSavings } from "./savings-store";
 
 /**
@@ -401,8 +402,15 @@ async function handleInbound(ctx: AppContext, tenant: TenantConfig, phoneId: str
     policyVersionId: policy?.id ?? null,
     referral: ev.referral,
   });
-  // Message contents are NOT stored (data minimization, spec §24): the business answers in its own
-  // WhatsApp, not here.
+  // Message contents are NOT stored (data minimization, spec §24) — except in the inbox, which the
+  // tenant turns on explicitly: then the text is kept encrypted, with the payload retention period.
+  if (tenant.inboxEnabled) {
+    await ctx.db.chatMessage.upsert({
+      where: { providerMessageId: ev.messageId },
+      create: { tenantId: tenant.id, conversationId, direction: "IN", kind: ev.messageType, bodyEncrypted: ev.body ? ctx.vault.encryptSecret(ev.body) : null, providerMessageId: ev.messageId, occurredAt: ev.timestamp },
+      update: {},
+    });
+  }
   await event(ctx.db, { tenantId: tenant.id, type: "INBOUND_MESSAGE", conversationId, occurredAt: ev.timestamp, data: { messageType: ev.messageType, referral: ev.referral ? { sourceType: ev.referral.sourceType, sourceId: ev.referral.sourceId } : null, entryPointId } });
   // The customer wrote: the number is reachable, whatever an older 131026 said.
   await clearDeliverability(ctx.db, tenant.id, vp.hash, DeliverabilityKind.UNDELIVERABLE);
@@ -436,6 +444,21 @@ async function handleTemplateStatus(ctx: AppContext, tenant: TenantConfig, ev: T
   });
   await audit(ctx.db, { tenantId: tenant.id, action: "template.status", entityType: "Template", entityId: t.id, data: { event: ev.event, reason: ev.reason } });
   await ctx.redis.publish("wco:tenant:changed", tenant.id);
+  // Messages the company wrote in the WCO wait for this answer: send them, or cancel and say why.
+  if (status === "APPROVED") await flushPendingSends(ctx, tenant.id, t.id);
+  if (status === "REJECTED" || status === "DISABLED") {
+    const cancelled = await cancelPendingSends(ctx, tenant.id, t.id, status.toLowerCase());
+    if (cancelled) {
+      await raiseAlert(ctx.db, {
+        tenantId: tenant.id,
+        type: AlertType.TEMPLATE_REJECTED,
+        severity: AlertSeverity.WARNING,
+        title: "A Meta não aprovou uma mensagem que você escreveu",
+        message: `Nada foi enviado. Motivo informado pela Meta: ${ev.reason ?? "não informado"}. Ajuste o texto e envie de novo.`,
+        dedupKey: `tplrej:${t.id}`,
+      });
+    }
+  }
 }
 
 async function handleTemplateCategory(ctx: AppContext, tenant: TenantConfig, ev: TemplateCategoryEvent): Promise<void> {

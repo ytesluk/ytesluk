@@ -62,6 +62,7 @@ responder antes do prazo e tiver o consentimento que o conteúdo exige. Ver [COS
 | GET | `/routing` | analytics:read | roteamento de custo: contadores e economia por categoria |
 | POST | `/templates/split` | templates:read | separa frases promocionais de um texto transacional (consultivo) |
 | GET | `/conversations`, `/conversations/{id}` | conversations:read | janelas CSW/FEP |
+| GET · POST | `/inbox`, `/inbox/{id}`, `/inbox/{id}/reply`, `/inbox/settings` | conversations:read · messages:write · tenant:manage | caixa de entrada: conversas, transcrição, resposta (texto na janela, juntado com as próximas; ou template) e ativação |
 | GET | `/cost/estimate`, `/cost/actual` | cost:read | estimado vs realizado |
 | GET | `/savings`, `/analytics` | analytics:read | economia (Meta, BSP, infra separados), séries diárias, breakdown, insights |
 | GET | `/observability` | observability:read | filas, throughput, erros, latência |

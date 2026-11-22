@@ -4,6 +4,9 @@ import { Permission } from "@wco/domain";
 import { metricsContentType, metricsText } from "@wco/logging";
 import {
   BulkSendSchema,
+  DraftSendSchema,
+  listPendingSends,
+  sendDraftToList,
   CreateApiKeySchema,
   CreateIntentSchema,
   CreateUserSchema,
@@ -93,6 +96,13 @@ export async function coreRoutes(app: FastifyInstance, ctx: AppContext) {
     { schema: { tags: ["messages"], summary: "Send an approved template to up to 1000 customers (one intent each; every saving applies)", body: doc(BulkSendSchema) }, preHandler: guard(ctx, Permission.MESSAGES_WRITE), bodyLimit: 1024 * 1024 },
     async (req, reply) => reply.status(202).send(await sendBulk(ctx, actorOf(req), req.body)),
   );
+  // The company's own text for a list: submitted to Meta as a template, sent to everyone once approved.
+  app.post(
+    "/api/v1/messages/draft",
+    { schema: { tags: ["messages"], summary: "Send the company's own text to up to 1000 customers: Meta approves it first, the WCO sends on approval", body: doc(DraftSendSchema) }, preHandler: guard(ctx, Permission.MESSAGES_WRITE), bodyLimit: 1024 * 1024 },
+    async (req, reply) => reply.status(202).send(await sendDraftToList(ctx, actorOf(req), req.body)),
+  );
+  app.get("/api/v1/messages/pending", { schema: { tags: ["messages"], summary: "Messages waiting for Meta to approve their text" }, preHandler: guard(ctx, Permission.MESSAGES_READ) }, async (req) => listPendingSends(ctx, actorOf(req).tenantId));
   app.get("/api/v1/messages", { schema: { tags: ["messages"], querystring: doc(ListIntentsQuery) }, preHandler: guard(ctx, Permission.MESSAGES_READ) }, async (req) => listIntents(ctx, actorOf(req).tenantId, ListIntentsQuery.parse(req.query)));
   app.get("/api/v1/messages/:id", { schema: { tags: ["messages"], summary: "Message audit: events, decisions, policy, pricing, delivery, savings" }, preHandler: guard(ctx, Permission.MESSAGES_READ) }, async (req) =>
     getIntentAudit(ctx, actorOf(req).tenantId, z.string().uuid().parse((req.params as { id: string }).id)),

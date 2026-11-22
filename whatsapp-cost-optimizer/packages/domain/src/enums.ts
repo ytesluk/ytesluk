@@ -243,6 +243,7 @@ export const AlertType = {
   PAYMENT_METHOD_ISSUE: "PAYMENT_METHOD_ISSUE",
   ACCOUNT_RESTRICTION: "ACCOUNT_RESTRICTION",
   PLAN_USAGE_NEAR_LIMIT: "PLAN_USAGE_NEAR_LIMIT",
+  TEMPLATE_REJECTED: "TEMPLATE_REJECTED",
 } as const;
 export type AlertType = (typeof AlertType)[keyof typeof AlertType];
 

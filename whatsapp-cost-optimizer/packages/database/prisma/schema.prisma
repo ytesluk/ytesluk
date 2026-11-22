@@ -186,6 +186,8 @@ enum AlertType {
   ACCOUNT_RESTRICTION
   /// SaaS plan: monthly intents near/over the plan's included volume (informative; nothing is blocked).
   PLAN_USAGE_NEAR_LIMIT
+  /// Meta rejected a message the company wrote in the WCO: what was waiting for it was not sent.
+  TEMPLATE_REJECTED
 }
 
 enum AlertSeverity {
@@ -268,8 +270,8 @@ model Tenant {
   /// Whether this tenant currently sends through a BSP (affects realized BSP costs).
   usesBsp          Boolean  @default(false)
   plan             PlanCode @default(FREE)
-  /// Deprecated: the inbox was removed (the business answers in its own WhatsApp). No longer read.
-  inboxEnabled     Boolean  @default(false)
+  /// Inbox: store conversation texts (encrypted) so agents can chat inside the WCO. Off = data minimization.
+  inboxEnabled     Boolean  @default(true)
   /// Fee model of the BSP the tenant used BEFORE connecting directly through the WCO (JSON BspFeeModel).
   /// When set, each message records the BSP fee no longer paid (kind BSP, ESTIMATED; never mixed with Meta savings).
   legacyBspFeeModel Json?
@@ -533,8 +535,34 @@ model ConversationEntryPoint {
   @@index([tenantId, conversationId, userMessageAt])
 }
 
-/// Deprecated: transcript of the removed inbox. No longer written; old rows are purged by retention. Bodies are encrypted (AES-256-GCM) and purged after
+/// Inbox transcript (Tenant.inboxEnabled, on by default). Bodies are encrypted (AES-256-GCM) and purged after
 /// DataRetentionPolicy.payloadRetentionDays; metadata stays for the conversation timeline.
+/**
+ * A message the company wrote in the WCO that needs Meta's approval first (a new template): it is sent
+ * automatically, to these customers, as soon as Meta approves the template, or cancelled if Meta
+ * rejects it. Customers are referenced by id, never by phone.
+ */
+model PendingSend {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @db.Uuid
+  templateId     String    @db.Uuid
+  customerIds    String[]  @db.Uuid
+  /// The chat the message belongs to, when it was written in a conversation.
+  conversationId String?   @db.Uuid
+  authorUserId   String?   @db.Uuid
+  /// Where the customers' consent was recorded (lists sent from the dashboard).
+  consentSource  String?
+  /// WAITING | SENDING | SENT | CANCELLED
+  status         String    @default("WAITING")
+  sent           Int       @default(0)
+  failed         Int       @default(0)
+  sentAt         DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, templateId, status])
+  @@index([tenantId, createdAt])
+}
+
 model ChatMessage {
   id                String    @id @default(uuid(7)) @db.Uuid
   tenantId          String    @db.Uuid

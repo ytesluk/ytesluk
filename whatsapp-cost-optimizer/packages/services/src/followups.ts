@@ -84,6 +84,9 @@ export async function triggerFollowUp(
     { contentCategory: due.contentCategory as BillingCategory },
   );
   await ctx.db.deferredFollowUp.update({ where: { id: due.id }, data: { followUpIntentId: created.intentId } });
+  if (tenant.inboxEnabled) {
+    await ctx.db.chatMessage.create({ data: { tenantId: tenant.id, conversationId: input.conversationId, direction: "OUT", kind: "text", bodyEncrypted: ctx.vault.encryptSecret(payload.text), intentId: created.intentId, occurredAt: input.at } });
+  }
   await event(ctx.db, { tenantId: tenant.id, type: "FOLLOW_UP_TRIGGERED", intentId: created.intentId, conversationId: input.conversationId, occurredAt: input.at, data: { followUpId: due.id, firstIntentId: due.intentId, contentCategory: due.contentCategory } });
   return created.intentId;
 }

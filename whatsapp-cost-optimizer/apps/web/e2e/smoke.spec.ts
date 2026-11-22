@@ -168,6 +168,7 @@ test("a company without a system sends a campaign from the WCO itself", async ({
   await expect(page.getByRole("heading", { name: "Enviar mensagens" })).toBeVisible();
 
   // The company picks by the text it reads, not by the template's technical name; codes are not offered.
+  await page.getByRole("tab", { name: "Usar uma já aprovada" }).click();
   await expect(page.getByRole("radio", { name: /otp_code/ })).toHaveCount(0);
   await page.getByRole("radio", { name: /order_status_update/ }).click();
   await page.getByLabel("Número do pedido").fill("4521");
@@ -180,4 +181,33 @@ test("a company without a system sends a campaign from the WCO itself", async ({
   await send.click();
   await expect(page.getByText("2 mensagens a caminho.")).toBeVisible();
   await expect(page.getByText(/repetido/)).toBeVisible();
+});
+
+test("a company writes its own message: Meta approves it and the WCO sends it", async ({ page }) => {
+  await login(page, "owner@loja-demo.wco.dev");
+  await page.goto("/send");
+  await expect(page.getByRole("tab", { name: "Escrever uma mensagem" })).toHaveAttribute("aria-selected", "true"); // the default
+  await page.getByLabel("1. Escreva a mensagem").fill("Oi {{nome}}");
+  await expect(page.getByText("Tire as chaves")).toBeVisible();
+  await page.getByLabel("1. Escreva a mensagem").fill("Olá! Sua encomenda já pode ser retirada na loja do centro.");
+  await expect(page.getByText("Como o cliente vai receber")).toBeVisible();
+  await page.getByLabel("2. Para quem").fill("(11) 95000-9201\n11 95000-9202");
+  await page.getByText("Essas pessoas autorizaram receber mensagens").click();
+  await page.getByRole("button", { name: "Pedir aprovação e enviar para 2 clientes" }).click();
+  // The mock approves at once; with the real Meta it waits in "Esperando aprovação da Meta" and goes out on approval.
+  await expect(page.getByText("A Meta aprovou e 2 mensagens foram enviadas.")).toBeVisible();
+});
+
+test("Conversas: the company sees a customer's message and answers inside the WCO", async ({ page }) => {
+  await login(page, "owner@loja-demo.wco.dev");
+  await page.getByRole("link", { name: "Conversas", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Conversas" })).toBeVisible();
+  await page.getByRole("button", { name: "Simular cliente" }).click();
+  await page.getByLabel("Telefone do cliente").fill("+5541999990077");
+  await page.getByLabel("Mensagem").fill("Oi, vocês abrem sábado?");
+  await page.getByRole("button", { name: "Cliente envia" }).click();
+  await page.getByRole("button", { name: /Oi, vocês abrem sábado\?/ }).first().click();
+  await page.getByPlaceholder("Digite uma mensagem").fill("Abrimos sim, das 9h às 13h!");
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(page.getByText("Abrimos sim, das 9h às 13h!")).toBeVisible();
 });

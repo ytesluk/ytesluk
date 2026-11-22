@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessagesSquare,
   Monitor,
   Moon,
   Plug,
@@ -40,6 +41,7 @@ const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: str
     section: "Operação",
     items: [
       { href: "/", label: "Visão geral", icon: LayoutDashboard, roles: ANALYTICS },
+      { href: "/inbox", label: "Conversas", icon: MessagesSquare, roles: ["OWNER", "OPERATOR"] },
       { href: "/send", label: "Enviar mensagens", icon: Send, roles: ["OWNER", "OPERATOR"] },
       { href: "/admin/providers", label: "Conectar WhatsApp", icon: Plug, roles: CONFIG },
       { href: "/alerts", label: "Alertas", icon: Bell, roles: ANALYTICS },

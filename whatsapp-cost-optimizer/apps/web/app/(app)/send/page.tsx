@@ -29,6 +29,22 @@ interface BulkResult {
   failed: Array<{ line: number; error: string }>;
 }
 
+/** The company's own text: Meta approves it first, the WCO sends it on approval. */
+interface DraftResult {
+  template: { status: string; category: string };
+  customers: number;
+  sent: number;
+  invalidLines: number[];
+}
+
+interface Pending {
+  id: string;
+  text: string | null;
+  templateStatus: string | null;
+  customers: number;
+  createdAt: string;
+}
+
 const MAX = 1000;
 
 /** What each kind of template is for, in the company's words (the category Meta assigned decides the price). */
@@ -102,6 +118,10 @@ export default function SendPage() {
   const onboarding = useApi<{ steps: Record<string, string> }>("onboarding");
   // Verification codes are never sent to a list, and combined messages (joining) are the WCO's own.
   const approved = useMemo(() => (templates.data ?? []).filter((t) => t.status === "APPROVED" && !t.consolidationParam && !t.name.startsWith("wco_juntar_") && kindOf(t) in KIND), [templates.data]);
+  const pending = useApi<Pending[]>("messages/pending", { refreshMs: 20_000 });
+  const [mode, setMode] = useState<"write" | "approved">("write");
+  const [draftText, setDraftText] = useState("");
+  const [drafted, setDrafted] = useState<DraftResult | null>(null);
   const [chosen, setChosen] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
   const [numbers, setNumbers] = useState("");
@@ -117,13 +137,34 @@ export default function SendPage() {
   const invalid = lines.length - valid.length;
   const missing = params.filter((p) => !values[p]?.trim());
   const connected = onboarding.data ? onboarding.data.steps.PHONE_NUMBER === "DONE" : true;
-  const ready = !!template && valid.length > 0 && valid.length <= MAX && missing.length === 0 && consent && connected;
+  const draftOk = !!draftText.trim() && !/\{\{|\}\}/.test(draftText);
+  const ready = (mode === "write" ? draftOk : !!template && missing.length === 0) && valid.length > 0 && valid.length <= MAX && consent && connected;
 
   const send = async () => {
+    if (mode === "write") {
+      setBusy(true);
+      setError(null);
+      setResult(null);
+      setDrafted(null);
+      try {
+        const r = await api<DraftResult>("messages/draft", { body: { text: draftText.trim(), customers: valid, consent: { optIn: true, source: "painel" } } });
+        setDrafted(r);
+        setDraftText("");
+        setNumbers("");
+        setConsent(false);
+        pending.reload();
+      } catch (e) {
+        setError(e instanceof ApiError ? e : new ApiError(0, String(e)));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!template) return;
     setBusy(true);
     setError(null);
     setResult(null);
+    setDrafted(null);
     try {
       const data = Object.fromEntries(params.map((p) => [p, values[p]!.trim()]));
       const r = await api<BulkResult>("messages/bulk", { body: { template: { name: template.name, language: template.language }, data, customers: valid, consent: { optIn: true, source: "painel" } } });
@@ -147,7 +188,7 @@ export default function SendPage() {
         <Card title="Como funciona">
           <ol className="space-y-2 text-sm leading-relaxed text-ink-2">
             <li>
-              <strong className="text-ink">1. Escolha a mensagem</strong> entre os textos já aprovados pela Meta para a sua empresa.
+              <strong className="text-ink">1. Escreva a mensagem</strong>, ou use uma que a Meta já aprovou.
             </li>
             <li>
               <strong className="text-ink">2. Cole os números</strong> dos clientes, um por linha.
@@ -165,16 +206,68 @@ export default function SendPage() {
         ) : null}
 
         <Card title="Nova mensagem">
-          {templates.error ? <ErrorBox error={templates.error} /> : null}
-          {templates.loading && !templates.data ? <Loading /> : null}
-          {templates.data && approved.length === 0 ? (
-            <Notice>
-              Você ainda não tem modelos aprovados. Crie no Gerenciador do WhatsApp da Meta: quando forem aprovados, aparecem aqui sozinhos.
-            </Notice>
-          ) : null}
+          <div className="space-y-6">
+            <div className="inline-flex rounded-full border border-line p-0.5 text-sm" role="tablist" aria-label="Como montar a mensagem">
+              {(
+                [
+                  ["write", "Escrever uma mensagem"],
+                  ["approved", "Usar uma já aprovada"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === id}
+                  onClick={() => {
+                    setMode(id);
+                    setResult(null);
+                    setDrafted(null);
+                  }}
+                  className={`rounded-full px-4 py-1.5 font-medium transition ${mode === id ? "bg-accent text-accent-ink" : "text-ink-2 hover:text-ink"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-          {approved.length ? (
-            <div className="space-y-6">
+            {mode === "write" ? (
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="send-draft" className="block text-sm font-medium text-ink">
+                    1. Escreva a mensagem
+                  </label>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted">
+                    A Meta aprova todo texto novo antes do envio (costuma levar de minutos a algumas horas). O WCO envia sozinho assim que ela aprovar. Textos com cara de promoção são cobrados como marketing, que é mais caro.
+                  </p>
+                  <textarea
+                    id="send-draft"
+                    rows={4}
+                    maxLength={1024}
+                    value={draftText}
+                    onChange={(e) => setDraftText(e.target.value)}
+                    placeholder="Ex.: Olá! Sua encomenda já pode ser retirada na loja do centro, de segunda a sábado, das 9h às 18h."
+                    className="mt-2 w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[15px] leading-relaxed text-ink outline-none focus:border-[var(--accent)]"
+                  />
+                  {/\{\{|\}\}/.test(draftText) ? <p className="mt-1 text-xs text-serious">Tire as chaves {"{{ }}"}: escreva o texto como o cliente vai ler.</p> : null}
+                </div>
+                {draftText.trim() ? (
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted">Como o cliente vai receber</p>
+                    <div className="mt-2">
+                      <Preview text={draftText.trim()} values={{}} />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <>
+              {templates.data && approved.length === 0 ? (
+                <Notice>Você ainda não tem mensagens aprovadas. Escreva uma em “Escrever uma mensagem”: depois que a Meta aprovar, ela aparece aqui para usar de novo.</Notice>
+              ) : null}
+              {templates.error ? <ErrorBox error={templates.error} /> : null}
+              {templates.loading && !templates.data ? <Loading /> : null}
+              {approved.length ? (
               <div>
                 <p id="send-template" className="text-sm font-medium text-ink">
                   1. Escolha a mensagem
@@ -231,6 +324,7 @@ export default function SendPage() {
                 </div>
               </div>
 
+              ) : null}
               {template ? (
                 <div className="space-y-3">
                   {params.length ? (
@@ -259,6 +353,8 @@ export default function SendPage() {
                   </div>
                 </div>
               ) : null}
+              </>
+            )}
 
               <div>
                 <label htmlFor="send-numbers" className="block text-sm font-medium text-ink">
@@ -308,12 +404,47 @@ export default function SendPage() {
                 </div>
               ) : null}
 
+              {drafted ? (
+                drafted.sent ? (
+                  <Notice tone="good">
+                    <strong>A Meta aprovou e {drafted.sent} mensage{drafted.sent === 1 ? "m foi enviada" : "ns foram enviadas"}.</strong> Acompanhe a economia na{" "}
+                    <Link href="/" className="font-medium underline underline-offset-2">Visão geral</Link>.
+                  </Notice>
+                ) : drafted.template.status === "REJECTED" ? (
+                  <Notice tone="warning">A Meta não aprovou este texto. Ajuste e tente de novo.</Notice>
+                ) : (
+                  <Notice tone="good">
+                    <strong>Enviada para a Meta aprovar.</strong> Assim que ela aprovar, o WCO envia sozinho para {drafted.customers} cliente{drafted.customers === 1 ? "" : "s"}.
+                  </Notice>
+                )
+              ) : null}
+
               <Button variant="primary" onClick={() => void send()} loading={busy} disabled={!ready}>
-                {valid.length ? `Enviar para ${valid.length} cliente${valid.length === 1 ? "" : "s"}` : "Enviar"}
+                {mode === "write"
+                  ? valid.length
+                    ? `Pedir aprovação e enviar para ${valid.length} cliente${valid.length === 1 ? "" : "s"}`
+                    : "Pedir aprovação e enviar"
+                  : valid.length
+                    ? `Enviar para ${valid.length} cliente${valid.length === 1 ? "" : "s"}`
+                    : "Enviar"}
               </Button>
-            </div>
-          ) : null}
+          </div>
         </Card>
+
+        {pending.data?.length ? (
+          <Card title="Esperando aprovação da Meta" subtitle="Saem sozinhas assim que a Meta aprovar. Se ela recusar, nada é enviado e você recebe um alerta.">
+            <ul className="divide-y divide-dashed divide-[var(--rule)]">
+              {pending.data.map((p) => (
+                <li key={p.id} className="flex items-start justify-between gap-4 py-3 text-sm">
+                  <span className="line-clamp-2 text-ink-2">{p.text ?? "—"}</span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {p.customers} cliente{p.customers === 1 ? "" : "s"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : null}
       </div>
     </>
   );

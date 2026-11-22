@@ -32,9 +32,10 @@ transacional só vai se o cliente responder; mensagens já agendadas são anteci
 anúncio; o cliente pode ser convidado a escrever primeiro; números que a Meta acabou de recusar não são
 tentados de novo; e os webhooks da Meta são copiados para o CRM do cliente. Tudo pela Cloud API oficial.
 
-**Atendimento fora do WCO:** o WCO não tem caixa de entrada. A empresa conecta o WhatsApp Business e
-continua respondendo os clientes no próprio WhatsApp (ou na ferramenta de atendimento que já usa); o WCO
-cuida das mensagens automáticas e do custo, e não guarda o texto das conversas.
+**Caixa de entrada:** os atendentes conversam com os clientes dentro do WCO (**Caixa de entrada**). Mensagens
+digitadas em sequência viram **uma** mensagem paga, o painel mostra quando a janela de 24 h fecha e quanto
+tempo resta para responder um lead de anúncio (resposta em 24 h = 72 h grátis); fora da janela só é possível
+enviar template aprovado. Textos guardados só com a caixa ativada, cifrados e com retenção (LGPD).
 
 **Página de apresentação:** quem não está logado vê a landing page do produto em `/` (demonstração
 interativa, calculadora e planos); quem está logado cai direto no painel. Ela tem cenas em 3D

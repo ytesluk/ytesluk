@@ -21,6 +21,8 @@ export * from "./onboarding";
 export * from "./template-sync";
 export * from "./join-message";
 export * from "./bulk-send";
+export * from "./inbox";
+export * from "./drafts";
 export * from "./simulation";
 export * from "./seed";
 export * from "./deliverability";

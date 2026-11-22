@@ -64,7 +64,7 @@ const FEATURES = [
   { icon: TrendingDown, title: "Margem protegida", body: "Vender mais deixa de significar pagar proporcionalmente mais por mensagem. O custo por cliente fica sob controle." },
   { icon: Gauge, title: "Custo previsível", body: "Acompanhe o gasto do mês enquanto ele acontece, com alerta quando o volume passa do previsto no seu plano." },
   { icon: FileSearch, title: "Auditoria de cada real", body: "Economia estimada e economia confirmada pela Meta lado a lado, nunca somadas. Cada envio fica registrado." },
-  { icon: Lock, title: "LGPD desde o primeiro dia", body: "Telefones cifrados, conteúdo das conversas não armazenado e pedidos de saída respeitados automaticamente." },
+  { icon: Lock, title: "LGPD desde o primeiro dia", body: "Telefones e conversas guardados criptografados e apagados no prazo de retenção, com pedidos de saída respeitados automaticamente." },
   { icon: ShieldCheck, title: "Só a API oficial", body: "O envio é feito pela Cloud API da Meta, com o número e a conta da sua empresa. Nada de atalho." },
 ];
 
@@ -95,7 +95,7 @@ const FAQ = [
   },
   {
     q: "E a LGPD?",
-    a: "Telefones são guardados cifrados, o texto das conversas não é armazenado, pedidos de saída são respeitados e há exportação e exclusão de dados por titular.",
+    a: "Telefones e o texto das conversas são guardados criptografados e apagados após o prazo de retenção. Pedidos de saída são respeitados e há exportação e exclusão de dados por titular.",
   },
 ];
 
