@@ -207,16 +207,10 @@ export default function OverviewPage() {
       {loading && !data ? <Loading /> : null}
       {s && data ? (
         <div className="space-y-8">
-          {s.isDemoRates ? (
+          {/* Only the WCO operators are told the prices are the demo table (companies never see "DEMO"). */}
+          {s.isDemoRates && me.data?.actor.platformAdmin ? (
             <Notice tone="warning">
-              Os valores em reais são de <strong>exemplo (DEMO)</strong>, não os preços reais da Meta.{" "}
-              {me.data?.actor.platformAdmin ? (
-                <>
-                  Importe a tabela oficial da Meta em <Link className="underline" href="/admin/pricing">Preços</Link> para valores reais.
-                </>
-              ) : (
-                "Os valores reais aparecem quando a tabela oficial de preços da Meta for carregada."
-              )}
+              Tabela de preços DEMO. Importe a tabela oficial da Meta em <Link className="underline" href="/admin/pricing">Preços</Link> para valores reais.
             </Notice>
           ) : null}
 

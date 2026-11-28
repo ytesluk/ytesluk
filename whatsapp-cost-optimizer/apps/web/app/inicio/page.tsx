@@ -191,8 +191,6 @@ export default async function LandingPage() {
               O WCO se conecta ao seu WhatsApp oficial para cortar gastos desnecessários na sua fatura, sem mudar nada na sua operação. Chega de pagar caro pelo WhatsApp no fim do mês por mensagens enviadas.
             </p>
 
-            <p className="mt-4 font-mono text-[11px] uppercase tracking-wider text-muted">Plano Free com 1.000 avisos por mês · sem cartão · API oficial da Meta</p>
-
             <div className="mt-8 grid max-w-[600px] grid-cols-1 gap-3 sm:grid-cols-2">
               <a href="#como-funciona" className="group rounded-2xl bg-[#dcf45b] p-4 text-[#14201b] transition hover:-translate-y-0.5">
                 <span className={`${eyebrow} block opacity-70`}>Em 1 minuto</span>

@@ -24,6 +24,7 @@ const MESSAGES: readonly Placed[] = [
   { caption: "FORA DA FATURA", at: [2.0, -1.0, -0.3], turn: -0.32, narrowAt: [-2.2, -2.3, 0.5], narrowTurn: 0.4, scale: 0.6 },
   { caption: "NÃO COBRADA", at: [-2.3, -1.3, 0.9], turn: 0.42, narrowAt: [-2.2, -0.75, 0.6], narrowTurn: 0.4, scale: 0.54 },
   // Phone only: behind the machine, on the right of the background.
+  { caption: "SEM COBRANÇA", at: [0, 0, 0], turn: 0, narrowAt: [2.4, 2.15, -0.9], narrowTurn: -0.42, scale: 0.5, narrowOnly: true },
   { caption: "SEM CUSTO", at: [0, 0, 0], turn: 0, narrowAt: [2.3, 0.05, -0.6], narrowTurn: -0.4, scale: 0.54, narrowOnly: true },
   { caption: "ECONOMIZADA", at: [0, 0, 0], turn: 0, narrowAt: [2.3, -2.75, -0.3], narrowTurn: -0.38, scale: 0.54, narrowOnly: true },
 ];
