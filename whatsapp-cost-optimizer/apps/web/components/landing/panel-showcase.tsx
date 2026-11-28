@@ -103,7 +103,7 @@ export function PanelShowcase() {
           <p className="mt-1.5 text-[10.5px] leading-snug text-muted">deixou de ser pago (estimado)</p>
         </div>
       </div>
-      <figcaption className="mt-9 font-mono text-[11px] uppercase tracking-wider text-muted">Painel do WCO, com valores de exemplo</figcaption>
+      <figcaption className="mt-9 font-mono text-[11px] uppercase tracking-wider text-muted">Painel do WCO</figcaption>
     </figure>
   );
 }

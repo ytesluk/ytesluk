@@ -103,15 +103,15 @@ const still = (img: { src: string; width: number; height: number }) => ({ src: i
 
 function SampleStatement() {
   const rows: Array<[string, string]> = [
-    ["Otimização de fluxo operacional", "R$ 148,20"],
-    ["Eliminação de disparos redundantes", "R$ 96,40"],
-    ["Consolidação inteligente de envios", "R$ 71,05"],
-    ["Aproveitamento de tarifa zero", "R$ 39,90"],
+    ["Motor de economia 1", "R$ 148,20"],
+    ["Motor de economia 2", "R$ 96,40"],
+    ["Motor de economia 3", "R$ 71,05"],
+    ["Motor de economia 4", "R$ 39,90"],
   ];
   return (
     <div className="receipt-slot theme-paper !bg-transparent">
       <div className="receipt receipt-print px-5 pt-5">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-muted">Extrato · exemplo ilustrativo</p>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-muted">Extrato do mês</p>
         <p className="perf-b pb-3 pt-1 font-display text-xl font-semibold tracking-tight text-ink">Sua economia no mês</p>
         <div className="perf-b py-2.5">
           {rows.map(([k, v]) => (
@@ -129,7 +129,6 @@ function SampleStatement() {
           </span>
         </div>
         <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted">De cada 100 disparos da operação: 78 faturados · 22 economizados</p>
-        <p className="mt-1 text-[11px] leading-snug text-muted">Valores de exemplo. No seu painel, cada linha vem da sua própria operação.</p>
       </div>
     </div>
   );
@@ -149,7 +148,7 @@ export default async function LandingPage() {
       {/* Navigation: one paper pill that stays on top. */}
       <div className="sticky top-3 z-50 px-3 sm:px-5">
         <nav aria-label="Navegação do site" className="mx-auto flex max-w-[1180px] items-center gap-1 rounded-full border border-line bg-[#fdfcf8] py-2 pl-4 pr-2 shadow-[0_12px_30px_-18px_rgba(0,0,0,.6)]">
-          <Link href="/inicio" aria-label="WCO, página inicial" className="mr-auto [&_span_span:last-child]:hidden sm:[&_span_span:last-child]:block">
+          <Link href="/inicio" aria-label="WCO, página inicial" className="mr-auto">
             <Wordmark compact />
           </Link>
           <div className="hidden items-center lg:flex">

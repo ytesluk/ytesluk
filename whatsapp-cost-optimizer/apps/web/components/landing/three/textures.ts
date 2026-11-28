@@ -158,10 +158,10 @@ export const RECEIPTS: ReadonlyArray<ReceiptData> = [
     period: "01/10/2026 A 31/10/2026",
     issued: "01/11/2026 09:41",
     lines: [
-      ["OTIMIZAÇÃO DE FLUXO OPERACIONAL", "R$ 148,20"],
-      ["ELIMINAÇÃO DE DISPAROS REDUNDANTES", "R$ 96,40"],
-      ["CONSOLIDAÇÃO INTELIGENTE DE ENVIOS", "R$ 71,05"],
-      ["APROVEITAMENTO DE TARIFA ZERO", "R$ 39,90"],
+      ["MOTOR DE ECONOMIA 1", "R$ 148,20"],
+      ["MOTOR DE ECONOMIA 2", "R$ 96,40"],
+      ["MOTOR DE ECONOMIA 3", "R$ 71,05"],
+      ["MOTOR DE ECONOMIA 4", "R$ 39,90"],
     ],
     total: "R$ 355,55",
     confirmed: "R$ 212,40",
@@ -172,10 +172,10 @@ export const RECEIPTS: ReadonlyArray<ReceiptData> = [
     period: "01/10/2026 A 31/10/2026",
     issued: "01/11/2026 09:42",
     lines: [
-      ["OTIMIZAÇÃO DE FLUXO OPERACIONAL", "R$ 312,80"],
-      ["ELIMINAÇÃO DE DISPAROS REDUNDANTES", "R$ 188,10"],
-      ["CONSOLIDAÇÃO INTELIGENTE DE ENVIOS", "R$ 97,45"],
-      ["APROVEITAMENTO DE TARIFA ZERO", "R$ 64,00"],
+      ["MOTOR DE ECONOMIA 1", "R$ 312,80"],
+      ["MOTOR DE ECONOMIA 2", "R$ 188,10"],
+      ["MOTOR DE ECONOMIA 3", "R$ 97,45"],
+      ["MOTOR DE ECONOMIA 4", "R$ 64,00"],
     ],
     total: "R$ 662,35",
     confirmed: "R$ 401,90",
@@ -186,10 +186,10 @@ export const RECEIPTS: ReadonlyArray<ReceiptData> = [
     period: "01/10/2026 A 31/10/2026",
     issued: "01/11/2026 09:43",
     lines: [
-      ["OTIMIZAÇÃO DE FLUXO OPERACIONAL", "R$ 58,60"],
-      ["ELIMINAÇÃO DE DISPAROS REDUNDANTES", "R$ 41,20"],
-      ["CONSOLIDAÇÃO INTELIGENTE DE ENVIOS", "R$ 22,35"],
-      ["APROVEITAMENTO DE TARIFA ZERO", "R$ 9,80"],
+      ["MOTOR DE ECONOMIA 1", "R$ 58,60"],
+      ["MOTOR DE ECONOMIA 2", "R$ 41,20"],
+      ["MOTOR DE ECONOMIA 3", "R$ 22,35"],
+      ["MOTOR DE ECONOMIA 4", "R$ 9,80"],
     ],
     total: "R$ 131,95",
     confirmed: "R$ 88,10",
@@ -250,13 +250,20 @@ function drawReceipt(data: ReceiptData, W: number, H: number, short: boolean): H
   const rule = (y: number) => put("-".repeat(COLS), 0, y);
 
   let y = short ? 54 : 84;
-  center("WCO", y + 26, { bold: true, size: 2 });
+  // The site's logo, printed: the statement mark and WCO side by side, centred together.
+  const markSize = 54 * s;
+  const lettersH = 26 * s;
+  const lettersW = (133 / 40) * lettersH;
+  const left = (W - (markSize + 12 * s + lettersW)) / 2;
+  drawMark(g, left, (y - 12) * s, markSize, { tile: true, paper: "#fff", ink: "#000" });
+  drawLetters(g, left + markSize + 12 * s, (y - 12) * s + (markSize - lettersH) / 2, lettersH, "#000");
+  g.fillStyle = "#000";
   y += 64;
   center("WHATSAPP COST OPTIMIZER", y);
   y += LH;
   center("EXTRATO DE ECONOMIA", y, { bold: true });
   y += LH;
-  center("*** EXEMPLO ILUSTRATIVO ***", y);
+  center("PAGUE SÓ PELO QUE IMPORTA", y);
   y += LH;
   rule(y);
   y += LH;
@@ -320,7 +327,7 @@ function drawReceipt(data: ReceiptData, W: number, H: number, short: boolean): H
   center("0000 4812 0355 5520 2611", y);
   y += LH;
   if (!short) {
-    center("VALORES DE EXEMPLO, SEM VALOR FISCAL", y);
+    center("SEM VALOR FISCAL", y);
     y += LH;
     center("OBRIGADO!", y, { bold: true });
   }
@@ -450,19 +457,60 @@ export function controlsTexture(): THREE.CanvasTexture {
   return asTexture(c);
 }
 
-/** Brand mark on the side of the shell. */
+/** The WCO logo (components/brand.tsx, MARK / LETTERS): same paths, drawn into a texture. */
+const RECEIPT = "M14.4 9.8a1.8 1.8 0 0 1 1.8-1.8h15.6a1.8 1.8 0 0 1 1.8 1.8v27.5l-1.92 2.7-1.92-2.7-1.92 2.7-1.92-2.7-1.92 2.7-1.92-2.7-1.92 2.7-1.92-2.7-1.92 2.7-1.92-2.7z";
+const BARS: Array<[number, number, number, number, "ink" | "lime"]> = [
+  [18.2, 13.8, 10.6, 2.4, "ink"],
+  [18.2, 18.8, 7, 2.3, "ink"],
+  [18.2, 26.8, 12.8, 3.2, "lime"],
+];
+
+/** The mark (printed statement on a dark tile, or bare when `tile` is false), side `size`, at (x, y). */
+function drawMark(g: G, x: number, y: number, size: number, o: { tile?: boolean; paper?: string; ink?: string } = {}): void {
+  g.save();
+  g.translate(x, y);
+  g.scale(size / 48, size / 48);
+  if (o.tile !== false) {
+    g.fillStyle = "#14201b";
+    g.beginPath();
+    g.roundRect(0, 0, 48, 48, 12);
+    g.fill();
+  }
+  g.fillStyle = o.paper ?? "#f2f4ef";
+  g.fill(new Path2D(RECEIPT));
+  for (const [bx, by, w, h, c] of BARS) {
+    g.fillStyle = c === "lime" ? "#dcf45b" : (o.ink ?? "#14201b");
+    g.beginPath();
+    g.roundRect(bx, by, w, h, h / 2);
+    g.fill();
+  }
+  g.restore();
+}
+
+/** The word "WCO" in the logo's letters, `height` tall, its left edge at x and top at y. Returns its width. */
+function drawLetters(g: G, x: number, y: number, height: number, color: string): number {
+  const k = height / 40;
+  g.save();
+  g.translate(x, y);
+  g.scale(k, k);
+  g.strokeStyle = color;
+  g.lineWidth = 7;
+  g.lineJoin = "miter";
+  g.miterLimit = 2;
+  g.stroke(new Path2D("M3.5 4 15 35.5 26 9 37 35.5 48.5 4"));
+  g.stroke(new Path2D("M89.3 8.7A15.5 15.5 0 1 0 89.3 31.3"));
+  g.beginPath();
+  g.arc(113.5, 20, 15.5, 0, Math.PI * 2);
+  g.stroke();
+  g.restore();
+  return 133 * k;
+}
+
+/** Brand mark on the side of the shell: the site's logo (mark + WCO). */
 export function logoTexture(): THREE.CanvasTexture {
   const [c, g] = canvas(512, 200);
-  g.fillStyle = "rgba(232,236,230,.9)";
-  g.textAlign = "left";
-  g.textBaseline = "alphabetic";
-  g.font = `700 112px ${FONT.display}`;
-  g.fillText("WCO", 6, 118);
-  g.font = `500 25px ${FONT.mono}`;
-  spacing(g, 5);
-  g.fillStyle = "rgba(232,236,230,.6)";
-  g.fillText("COST OPTIMIZER", 10, 170);
-  spacing(g, 0);
+  drawMark(g, 10, 30, 140);
+  drawLetters(g, 182, 70, 60, "rgba(232,236,230,.92)");
   return asTexture(c);
 }
 

@@ -60,7 +60,6 @@ export default function LoginPage() {
           Criar conta grátis
         </Link>
       </p>
-      <p className="mt-2 text-[11px] text-muted">Ambiente de desenvolvimento: usuários de demonstração são criados por <code>pnpm db:seed</code>.</p>
     </AuthFrame>
   );
 }

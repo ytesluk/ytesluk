@@ -7,7 +7,7 @@ import { FinOpsPanel } from "@/components/finops-panel";
 import { OptimizationDetails } from "@/components/optimization-details";
 import { RangePicker, useRange } from "@/components/range";
 import { useCountUp } from "@/components/shell";
-import { Badge, Card, ConfidenceBadge, DemoBadge, ErrorBox, Loading, Notice, PageHeader, ReceiptLine } from "@/components/ui";
+import { Badge, Card, ConfidenceBadge, ErrorBox, Loading, Notice, PageHeader, ReceiptLine } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { day, int, money, pct } from "@/lib/format";
 import type { Analytics, Summary } from "@/lib/types";
@@ -92,7 +92,6 @@ function Statement({ s }: { s: Summary }) {
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted">
             Extrato · {shortDate(s.range.from)} a {shortDate(s.range.to)}
           </p>
-          {s.isDemoRates ? <DemoBadge /> : null}
         </div>
         <h2 className="perf-b pb-3 pt-1 font-display text-xl font-semibold tracking-tight text-ink">O que o WCO evitou</h2>
 
@@ -200,7 +199,6 @@ export default function OverviewPage() {
         description="Quanto você economizou no WhatsApp com o WCO."
         actions={
           <>
-            {s?.isDemoRates ? <DemoBadge /> : null}
             <RangePicker value={range} onChange={setRange} />
           </>
         }

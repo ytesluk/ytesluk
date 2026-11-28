@@ -41,9 +41,9 @@ const NAV: Array<{ section: string; platform?: boolean; items: Array<{ href: str
     section: "Operação",
     items: [
       { href: "/", label: "Visão geral", icon: LayoutDashboard, roles: ANALYTICS },
+      { href: "/admin/providers", label: "Conectar WhatsApp", icon: Plug, roles: CONFIG },
       { href: "/inbox", label: "Conversas", icon: MessagesSquare, roles: ["OWNER", "OPERATOR"] },
       { href: "/send", label: "Enviar mensagens", icon: Send, roles: ["OWNER", "OPERATOR"] },
-      { href: "/admin/providers", label: "Conectar WhatsApp", icon: Plug, roles: CONFIG },
       { href: "/alerts", label: "Alertas", icon: Bell, roles: ANALYTICS },
     ],
   },
@@ -109,7 +109,7 @@ function ThemeToggle() {
 const ApiBase = createContext("");
 export const useApiBase = () => useContext(ApiBase);
 
-export function Shell({ me, mode, apiDocsUrl, children }: { me: Me; mode: { mock: boolean; appMode: string } | null; apiDocsUrl: string; children: React.ReactNode }) {
+export function Shell({ me, apiDocsUrl, children }: { me: Me; mode: { mock: boolean; appMode: string } | null; apiDocsUrl: string; children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const role = me.actor.role;
@@ -180,28 +180,7 @@ export function Shell({ me, mode, apiDocsUrl, children }: { me: Me; mode: { mock
           <button className="rounded-md p-2 text-ink-2 lg:hidden" onClick={() => setOpen(true)} aria-label="Abrir menu">
             <Menu className="size-4" />
           </button>
-          <div className="min-w-0 flex-1">
-            {/* The company's account (users, API keys, settings) is one click away for the owner, off the menu. */}
-            {role === "OWNER" ? (
-              <Link href="/admin/tenant" title="Minha empresa: usuários, chaves de API e configurações" className="block truncate font-display text-[15px] font-semibold text-ink underline-offset-4 hover:underline">
-                {me.tenant.name}
-              </Link>
-            ) : (
-              <p className="truncate font-display text-[15px] font-semibold text-ink">{me.tenant.name}</p>
-            )}
-            <p className="truncate text-[11px] text-muted">
-              {me.actor.email ?? "API key"} · {role}
-            </p>
-          </div>
-          {mode ? (
-            <span
-              className={cx("hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium md:inline-flex", mode.mock ? "border-dashed border-rule text-ink-2" : "border-transparent bg-accent text-accent-ink")}
-              title={mode.mock ? `MOCK (sem chamadas reais à Meta) · ${mode.appMode}` : `Meta Cloud API · ${mode.appMode}`}
-            >
-              <span className={cx("size-1.5 rounded-full", mode.mock ? "bg-[var(--warning)]" : "bg-[var(--marker)]")} aria-hidden />
-              {mode.mock ? "Modo demonstração · nada é enviado de verdade" : "Conectado à Meta"}
-            </span>
-          ) : null}
+          <div className="flex-1" />
           <a href={apiDocsUrl} target="_blank" rel="noreferrer" className="hidden items-center gap-1 text-xs text-ink-2 hover:text-ink sm:flex" title="Documentação OpenAPI da API">
             <BookOpenCheck className="size-3.5" aria-hidden /> API
           </a>
@@ -260,7 +239,7 @@ function SavingsMeter() {
       <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-muted">Economímetro · 30 dias</p>
       <p className="figure mt-2 text-[22px] font-semibold leading-none text-ink">{shown === null ? "—" : <span className="marker">{money(shown, data?.currency ?? "BRL")}</span>}</p>
       <p className="mt-2 text-[11px] leading-snug text-ink-2">
-        deixou de ser pago <span className="text-muted">(estimado{data?.isDemoRates ? ", tarifas demo" : ""})</span>
+        deixou de ser pago
       </p>
       {data ? (
         <p className="perf-t mt-2.5 flex items-baseline justify-between gap-2 pt-2 text-[11px] text-ink-2">

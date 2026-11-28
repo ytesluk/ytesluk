@@ -30,11 +30,11 @@ test("rejects wrong credentials", async ({ page }) => {
   await expect(page.getByText("E-mail ou senha inválidos.")).toBeVisible();
 });
 
-test("owner sees overview KPIs, DEMO label and charts with table view", async ({ page }) => {
+test("owner sees overview KPIs and charts with table view", async ({ page }) => {
   await login(page, "owner@loja-demo.wco.dev");
   await expect(page.getByRole("heading", { name: "Visão geral" })).toBeVisible();
   await expect(page.getByText("Custo sem WCO (estimado)")).toBeVisible();
-  await expect(page.getByText("TARIFAS DEMO").first()).toBeVisible();
+  await expect(page.getByText("TARIFAS DEMO")).toHaveCount(0); // demo labels are not shown to companies
   await page.getByRole("tab", { name: "Tabela" }).first().click();
   await expect(page.getByRole("columnheader", { name: "Dia" }).first()).toBeVisible();
   // The detailed numbers stay one click away.

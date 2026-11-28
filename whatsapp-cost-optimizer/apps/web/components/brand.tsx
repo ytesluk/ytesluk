@@ -1,35 +1,60 @@
-const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(" ");
 
 /**
- * Product mark: a statement printing out of a slot, with its total highlighted. Fixed brand colors
- * (it is a badge, so it reads the same on light and dark surfaces).
+ * The WCO logo: a printed statement (rounded top, torn bottom) with two lines of text and its total
+ * highlighted, over a dark tile. Vector, so it is sharp at any size. Same geometry in app/icon.svg,
+ * public/brand/* and the 3D textures (components/landing/three/textures.ts).
  */
+export const MARK = {
+  tile: "#14201b",
+  paper: "#f2f4ef",
+  ink: "#14201b",
+  lime: "#dcf45b",
+  /** 48-unit box. */
+  receipt: "M14.4 9.8a1.8 1.8 0 0 1 1.8-1.8h15.6a1.8 1.8 0 0 1 1.8 1.8v27.5l-1.92 2.7-1.92-2.7-1.92 2.7-1.92-2.7-1.92 2.7-1.92-2.7-1.92 2.7-1.92-2.7-1.92 2.7-1.92-2.7z",
+  bars: [
+    { x: 18.2, y: 13.8, w: 10.6, h: 2.4, fill: "ink" },
+    { x: 18.2, y: 18.8, w: 7, h: 2.3, fill: "ink" },
+    { x: 18.2, y: 26.8, w: 12.8, h: 3.2, fill: "lime" },
+  ],
+} as const;
+
+/** "WCO" as strokes (geometric, even weight), in a 0–133 × 0–40 box. */
+export const LETTERS = {
+  w: "M3.5 4 15 35.5 26 9 37 35.5 48.5 4",
+  c: "M89.3 8.7A15.5 15.5 0 1 0 89.3 31.3",
+  o: { cx: 113.5, cy: 20, r: 15.5 },
+  stroke: 7,
+  width: 133,
+};
+
 export function Mark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={className} aria-hidden>
-      <rect width="48" height="48" rx="12" fill="#0e5a45" />
-      <path d="M12.5 13h23v25.6l-2.3-2.3-2.3 2.3-2.3-2.3-2.3 2.3-2.3-2.3-2.3 2.3-2.3-2.3-2.3 2.3-2.3-2.3-2.3 2.3z" fill="#fffdf6" />
-      <path d="M12.5 13h23v3.4h-23z" fill="#14201b" opacity=".14" />
-      <rect x="8" y="10.4" width="32" height="3.6" rx="1.8" fill="#062a20" />
-      <rect x="16" y="18.6" width="9.5" height="1.9" rx=".95" fill="#14201b" opacity=".8" />
-      <rect x="28.5" y="18.6" width="3.5" height="1.9" rx=".95" fill="#14201b" opacity=".8" />
-      <rect x="16" y="22.6" width="6.5" height="1.9" rx=".95" fill="#14201b" opacity=".45" />
-      <rect x="27" y="22.6" width="5" height="1.9" rx=".95" fill="#14201b" opacity=".45" />
-      <path d="M16 27.3h16" stroke="#14201b" strokeOpacity=".5" strokeWidth="1" strokeDasharray="1.6 1.4" />
-      <rect x="15.2" y="29.6" width="17.6" height="5" rx="1.5" fill="#dcf45b" />
-      <rect x="24.6" y="31.15" width="6.4" height="1.9" rx=".95" fill="#14201b" />
+      <rect width="48" height="48" rx="12" fill={MARK.tile} />
+      <path d={MARK.receipt} fill={MARK.paper} />
+      {MARK.bars.map((b) => (
+        <rect key={b.y} x={b.x} y={b.y} width={b.w} height={b.h} rx={b.h / 2} fill={MARK[b.fill]} />
+      ))}
+    </svg>
+  );
+}
+
+/** The word "WCO" drawn in the logo's letters; takes the text colour. */
+export function LogoType({ className }: { className?: string }) {
+  return (
+    <svg viewBox={`0 0 ${LETTERS.width} 40`} className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth={LETTERS.stroke}>
+      <path d={LETTERS.w} strokeLinejoin="miter" strokeMiterlimit={2} />
+      <path d={LETTERS.c} />
+      <circle cx={LETTERS.o.cx} cy={LETTERS.o.cy} r={LETTERS.o.r} />
     </svg>
   );
 }
 
 export function Wordmark({ compact }: { compact?: boolean }) {
   return (
-    <span className="flex items-center gap-2.5">
+    <span className="flex items-center gap-2.5 text-ink" role="img" aria-label="WCO">
       <Mark className={compact ? "size-9" : "size-11"} />
-      <span className="leading-none">
-        <span className={cx("block font-display font-bold tracking-tight text-ink", compact ? "text-[19px]" : "text-2xl")}>WCO</span>
-        <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-muted">WhatsApp Cost Optimizer</span>
-      </span>
+      <LogoType className={compact ? "h-[17px] w-auto" : "h-5 w-auto"} />
     </span>
   );
 }
@@ -44,10 +69,10 @@ export function Brand() {
 }
 
 const SAMPLE: Array<[string, string]> = [
-  ["Otimização de fluxo operacional", "R$ 148,20"],
-  ["Eliminação de disparos redundantes", "R$ 96,40"],
-  ["Consolidação inteligente de envios", "R$ 71,05"],
-  ["Aproveitamento de tarifa zero", "R$ 39,90"],
+  ["Motor de economia 1", "R$ 148,20"],
+  ["Motor de economia 2", "R$ 96,40"],
+  ["Motor de economia 3", "R$ 71,05"],
+  ["Motor de economia 4", "R$ 39,90"],
 ];
 
 /** Public pages: the form on the left, an illustrative statement on the right (sample figures, labelled as such). */
@@ -69,7 +94,7 @@ export function AuthFrame({ title, lead, children }: { title: string; lead: stri
           </p>
           <div className="receipt-slot mt-9">
             <div className="receipt receipt-print px-5 pt-5 [color-scheme:light]" style={{ ["--receipt" as string]: "#fffefb", ["--ink-1" as string]: "#14201b", ["--ink-2" as string]: "#44514b", ["--ink-muted" as string]: "#5f6a64", ["--rule" as string]: "rgba(20,32,27,.28)" }}>
-              <p className="font-mono text-[10px] uppercase tracking-widest text-muted">Extrato · exemplo ilustrativo</p>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-muted">Extrato do mês</p>
               <p className="perf-b pb-3 font-display text-lg font-semibold text-ink">Sua economia no mês</p>
               <div className="perf-b py-2.5">
                 {SAMPLE.map(([k, v]) => (
@@ -86,7 +111,6 @@ export function AuthFrame({ title, lead, children }: { title: string; lead: stri
                   <span className="marker">R$ 355,55</span>
                 </span>
               </div>
-              <p className="mt-2 text-[11px] leading-snug text-muted">Valores de exemplo. No seu painel, cada linha vem da sua operação e separa o que é estimado do que a Meta já confirmou.</p>
             </div>
           </div>
         </div>
