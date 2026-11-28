@@ -15,12 +15,17 @@ interface Placed {
   narrowAt: readonly [number, number, number];
   narrowTurn: number;
   scale: number;
+  /** Only on a phone: fills the right side, which the wide layout leaves to the copy. */
+  narrowOnly?: boolean;
 }
 
 const MESSAGES: readonly Placed[] = [
   { caption: "R$ 0,00", at: [-2.2, 1.8, 0.7], turn: 0.36, narrowAt: [-2.2, 0.85, 0.4], narrowTurn: 0.36, scale: 0.6 },
   { caption: "FORA DA FATURA", at: [2.0, -1.0, -0.3], turn: -0.32, narrowAt: [-2.2, -2.3, 0.5], narrowTurn: 0.4, scale: 0.6 },
   { caption: "NÃO COBRADA", at: [-2.3, -1.3, 0.9], turn: 0.42, narrowAt: [-2.2, -0.75, 0.6], narrowTurn: 0.4, scale: 0.54 },
+  // Phone only: behind the machine, on the right of the background.
+  { caption: "SEM CUSTO", at: [0, 0, 0], turn: 0, narrowAt: [2.3, 0.05, -0.6], narrowTurn: -0.4, scale: 0.54, narrowOnly: true },
+  { caption: "ECONOMIZADA", at: [0, 0, 0], turn: 0, narrowAt: [2.3, -2.75, -0.3], narrowTurn: -0.38, scale: 0.54, narrowOnly: true },
 ];
 
 export interface BubbleFrame {
@@ -47,7 +52,7 @@ export interface BubbleFrame {
 export function buildBubbles(keep: Keep, narrow: boolean): { group: THREE.Group; update(f: BubbleFrame): void } {
   const group = new THREE.Group();
   const geo = keep(new THREE.PlaneGeometry(W, 1.5));
-  const items = MESSAGES.map((spec, i) => {
+  const items = MESSAGES.filter((m) => narrow || !m.narrowOnly).map((spec, i) => {
     const mat = keep(new THREE.MeshBasicMaterial({ map: keep(ghostBubbleTexture(spec.caption)), transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
     const mesh = new THREE.Mesh(geo, mat);
     group.add(mesh);
