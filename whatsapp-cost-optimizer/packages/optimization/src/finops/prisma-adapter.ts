@@ -41,7 +41,7 @@ export interface FinOpsPrismaClientLike {
   };
   mirrorTemplateVariant: {
     findMany(args: {
-      where: { tenantId: string; groupKey?: string };
+      where: { tenantId: string; groupKey?: string; language?: string };
       orderBy?: { priority: 'asc' | 'desc' };
     }): Promise<
       Array<{
@@ -179,9 +179,14 @@ export class PrismaFinOpsRepository {
   public async listMirrorVariants(
     tenantId: string,
     groupKey?: string,
+    language?: string,
   ): Promise<MirrorTemplateVariant[]> {
     const rows = await this.prisma.mirrorTemplateVariant.findMany({
-      where: { tenantId, ...(groupKey ? { groupKey } : {}) },
+      where: {
+        tenantId,
+        ...(groupKey ? { groupKey } : {}),
+        ...(language ? { language } : {}),
+      },
       orderBy: { priority: 'asc' },
     });
 

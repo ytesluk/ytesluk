@@ -20,6 +20,7 @@ export interface FinOpsDispatchContext {
   tenantId: string;
   recipientPhone: string;
   category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
+  language?: string;
   templateGroupKey?: string;
   preferredTemplateName?: string;
   mirrorVariants?: MirrorTemplateVariant[];
@@ -30,6 +31,9 @@ export interface FinOpsDispatchContext {
   windowExpiresAt?: Date | null;
   hasActiveFep72hWindow: boolean;
   fepExpiresAt?: Date | null;
+  keepAliveEnabled?: boolean;
+  keepAliveTriggerMinutes?: number;
+  keepAliveReplyRate?: number;
   allowMarketingToFreeForm: boolean;
   hasMarketingConsent: boolean;
   isCriticalOtp?: boolean;
@@ -48,12 +52,15 @@ export interface FinOpsRoutingDecision {
   deliveryMode:
     | 'FEP_72H_FREE'
     | 'CSW_24H_FREE_FORM'
+    | 'KEEP_ALIVE_PING'
     | 'TWO_STEP_UTILITY_HOOK'
     | 'MIRROR_UTILITY_TEMPLATE'
     | 'EXTERNAL_BRIDGE_WITH_HANDOFF'
     | 'STANDARD_TEMPLATE'
     | 'BLOCKED';
   selectedTemplateName?: string;
+  quickReplyButton?: { id: string; title: string };
+  deferredStep2Text?: string;
   handoffUrl?: string;
   finalText: string;
   baselineTotalCostUsd: number;
@@ -107,7 +114,7 @@ export class FinOpsCostOrchestrator {
       };
     }
 
-    // Módulo 3: Janela Gratuita FEP 72h
+    // Módulo 3: Janela Gratuita FEP 72h & Keep-Alive 24h
     const fepDecision = evaluateFepAndKeepAlive(
       {
         hasActiveFep72hWindow: ctx.hasActiveFep72hWindow,
@@ -116,9 +123,9 @@ export class FinOpsCostOrchestrator {
         cswExpiresAt: ctx.windowExpiresAt,
         upcomingCategory: ctx.category === 'MARKETING' ? 'MARKETING' : 'UTILITY',
         upcomingTemplateCostUsd: baseMetaCost,
-        keepAliveEnabled: false,
-        triggerBeforeExpiryMinutes: 45,
-        estimatedReplyRate: 0.35,
+        keepAliveEnabled: ctx.keepAliveEnabled ?? false,
+        triggerBeforeExpiryMinutes: ctx.keepAliveTriggerMinutes ?? 45,
+        estimatedReplyRate: ctx.keepAliveReplyRate ?? 0.35,
         monthlyFreeServiceQuotaUsed: ctx.monthlyFreeServiceQuotaUsed,
         serviceUnitCostUsd: ctx.serviceUnitCostUsd,
       },
@@ -137,6 +144,22 @@ export class FinOpsCostOrchestrator {
         metaTariffSavingsUsd: baseMetaCost,
         avoidedBspFeeUsd,
         totalSavingsUsd: baselineTotalCostUsd,
+        appliedStrategies,
+      };
+    }
+
+    if (fepDecision.action === 'SEND_KEEP_ALIVE_PING') {
+      appliedStrategies.push('M3_CSW_KEEP_ALIVE_PING');
+      return {
+        status: 'DISPATCH',
+        transport: 'DIRECT_CLOUD_API',
+        deliveryMode: 'KEEP_ALIVE_PING',
+        finalText: ctx.renderedBodyText,
+        baselineTotalCostUsd,
+        finalTotalCostUsd: fepDecision.effectiveCostUsd,
+        metaTariffSavingsUsd: fepDecision.expectedNetSavingsUsd,
+        avoidedBspFeeUsd,
+        totalSavingsUsd: Number((fepDecision.expectedNetSavingsUsd + avoidedBspFeeUsd).toFixed(6)),
         appliedStrategies,
       };
     }
@@ -175,7 +198,7 @@ export class FinOpsCostOrchestrator {
       };
     }
 
-    // Módulo 6: Roteador Multi-Transporte + Handoff wa.me (quando configurado para aquisição fria)
+    // Módulo 6: Roteador Multi-Transporte + Handoff wa.me
     if (
       ctx.routingTransport === 'EXTERNAL_HTTP_BRIDGE' &&
       ctx.externalBridgeConfig &&
@@ -206,12 +229,13 @@ export class FinOpsCostOrchestrator {
       };
     }
 
-    // Módulo 2B: Pool de Templates-Espelho (Failover UTILITY)
+    // Módulo 2B: Pool de Templates-Espelho (Failover UTILITY no mesmo idioma)
     let selectedTemplateName = ctx.preferredTemplateName;
     if (ctx.mirrorVariants && ctx.mirrorVariants.length > 0) {
       const mirrorSelection = this.mirrorPool.selectHealthyUtilityVariant(
         ctx.mirrorVariants,
         ctx.preferredTemplateName,
+        ctx.language,
       );
       if (mirrorSelection.selected) {
         selectedTemplateName = mirrorSelection.selected.metaTemplateName;
@@ -238,6 +262,8 @@ export class FinOpsCostOrchestrator {
           transport: 'DIRECT_CLOUD_API',
           deliveryMode: 'TWO_STEP_UTILITY_HOOK',
           selectedTemplateName,
+          quickReplyButton: split.step1QuickReplyButton,
+          deferredStep2Text: split.step2DeferredPromoText ?? undefined,
           finalText: split.step1UtilityText,
           baselineTotalCostUsd,
           finalTotalCostUsd: ctx.utilityUnitCostUsd,

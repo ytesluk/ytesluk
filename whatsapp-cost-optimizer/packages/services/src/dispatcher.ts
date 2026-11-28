@@ -115,6 +115,13 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
     // FinOps (packages/optimization/src/finops, wired in finops-dispatch.ts): the global deliverability
     // cache may hold this send back, and the template mirror pool may pick another approved variant.
     const serviceCost = kind === MessageKind.TEMPLATE ? Number(priceAt(rec, now, MessageKind.NON_TEMPLATE, BillingCategory.SERVICE, context, pricing, false).estimatedCost.toFixed(6)) : 0;
+    const utilityCost = kind === MessageKind.TEMPLATE ? Number(priceAt(rec, now, MessageKind.TEMPLATE, BillingCategory.UTILITY, context, pricing, false).estimatedCost.toFixed(6)) : 0;
+    const marketingCost = kind === MessageKind.TEMPLATE ? Number(priceAt(rec, now, MessageKind.TEMPLATE, BillingCategory.MARKETING, context, pricing, false).estimatedCost.toFixed(6)) : 0;
+    const initialTemplate = templateName ? tenant.templates.get(templateName) : undefined;
+    const templateLanguage = intent.templateLanguage ?? initialTemplate?.language ?? "pt_BR";
+    const initialRendered = initialTemplate ? templateToFreeForm(initialTemplate.components, paramsOf(initialTemplate)) : null;
+    const renderedBodyText = (initialRendered?.ok && initialRendered.content.type === "text" ? initialRendered.content.text : null) ?? payload.text ?? intent.freeFormText ?? templateName ?? undefined;
+
     const gate = await finopsBeforeDispatch(ctx, {
       tenantId: tenant.id,
       intentId: intent.id,
@@ -123,6 +130,8 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
       kind,
       category,
       templateName,
+      language: templateLanguage,
+      renderedBodyText,
       priority: intent.priority,
       deadlineAt: intent.deadlineAt,
       mustSendImmediately: intent.mustSendImmediately,
@@ -130,11 +139,14 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
       wabaId: waba?.businessAccountId,
       estimate,
       serviceCost,
+      utilityCost,
+      marketingCost,
       now,
       coveredIntentIds: attempt.coveredIntentIds,
       tierPosition: pricing.tierPosition,
       deferredPromoText: payload.deferredPromoText ?? null,
       flowId: payload.flowId ?? null,
+      keepAliveEnabled: process.env.FINOPS_KEEP_ALIVE_ENABLED === "true",
     });
     if (gate.action === "SUPPRESS") {
       await ctx.db.$transaction([
@@ -148,6 +160,66 @@ export async function dispatchAttempt(ctx: AppContext, job: { tenantId: string; 
     if (gate.action === "DEFER") {
       await event(ctx.db, { tenantId: tenant.id, type: "DECISION", intentId: intent.id, conversationId, occurredAt: now, data: { action: "FINOPS_DEFERRED", reasons: [gate.reason], until: gate.until.toISOString(), strategies: gate.strategies } });
       throw new RetryLaterError(Math.max(1_000, gate.until.getTime() - now.getTime()), "finops marketing frequency cap");
+    }
+    if (gate.transport === "EXTERNAL_HTTP_BRIDGE") {
+      const sentAt = now;
+      const providerMessageId = gate.externalMessageId ?? `bridge_${attempt.id}`;
+      await ctx.db.$transaction(async (tx) => {
+        await tx.messageAttempt.update({
+          where: { id: attempt.id },
+          data: {
+            status: MessageStatus.SENT,
+            providerMessageId,
+            sentAt,
+            latencyMs: 0,
+            estimatedCost: "0.00000000",
+            pricingStatus: PricingStatus.FREE,
+            freeReason: "finops_external_bridge",
+            errorCode: null,
+            errorMessage: null,
+          },
+        });
+        await tx.messageIntent.update({
+          where: { id: intent.id, tenantId: tenant.id },
+          data: {
+            status: MessageStatus.SENT,
+            sentAt,
+            estimatedCost: "0.00000000",
+            decisionReason: `${intent.decisionReason ?? ""},finops_external_bridge`,
+          },
+        });
+        await event(tx, {
+          tenantId: tenant.id,
+          type: "DISPATCH",
+          intentId: intent.id,
+          conversationId,
+          occurredAt: sentAt,
+          data: {
+            attemptId: attempt.id,
+            wamid: providerMessageId,
+            transport: "EXTERNAL_HTTP_BRIDGE",
+            handoffUrl: gate.handoffUrl,
+            strategies: gate.strategies,
+          },
+        });
+      });
+      metrics.messagesSent.inc({ tenant_id: tenant.id, category });
+      return { status: "sent" };
+    }
+    if (gate.deferredStep2Text) {
+      await event(ctx.db, {
+        tenantId: tenant.id,
+        type: "DECISION",
+        intentId: intent.id,
+        conversationId,
+        occurredAt: now,
+        data: {
+          action: "FINOPS_TWO_STEP_SPLIT",
+          quickReplyButton: gate.quickReplyButton,
+          deferredStep2Text: gate.deferredStep2Text,
+          strategies: gate.strategies,
+        },
+      });
     }
     if (gate.convertToFreeForm && kind === MessageKind.TEMPLATE && templateName) {
       const src = tenant.templates.get(templateName);

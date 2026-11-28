@@ -69,9 +69,15 @@ export class TemplateMirrorPool {
   public selectHealthyUtilityVariant(
     variants: MirrorTemplateVariant[],
     preferredTemplateName?: string,
+    language?: string,
   ): MirrorSelectionResult {
     const eligible = variants
-      .filter((v) => v.status === 'APPROVED' && v.category === 'UTILITY')
+      .filter(
+        (v) =>
+          v.status === 'APPROVED' &&
+          v.category === 'UTILITY' &&
+          (!language || v.language === language),
+      )
       .sort((a, b) => a.priority - b.priority);
 
     const fallback = eligible[0];
@@ -122,7 +128,7 @@ export class TemplateMirrorPool {
       target.priority += 1000;
     }
 
-    const next = this.selectHealthyUtilityVariant(poolVariants);
+    const next = this.selectHealthyUtilityVariant(poolVariants, undefined, target.language);
     return {
       updatedVariant: target,
       nextActiveVariant: next.selected,
