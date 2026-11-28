@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Role } from "@wco/domain";
 import { TEST_APP_SECRET, migrateTestDatabase, statusWebhook, truncateAll, useTestEnv } from "@wco/testing";
@@ -7,7 +9,7 @@ import { createAppContext, createIntent, dispatchAttempt, ingestWebhook, optimiz
 /**
  * Integration tests (PostgreSQL + Redis) of the FinOps module wired into dispatch
  * (packages/optimization/src/finops via finops-dispatch.ts): the global deliverability cache shared
- * by tenants, the template mirror pool and the savings ledger.
+ * by tenants, the template mirror pool, two-step splits, external bridge routing and the savings ledger.
  */
 let ctx: AppContext;
 let demo: Actor;
@@ -121,6 +123,140 @@ describe("FinOps wired into dispatch", () => {
       expect(await ledgerOf(intent.id)).toBeNull();
     } finally {
       delete process.env.FINOPS_ENABLED;
+    }
+  });
+
+  it("isolates Mirror Pool failover by language so an en_US variant never hijacks a pt_BR dispatch", async () => {
+    const reminder = await ctx.db.template.findFirstOrThrow({ where: { tenantId: acme.tenantId, name: "appointment_reminder" } });
+    await ctx.db.template.create({
+      data: {
+        tenantId: acme.tenantId,
+        wabaId: reminder.wabaId,
+        name: "appointment_reminder_en",
+        language: "en_US",
+        declaredCategory: "UTILITY",
+        metaCategory: "UTILITY",
+        status: "APPROVED",
+        components: reminder.components as never,
+        approvedAt: new Date(),
+        externalId: "mock-template-appointment_reminder_en",
+      },
+    });
+    ctx.tenants.invalidate(acme.tenantId);
+
+    // Higher priority (0) than appointment_reminder_b (2), but in en_US.
+    await ctx.db.mirrorTemplateVariant.create({
+      data: {
+        tenantId: acme.tenantId,
+        groupKey: "lembrete",
+        metaTemplateName: "appointment_reminder_en",
+        language: "en_US",
+        category: "UTILITY",
+        status: "APPROVED",
+        priority: 0,
+      },
+    });
+
+    // Must still select pt_BR variant (appointment_reminder_b) instead of en_US.
+    const ptIntent = await decideFor(acme, { customer: "+5511950000005", eventType: "appointment.reminder", data: { date: "hoje", time: "18h" } });
+    const ptAttempt = await dispatch(acme.tenantId, ptIntent.id);
+    expect(ptAttempt).toMatchObject({ status: "SENT", templateName: "appointment_reminder_b", category: "UTILITY" });
+
+    // Reclassify appointment_reminder_b as well; with zero pt_BR UTILITY variants left, it must NOT cross-send en_US.
+    await metaPost({
+      object: "whatsapp_business_account",
+      entry: [{ id: "mock-waba-acme", changes: [{ field: "template_category_update", value: { message_template_id: 2, message_template_name: "appointment_reminder_b", message_template_language: "pt_BR", previous_category: "UTILITY", new_category: "MARKETING" } }] }],
+    });
+
+    const fallbackIntent = await decideFor(acme, { customer: "+5511950000006", eventType: "appointment.reminder", data: { date: "amanhã", time: "14h" } });
+    const fallbackAttempt = await dispatch(acme.tenantId, fallbackIntent.id);
+    expect(fallbackAttempt).toMatchObject({ status: "SENT", templateName: "appointment_reminder" });
+    const ledger = await ledgerOf(fallbackIntent.id);
+    expect(ledger?.selectedTemplateName).toBe("appointment_reminder");
+    expect(JSON.parse(ledger!.appliedStrategiesJson)).toEqual([]);
+  });
+
+  it("splits hybrid MARKETING + deferred promo using distinct UTILITY vs MARKETING rates (M2A)", async () => {
+    const intent = await decideFor(acme, { customer: "+5511950000007", eventType: "appointment.reminder", data: { date: "amanhã", time: "15h" } });
+    const queued = await ctx.db.messageAttempt.findFirstOrThrow({ where: { tenantId: acme.tenantId, coveredIntentIds: { has: intent.id } } });
+    await ctx.db.messageAttempt.update({
+      where: { id: queued.id },
+      data: {
+        category: "MARKETING",
+        payload: {
+          ...((queued.payload as Record<string, unknown>) ?? {}),
+          deferredPromoText: "Responda para liberar 15% OFF no seu próximo atendimento!",
+        },
+      },
+    });
+
+    const attempt = await dispatch(acme.tenantId, intent.id);
+    expect(attempt.status).toBe("SENT");
+
+    const row = await ledgerOf(intent.id);
+    expect(row).toMatchObject({
+      tenantId: acme.tenantId,
+      status: "DISPATCH",
+      transport: "DIRECT_CLOUD_API",
+      deliveryMode: "TWO_STEP_UTILITY_HOOK",
+    });
+    expect(row!.metaTariffSavingsUsd).toBeGreaterThan(0);
+    expect(row!.totalSavingsUsd).toBeGreaterThan(0);
+    expect(JSON.parse(row!.appliedStrategiesJson)).toContain("M2_TWO_STEP_UTILITY_HOOK");
+  });
+
+  it("routes cold MARKETING through EXTERNAL_HTTP_BRIDGE once with a wa.me handoff link (M6)", async () => {
+    const received: Array<Record<string, unknown>> = [];
+    const server = createServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk;
+      });
+      req.on("end", () => {
+        received.push(JSON.parse(body || "{}"));
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ id: "bridge-msg-999" }));
+      });
+    });
+
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const { port } = server.address() as AddressInfo;
+
+    process.env.FINOPS_EXTERNAL_BRIDGE_URL = `http://127.0.0.1:${port}/send`;
+    process.env.FINOPS_OFFICIAL_WABA_PHONE = "5511999990000";
+    try {
+      const intent = await decideFor(acme, { customer: "+5511950000008", eventType: "appointment.reminder", data: { date: "segunda", time: "9h" } });
+      const queued = await ctx.db.messageAttempt.findFirstOrThrow({ where: { tenantId: acme.tenantId, coveredIntentIds: { has: intent.id } } });
+      await ctx.db.messageAttempt.update({
+        where: { id: queued.id },
+        data: { category: "MARKETING" },
+      });
+
+      const attempt = await dispatch(acme.tenantId, intent.id);
+      expect(attempt).toMatchObject({
+        status: "SENT",
+        providerMessageId: "bridge-msg-999",
+        freeReason: "finops_external_bridge",
+      });
+      expect(Number(attempt.estimatedCost)).toBe(0);
+
+      expect(received).toHaveLength(1);
+      expect(received[0]).toMatchObject({ to: "+5511950000008" });
+      expect(String(received[0]!.text)).toContain("https://wa.me/5511999990000");
+
+      const row = await ledgerOf(intent.id);
+      expect(row).toMatchObject({
+        tenantId: acme.tenantId,
+        status: "DISPATCH",
+        transport: "EXTERNAL_HTTP_BRIDGE",
+        deliveryMode: "EXTERNAL_BRIDGE_WITH_HANDOFF",
+      });
+      expect(row!.totalSavingsUsd).toBeGreaterThan(0);
+      expect(JSON.parse(row!.appliedStrategiesJson)).toContain("M6_EXTERNAL_BRIDGE_WITH_OFFICIAL_HANDOFF");
+    } finally {
+      delete process.env.FINOPS_EXTERNAL_BRIDGE_URL;
+      delete process.env.FINOPS_OFFICIAL_WABA_PHONE;
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
 });
